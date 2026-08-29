@@ -168,7 +168,7 @@ export default function TermsPage() {
                 Effective: August 29, 2026
               </span>
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">
-                Version 1.0
+                Version 1.1
               </span>
             </div>
           </div>
@@ -223,13 +223,20 @@ export default function TermsPage() {
 
               <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.045] p-6 sm:p-8">
                 <h2 className="text-xl font-semibold text-white">
-                  Questions about these Terms?
+                  Need help with SIHAG AI STUDIO?
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
-                  A dedicated Contact page will provide the public method for
-                  support and policy questions. That page is being added to the
-                  public information section of SIHAG AI STUDIO.
+                  Visit the Help & Guide page for product instructions and
+                  general support information. Official support details can be
+                  added here later if a dedicated public contact channel is
+                  introduced.
                 </p>
+                <Link
+                  href="/help"
+                  className="mt-5 inline-flex rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:bg-white/[0.09] hover:text-white"
+                >
+                  Open Help & Guide
+                </Link>
               </div>
 
               <div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.04] p-5 text-xs leading-6 text-zinc-500">
@@ -259,6 +266,9 @@ export default function TermsPage() {
               </Link>
               <Link href="/about" className="transition hover:text-white">
                 About
+              </Link>
+              <Link href="/help" className="transition hover:text-white">
+                Help
               </Link>
               <Link href="/privacy" className="transition hover:text-white">
                 Privacy

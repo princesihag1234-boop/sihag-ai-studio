@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy | SIHAG AI STUDIO",
   description:
-    "Privacy Policy for SIHAG AI STUDIO, including browser storage, technical data, and future online features.",
+    "Privacy Policy for SIHAG AI STUDIO, including browser storage, technical data, advertising, and future online features.",
 };
 
 const sections = [
@@ -12,7 +12,7 @@ const sections = [
     title: "1. Overview",
     body: [
       "SIHAG AI STUDIO is a browser-based creative image editor. This Privacy Policy explains how information may be handled when you use the website and editor.",
-      "We aim to collect only what is reasonably necessary to operate, secure, improve, and support the service.",
+      "We aim to collect only what is reasonably necessary to operate, secure, improve, support, and, where enabled, monetize the service.",
     ],
   },
   {
@@ -54,22 +54,24 @@ const sections = [
   {
     title: "7. Cookies and similar technologies",
     body: [
-      "The site may use browser storage or strictly necessary technical mechanisms to provide functionality, remember local state, maintain security, or support service operation.",
-      "If advertising, analytics, or other non-essential tracking technologies are introduced in the future, this policy and any required consent controls will be updated as appropriate.",
+      "The site may use browser storage, cookies, or other technical mechanisms to provide functionality, remember local state, maintain security, measure service performance, or support advertising where enabled.",
+      "Where consent is legally required for non-essential cookies or similar technologies, appropriate consent controls should be provided.",
     ],
   },
   {
-    title: "8. Advertising",
+    title: "8. Google AdSense and advertising",
     body: [
-      "SIHAG AI STUDIO does not currently rely on this Privacy Policy as permission for personalized advertising.",
-      "If advertising services are added later, we will update the policy to describe the relevant providers and data practices before or alongside that change.",
+      "SIHAG AI STUDIO may use Google AdSense to display advertisements after the site and publisher account are approved.",
+      "Third-party vendors, including Google, may use cookies to serve ads based on a user's prior visits to SIHAG AI STUDIO or other websites.",
+      "Google's use of advertising cookies enables Google and its partners to serve ads to users based on visits to this site and/or other sites on the Internet.",
+      "Users can manage or opt out of personalized advertising through Google's Ads Settings. Where required, additional consent choices may be presented before advertising cookies are used.",
     ],
   },
   {
     title: "9. Data sharing",
     body: [
       "We do not sell your creative files as part of the normal operation of the editor.",
-      "Information may be processed by service providers that help us host, secure, maintain, or operate the website. We may also disclose information when required by applicable law or when reasonably necessary to protect the service and its users.",
+      "Information may be processed by service providers that help us host, secure, maintain, advertise, or operate the website. We may also disclose information when required by applicable law or when reasonably necessary to protect the service and its users.",
     ],
   },
   {
@@ -84,6 +86,7 @@ const sections = [
     body: [
       "You can manage or clear locally stored browser data through your browser settings. Clearing site data may also remove locally stored project recovery information or preferences.",
       "You can choose not to use optional online features that require additional processing when such features become available.",
+      "Advertising preferences can also be managed through the controls provided by Google and, where applicable, through consent controls presented on this site.",
     ],
   },
   {
@@ -146,8 +149,8 @@ export default function PrivacyPage() {
 
             <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-400">
               A clear explanation of how SIHAG AI STUDIO handles browser data,
-              technical information, creative content, and future online
-              features.
+              technical information, creative content, advertising, and future
+              online features.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3 text-xs text-zinc-500">
@@ -155,7 +158,7 @@ export default function PrivacyPage() {
                 Effective: August 29, 2026
               </span>
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">
-                Version 1.0
+                Version 1.1
               </span>
             </div>
           </div>
@@ -172,7 +175,7 @@ export default function PrivacyPage() {
                   <p>Core editing is designed to happen in your browser.</p>
                   <p>Local recovery data may be stored on your device.</p>
                   <p>Hosting systems may process standard technical logs.</p>
-                  <p>Future online or AI features may require server processing.</p>
+                  <p>Advertising may use cookies when AdSense is enabled.</p>
                 </div>
               </div>
             </aside>
