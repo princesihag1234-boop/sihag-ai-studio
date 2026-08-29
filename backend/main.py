@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 
 from fastapi import FastAPI
@@ -10,18 +11,29 @@ from pydantic import BaseModel
 app = FastAPI(
     title="SIHAG AI STUDIO Backend",
     version="0.1.0",
-    description="Local AI backend foundation for SIHAG AI STUDIO.",
+    description="Backend foundation for SIHAG AI STUDIO.",
 )
 
-# Next.js development server.
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+
+def get_allowed_origins() -> list[str]:
+    local_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+    configured = os.getenv("CORS_ORIGINS", "")
+    configured_origins = [
+        origin.strip()
+        for origin in configured.split(",")
+        if origin.strip()
+    ]
+
+    return list(dict.fromkeys(local_origins + configured_origins))
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -55,11 +67,6 @@ def health() -> HealthResponse:
 
 @app.get("/api/ai/capabilities")
 def capabilities() -> dict[str, object]:
-    """
-    This endpoint becomes the single place where the frontend
-    discovers which AI tools are currently available.
-    Real models are added in the next AI steps.
-    """
     return {
         "backend_ready": True,
         "tools": {
