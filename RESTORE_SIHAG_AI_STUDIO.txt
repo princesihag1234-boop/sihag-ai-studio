@@ -1,0 +1,78 @@
+SIHAG AI STUDIO — RESTORE INSTRUCTIONS
+======================================
+
+Stable checkpoint: 2026-08-29
+
+This backup intentionally does NOT include:
+- node_modules
+- .next
+- backend\.venv
+
+Those folders are large and can be recreated.
+
+RESTORE ON THIS OR ANOTHER WINDOWS PC
+-------------------------------------
+
+1. Extract the backup folder.
+
+2. Install Node.js if it is not already installed.
+
+3. Install Python 3.12 if it is not already installed.
+
+4. Open Command Prompt inside the SIHAG AI STUDIO folder.
+
+5. Install frontend dependencies:
+   npm.cmd install
+
+6. Build the production frontend:
+   npm.cmd run build
+
+7. Start the backend once:
+   backend\run_backend.bat
+
+   On the first run, it will recreate backend\.venv
+   and install the Python requirements.
+
+8. Start SIHAG AI STUDIO:
+   launch_sihag_studio.bat
+
+9. Open in browser if it does not open automatically:
+   http://localhost:3000
+
+10. To stop both services:
+    stop_sihag_studio.bat
+
+
+IMPORTANT FILES
+---------------
+
+Frontend:
+- src\app\page.tsx
+- src\components\
+- src\lib\
+
+Backend:
+- backend\main.py
+- backend\requirements.txt
+- backend\run_backend.bat
+
+Launch:
+- launch_sihag_studio.bat
+- stop_sihag_studio.bat
+
+
+CURRENT STATUS
+--------------
+
+Production build: PASSED
+TypeScript: PASSED
+Image open/edit: TESTED
+Undo: TESTED
+Export: TESTED
+.sihag project save/open: TESTED
+Autosave/recovery: TESTED
+Crash recovery file: VALIDATED
+
+AI model processing is intentionally postponed.
+The FastAPI backend and AI Tools frontend connection remain in place
+for future AI integration.

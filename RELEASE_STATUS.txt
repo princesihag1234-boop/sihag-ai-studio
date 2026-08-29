@@ -1,0 +1,10 @@
+SIHAG AI STUDIO
+Stable Release: 2026-08-29
+
+Status: Production build verified
+Backup: SIHAG-AI-STUDIO-STABLE-2026-08-29.zip
+SHA256: 05aa733296751d58c5ec94b57fbebcf23ab925e8380ff8cde37c18fff0704434
+
+Core image editor: Stable
+Backend foundation: Ready
+AI model processing: Deferred for future phase
