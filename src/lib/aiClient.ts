@@ -1,5 +1,10 @@
+const DEFAULT_AI_BACKEND_URL =
+  process.env.NODE_ENV === "production"
+    ? ""
+    : "http://127.0.0.1:8000";
+
 export const AI_BACKEND_URL =
-  process.env.NEXT_PUBLIC_AI_BACKEND_URL ?? "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_AI_BACKEND_URL ?? DEFAULT_AI_BACKEND_URL;
 
 export type AiBackendHealth = {
   status: string;
