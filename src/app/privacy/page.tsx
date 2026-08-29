@@ -201,13 +201,19 @@ export default function PrivacyPage() {
 
               <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.045] p-6 sm:p-8">
                 <h2 className="text-xl font-semibold text-white">
-                  Questions about privacy?
+                  More information
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
-                  A dedicated Contact page will provide the public method for
-                  privacy, support, and policy questions. We are adding that
-                  page as part of the public site information section.
+                  For general product guidance, visit the Help & Guide page.
+                  This Privacy Policy will be updated whenever material changes
+                  are made to the way the service processes information.
                 </p>
+                <Link
+                  href="/help"
+                  className="mt-5 inline-flex rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:bg-white/[0.09] hover:text-white"
+                >
+                  Open Help & Guide
+                </Link>
               </div>
 
               <div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.04] p-5 text-xs leading-6 text-zinc-500">
@@ -237,8 +243,14 @@ export default function PrivacyPage() {
               <Link href="/about" className="transition hover:text-white">
                 About
               </Link>
+              <Link href="/help" className="transition hover:text-white">
+                Help
+              </Link>
               <Link href="/privacy" className="text-zinc-300">
                 Privacy
+              </Link>
+              <Link href="/terms" className="transition hover:text-white">
+                Terms
               </Link>
             </div>
 
