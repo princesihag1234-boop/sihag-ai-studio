@@ -39,6 +39,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           name="google-site-verification"
           content="bvYv3JJqVrP-M6SGUMReVGO310gr10u2SWA5vA8f1FE"
         />
+        <script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "SIHAG AI STUDIO",
+      alternateName: [
+        "SIHAG AI",
+        "sihag-ai-studio.pages.dev",
+      ],
+      url: "https://sihag-ai-studio.pages.dev/",
+    }),
+  }}
+/>
       </head>
       <body className="min-h-full flex flex-col">
         {children}
