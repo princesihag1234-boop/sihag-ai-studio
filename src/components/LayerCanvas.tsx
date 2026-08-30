@@ -278,6 +278,24 @@ type LayerCanvasProps = {
 
   paintBrushOpacity: number;
 
+  paintBrushFlow: number;
+
+  paintBrushSpacing: number;
+
+  paintBrushSmoothing: number;
+
+  paintBrushMode: "paint" | "erase";
+
+  paintBrushBlendMode:
+    | "normal"
+    | "multiply"
+    | "screen"
+    | "overlay";
+
+  paintPressureSize: boolean;
+
+  paintPressureOpacity: boolean;
+
   onPaintStrokeStart: () => void;
 };
 
@@ -367,6 +385,13 @@ export default function LayerCanvas({
   paintBrushSize,
   paintBrushHardness,
   paintBrushOpacity,
+  paintBrushFlow,
+  paintBrushSpacing,
+  paintBrushSmoothing,
+  paintBrushMode,
+  paintBrushBlendMode,
+  paintPressureSize,
+  paintPressureOpacity,
   onPaintStrokeStart,
 }: LayerCanvasProps) {
   const canvasRef =
@@ -795,9 +820,17 @@ export default function LayerCanvas({
     useRef<{
       x: number;
       y: number;
+      pressure: number;
     } | null>(
       null
     );
+
+  const smoothedPaintPointRef =
+    useRef<{
+      x: number;
+      y: number;
+      pressure: number;
+    } | null>(null);
 
   const lastPaintEmitRef =
     useRef(0);
@@ -10760,169 +10793,177 @@ export default function LayerCanvas({
     };
   }
 
+  function paintCompositeOperation(): GlobalCompositeOperation {
+    if (paintBrushMode === "erase") {
+      return "destination-out";
+    }
+
+    if (paintBrushBlendMode === "multiply") return "multiply";
+    if (paintBrushBlendMode === "screen") return "screen";
+    if (paintBrushBlendMode === "overlay") return "overlay";
+
+    return "source-over";
+  }
+
+  function normalizePaintPressure(
+    event: PointerEvent<HTMLDivElement>
+  ) {
+    if (
+      event.pointerType === "pen" &&
+      Number.isFinite(event.pressure) &&
+      event.pressure > 0
+    ) {
+      return Math.max(0.05, Math.min(1, event.pressure));
+    }
+
+    return 1;
+  }
+
+  function smoothPaintPoint(point: {
+    x: number;
+    y: number;
+    pressure: number;
+  }) {
+    const previous = smoothedPaintPointRef.current;
+    const smoothing = Math.max(
+      0,
+      Math.min(100, paintBrushSmoothing)
+    );
+
+    if (!previous || smoothing <= 0) {
+      smoothedPaintPointRef.current = point;
+      return point;
+    }
+
+    // 0% follows the pointer exactly. 100% gives a strong but
+    // still responsive stabilizer rather than freezing the stroke.
+    const follow = Math.max(
+      0.12,
+      1 - (smoothing / 100) * 0.88
+    );
+
+    const next = {
+      x: previous.x + (point.x - previous.x) * follow,
+      y: previous.y + (point.y - previous.y) * follow,
+      pressure:
+        previous.pressure +
+        (point.pressure - previous.pressure) * follow,
+    };
+
+    smoothedPaintPointRef.current = next;
+    return next;
+  }
+
   function paintRasterStamp(
     x: number,
-    y: number
+    y: number,
+    pressure = 1
   ) {
-    const workingCanvas =
-      paintCanvasRef.current;
+    const workingCanvas = paintCanvasRef.current;
 
     if (!workingCanvas) {
       return;
     }
 
-    const context =
-      workingCanvas.getContext(
-        "2d"
-      );
+    const context = workingCanvas.getContext("2d");
 
     if (!context) {
       return;
     }
 
-    const radius =
-      Math.max(
-        2.5,
-        paintBrushSize /
-          2
-      );
+    const pressureSizeScale = paintPressureSize
+      ? Math.max(0.08, Math.min(1, pressure))
+      : 1;
 
-    const diameter =
-      Math.max(
-        2,
-        Math.ceil(
-          radius *
-          2
-        )
-      );
+    const effectiveSize = Math.max(
+      2,
+      paintBrushSize * pressureSizeScale
+    );
 
-    const stamp =
-      document.createElement(
-        "canvas"
-      );
+    const radius = Math.max(1, effectiveSize / 2);
+    const diameter = Math.max(2, Math.ceil(radius * 2));
 
-    stamp.width =
-      diameter;
+    const stamp = document.createElement("canvas");
+    stamp.width = diameter;
+    stamp.height = diameter;
 
-    stamp.height =
-      diameter;
-
-    const stampContext =
-      stamp.getContext(
-        "2d"
-      );
+    const stampContext = stamp.getContext("2d");
 
     if (!stampContext) {
       return;
     }
 
-    const {
-      r,
-      g,
-      b,
-    } =
-      hexToRgb(
-        paintBrushColor
-      );
-
-    const center =
-      diameter /
-      2;
-
-    const outer =
-      diameter /
-      2;
-
+    const { r, g, b } = hexToRgb(paintBrushColor);
+    const center = diameter / 2;
+    const outer = diameter / 2;
     const inner =
       outer *
       Math.min(
         0.98,
-        Math.max(
-          0,
-          paintBrushHardness /
-            100
-        )
+        Math.max(0, paintBrushHardness / 100)
       );
 
-    const opacity =
-      Math.max(
-        0.01,
-        Math.min(
-          1,
-          paintBrushOpacity /
-            100
-        )
-      );
+    const pressureOpacityScale = paintPressureOpacity
+      ? Math.max(0.05, Math.min(1, pressure))
+      : 1;
 
-    const gradient =
-      stampContext.createRadialGradient(
-        center,
-        center,
-        inner,
-        center,
-        center,
-        outer
-      );
+    const opacity = Math.max(
+      0.002,
+      Math.min(
+        1,
+        (paintBrushOpacity / 100) *
+          (paintBrushFlow / 100) *
+          pressureOpacityScale
+      )
+    );
 
+    const gradient = stampContext.createRadialGradient(
+      center,
+      center,
+      inner,
+      center,
+      center,
+      outer
+    );
+
+    // Erase mode only needs alpha, but keeping the same colored
+    // stamp gives identical hardness/flow behavior for both modes.
     gradient.addColorStop(
       0,
       `rgba(${r},${g},${b},${opacity})`
     );
+    gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
 
-    gradient.addColorStop(
-      1,
-      `rgba(${r},${g},${b},0)`
-    );
+    stampContext.fillStyle = gradient;
+    stampContext.fillRect(0, 0, diameter, diameter);
 
-    stampContext.fillStyle =
-      gradient;
+    const selectionMask = paintSelectionMaskRef.current;
+    const operation = paintCompositeOperation();
 
-    stampContext.fillRect(
-      0,
-      0,
-      diameter,
-      diameter
-    );
-
-    const selectionMask =
-      paintSelectionMaskRef.current;
+    context.save();
+    context.globalCompositeOperation = operation;
 
     if (selectionMask) {
-      const stroke =
-        document.createElement(
-          "canvas"
-        );
+      const stroke = document.createElement("canvas");
+      stroke.width = workingCanvas.width;
+      stroke.height = workingCanvas.height;
 
-      stroke.width =
-        workingCanvas.width;
-
-      stroke.height =
-        workingCanvas.height;
-
-      const strokeContext =
-        stroke.getContext(
-          "2d"
-        );
+      const strokeContext = stroke.getContext("2d");
 
       if (!strokeContext) {
+        context.restore();
         return;
       }
 
       strokeContext.drawImage(
         stamp,
-        x -
-          radius,
-        y -
-          radius,
-        radius *
-          2,
-        radius *
-          2
+        x - radius,
+        y - radius,
+        radius * 2,
+        radius * 2
       );
 
-      strokeContext.globalCompositeOperation =
-        "destination-in";
-
+      strokeContext.globalCompositeOperation = "destination-in";
       strokeContext.drawImage(
         selectionMask,
         0,
@@ -10930,101 +10971,61 @@ export default function LayerCanvas({
         workingCanvas.width,
         workingCanvas.height
       );
+      strokeContext.globalCompositeOperation = "source-over";
 
-      strokeContext.globalCompositeOperation =
-        "source-over";
-
-      context.drawImage(
-        stroke,
-        0,
-        0
-      );
+      context.drawImage(stroke, 0, 0);
     } else {
       context.drawImage(
         stamp,
-        x -
-          radius,
-        y -
-          radius,
-        radius *
-          2,
-        radius *
-          2
+        x - radius,
+        y - radius,
+        radius * 2,
+        radius * 2
       );
     }
+
+    context.restore();
   }
 
-  function paintRasterSegment(
-    point: {
-      x: number;
-      y: number;
-    }
-  ) {
-    const previous =
-      lastPaintPointRef.current;
+  function paintRasterSegment(point: {
+    x: number;
+    y: number;
+    pressure: number;
+  }) {
+    const previous = lastPaintPointRef.current;
 
     if (previous) {
-      const dx =
-        point.x -
-        previous.x;
+      const dx = point.x - previous.x;
+      const dy = point.y - previous.y;
+      const distance = Math.hypot(dx, dy);
 
-      const dy =
-        point.y -
-        previous.y;
+      const spacing = Math.max(
+        0.5,
+        paintBrushSize *
+          (Math.max(1, Math.min(100, paintBrushSpacing)) / 100)
+      );
 
-      const distance =
-        Math.hypot(
-          dx,
-          dy
-        );
+      const steps = Math.max(1, Math.ceil(distance / spacing));
 
-      const spacing =
-        Math.max(
-          1,
-          paintBrushSize *
-            0.16
-        );
-
-      const steps =
-        Math.max(
-          1,
-          Math.ceil(
-            distance /
-            spacing
-          )
-        );
-
-      for (
-        let step = 1;
-        step <= steps;
-        step += 1
-      ) {
-        const amount =
-          step /
-          steps;
+      for (let step = 1; step <= steps; step += 1) {
+        const amount = step / steps;
+        const pressure =
+          previous.pressure +
+          (point.pressure - previous.pressure) * amount;
 
         paintRasterStamp(
-          previous.x +
-            dx *
-              amount,
-          previous.y +
-            dy *
-              amount
+          previous.x + dx * amount,
+          previous.y + dy * amount,
+          pressure
         );
       }
     } else {
-      paintRasterStamp(
-        point.x,
-        point.y
-      );
+      paintRasterStamp(point.x, point.y, point.pressure);
     }
 
-    lastPaintPointRef.current =
-      point;
+    lastPaintPointRef.current = point;
 
-    emitPaintPreview(
-      paintStrokeLayerIdRef.current
-    );
+    emitPaintPreview(paintStrokeLayerIdRef.current);
   }
 
   async function startPaintStroke(
@@ -11042,16 +11043,23 @@ export default function LayerCanvas({
       return;
     }
 
-    const point =
+    const rawPoint =
       pointerToMaskPoint(
         event.clientX,
         event.clientY,
         selectedLayer
       );
 
-    if (!point) {
+    if (!rawPoint) {
       return;
     }
+
+    smoothedPaintPointRef.current = null;
+
+    const point = smoothPaintPoint({
+      ...rawPoint,
+      pressure: normalizePaintPressure(event),
+    });
 
     event.preventDefault();
     event.stopPropagation();
@@ -11139,6 +11147,8 @@ export default function LayerCanvas({
     lastPaintPointRef.current =
       null;
 
+    smoothedPaintPointRef.current = null;
+
     lastPaintEmitRef.current =
       0;
 
@@ -11169,19 +11179,24 @@ export default function LayerCanvas({
       return;
     }
 
-    const point =
+    const rawPoint =
       pointerToMaskPoint(
         event.clientX,
         event.clientY,
         selectedLayer
       );
 
-    if (!point) {
-      lastPaintPointRef.current =
-        null;
+    if (!rawPoint) {
+      lastPaintPointRef.current = null;
+      smoothedPaintPointRef.current = null;
 
       return;
     }
+
+    const point = smoothPaintPoint({
+      ...rawPoint,
+      pressure: normalizePaintPressure(event),
+    });
 
     event.preventDefault();
     event.stopPropagation();
@@ -11215,6 +11230,8 @@ export default function LayerCanvas({
 
     lastPaintPointRef.current =
       null;
+
+    smoothedPaintPointRef.current = null;
 
     paintStrokeLayerIdRef.current =
       "";

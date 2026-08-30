@@ -309,6 +309,17 @@ type SihagProjectFile = {
   paintBrushSize?: number;
   paintBrushHardness?: number;
   paintBrushOpacity?: number;
+  paintBrushFlow?: number;
+  paintBrushSpacing?: number;
+  paintBrushSmoothing?: number;
+  paintBrushMode?: "paint" | "erase";
+  paintBrushBlendMode?:
+    | "normal"
+    | "multiply"
+    | "screen"
+    | "overlay";
+  paintPressureSize?: boolean;
+  paintPressureOpacity?: boolean;
 };
 
 
@@ -781,6 +792,7 @@ export default function Home() {
     | "adjust"
     | "layers"
     | "text"
+    | "brush"
     | "more"
     | null
   >(null);
@@ -3158,6 +3170,48 @@ export default function Home() {
     paintBrushOpacity,
     setPaintBrushOpacity,
   ] = useState(100);
+
+  const [
+    paintBrushFlow,
+    setPaintBrushFlow,
+  ] = useState(100);
+
+  const [
+    paintBrushSpacing,
+    setPaintBrushSpacing,
+  ] = useState(16);
+
+  const [
+    paintBrushSmoothing,
+    setPaintBrushSmoothing,
+  ] = useState(0);
+
+  const [
+    paintBrushMode,
+    setPaintBrushMode,
+  ] = useState<
+    "paint" | "erase"
+  >("paint");
+
+  const [
+    paintBrushBlendMode,
+    setPaintBrushBlendMode,
+  ] = useState<
+    | "normal"
+    | "multiply"
+    | "screen"
+    | "overlay"
+  >("normal");
+
+  const [
+    paintPressureSize,
+    setPaintPressureSize,
+  ] = useState(false);
+
+  const [
+    paintPressureOpacity,
+    setPaintPressureOpacity,
+  ] = useState(false);
 
   const [
     maskBrushMode,
@@ -6970,15 +7024,16 @@ export default function Home() {
 
   function selectRasterLayerForMobileTool() {
     if (
-      !selectedLayer ||
-      selectedLayer.layerKind === "image"
+      selectedLayer?.layerKind === "image"
     ) {
       return;
     }
 
-    const selectedIndex = layers.findIndex(
+    const selectedIndex = selectedLayer
+  ? layers.findIndex(
       (layer) => layer.id === selectedLayer.id
-    );
+    )
+  : -1;
 
     const layerBelow =
       selectedIndex > 0
@@ -7011,6 +7066,13 @@ export default function Home() {
     }
 
     setActiveTool(tool);
+  }
+
+  function openMobileBrushEditor() {
+    setMobileMenuOpen(false);
+    selectRasterLayerForMobileTool();
+    setActiveTool("paint");
+    setMobilePanel("brush");
   }
 
   function openMobileTextEditor() {
@@ -7829,6 +7891,20 @@ export default function Home() {
       paintBrushHardness,
 
       paintBrushOpacity,
+
+      paintBrushFlow,
+
+      paintBrushSpacing,
+
+      paintBrushSmoothing,
+
+      paintBrushMode,
+
+      paintBrushBlendMode,
+
+      paintPressureSize,
+
+      paintPressureOpacity,
     };
   }
 
@@ -8701,7 +8777,7 @@ export default function Home() {
         ? Math.max(
             5,
             Math.min(
-              300,
+              500,
               parsed.paintBrushSize
             )
           )
@@ -8733,6 +8809,39 @@ export default function Home() {
           )
         : 100
     );
+
+    setPaintBrushFlow(
+      typeof parsed.paintBrushFlow === "number"
+        ? Math.max(1, Math.min(100, parsed.paintBrushFlow))
+        : 100
+    );
+
+    setPaintBrushSpacing(
+      typeof parsed.paintBrushSpacing === "number"
+        ? Math.max(1, Math.min(100, parsed.paintBrushSpacing))
+        : 16
+    );
+
+    setPaintBrushSmoothing(
+      typeof parsed.paintBrushSmoothing === "number"
+        ? Math.max(0, Math.min(100, parsed.paintBrushSmoothing))
+        : 0
+    );
+
+    setPaintBrushMode(
+      parsed.paintBrushMode === "erase" ? "erase" : "paint"
+    );
+
+    setPaintBrushBlendMode(
+      parsed.paintBrushBlendMode === "multiply" ||
+      parsed.paintBrushBlendMode === "screen" ||
+      parsed.paintBrushBlendMode === "overlay"
+        ? parsed.paintBrushBlendMode
+        : "normal"
+    );
+
+    setPaintPressureSize(parsed.paintPressureSize === true);
+    setPaintPressureOpacity(parsed.paintPressureOpacity === true);
 
     const img =
       new Image();
@@ -14942,7 +15051,7 @@ export default function Home() {
             onPointerUp={endPan}
             onPointerCancel={endPan}
             className={`relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#181a20] lg:touch-auto ${
-              mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text"
+              mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
                 ? "p-2 pb-[42dvh] sm:p-4 sm:pb-[48dvh] lg:p-8"
                 : "p-2 sm:p-4 lg:p-8"
             } ${
@@ -15235,6 +15344,13 @@ export default function Home() {
                   paintBrushSize={paintBrushSize}
                   paintBrushHardness={paintBrushHardness}
                   paintBrushOpacity={paintBrushOpacity}
+                  paintBrushFlow={paintBrushFlow}
+                  paintBrushSpacing={paintBrushSpacing}
+                  paintBrushSmoothing={paintBrushSmoothing}
+                  paintBrushMode={paintBrushMode}
+                  paintBrushBlendMode={paintBrushBlendMode}
+                  paintPressureSize={paintPressureSize}
+                  paintPressureOpacity={paintPressureOpacity}
                   onPaintStrokeStart={saveHistory}
                 />
 
@@ -15289,7 +15405,11 @@ export default function Home() {
 
           {mobilePanel && (
             <div
-              className="fixed inset-x-0 top-14 z-[210] lg:hidden"
+              className={
+                mobilePanel === "brush"
+                  ? "pointer-events-none fixed inset-x-0 top-14 z-[210] lg:hidden"
+                  : "fixed inset-x-0 top-14 z-[210] lg:hidden"
+              }
               style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}
             >
               <button
@@ -15297,15 +15417,17 @@ export default function Home() {
                 aria-label="Close mobile panel"
                 onClick={() => setMobilePanel(null)}
                 className={
-                  mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text"
-                    ? "absolute inset-0 bg-transparent"
+                  mobilePanel === "brush"
+                    ? "pointer-events-none absolute inset-0 bg-transparent"
+                    : mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text"
+                      ? "absolute inset-0 bg-transparent"
                     : "absolute inset-0 bg-black/55 backdrop-blur-[1px]"
                 }
               />
 
               <div
-                className={`absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border ${
-                  mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text"
+                className={`pointer-events-auto absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border ${
+                  mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
                     ? "h-[42dvh] max-h-[420px] sm:h-[48dvh] sm:max-h-[520px]"
                     : "max-h-[72dvh]"
                 }`}
@@ -15319,7 +15441,9 @@ export default function Home() {
                           ? "Layers"
                           : mobilePanel === "text"
                             ? "Text"
-                            : "More Tools"}
+                            : mobilePanel === "brush"
+                              ? "Brush Pro"
+                              : "More Tools"}
                     </div>
                     <div className="mt-0.5 text-[9px] text-gray-500">
                       {mobilePanel === "adjust"
@@ -15328,7 +15452,9 @@ export default function Home() {
                           ? `${layers.length} ${layers.length === 1 ? "layer" : "layers"}`
                           : mobilePanel === "text"
                             ? "Edit text and formatting"
-                            : "All editor tools"}
+                            : mobilePanel === "brush"
+                              ? "Paint settings • canvas stays touchable"
+                              : "All editor tools"}
                     </div>
                   </div>
 
@@ -15630,6 +15756,35 @@ export default function Home() {
                   </section>
                 )}
 
+                {mobilePanel === "brush" && (
+                  <PaintBrushPanel
+                    layer={selectedLayer}
+                    color={paintBrushColor}
+                    brushSize={paintBrushSize}
+                    brushHardness={paintBrushHardness}
+                    brushOpacity={paintBrushOpacity}
+                    brushFlow={paintBrushFlow}
+                    brushSpacing={paintBrushSpacing}
+                    brushSmoothing={paintBrushSmoothing}
+                    mode={paintBrushMode}
+                    blendMode={paintBrushBlendMode}
+                    pressureSize={paintPressureSize}
+                    pressureOpacity={paintPressureOpacity}
+                    onColorChange={setPaintBrushColor}
+                    onBrushSizeChange={setPaintBrushSize}
+                    onBrushHardnessChange={setPaintBrushHardness}
+                    onBrushOpacityChange={setPaintBrushOpacity}
+                    onBrushFlowChange={setPaintBrushFlow}
+                    onBrushSpacingChange={setPaintBrushSpacing}
+                    onBrushSmoothingChange={setPaintBrushSmoothing}
+                    onModeChange={setPaintBrushMode}
+                    onBlendModeChange={setPaintBrushBlendMode}
+                    onPressureSizeChange={setPaintPressureSize}
+                    onPressureOpacityChange={setPaintPressureOpacity}
+                    compact
+                  />
+                )}
+
                 {mobilePanel === "text" && (
                   <section
                     className="p-3"
@@ -15779,7 +15934,7 @@ export default function Home() {
                 { kind: "tool", id: "move", label: "Move", icon: "↔" },
                 { kind: "tool", id: "crop", label: "Crop", icon: "⌗" },
                 { kind: "panel", id: "adjust", label: "Adjust", icon: "☼" },
-                { kind: "tool", id: "paint", label: "Brush", icon: "✎" },
+                { kind: "panel", id: "brush", label: "Brush", icon: "✎" },
                 { kind: "panel", id: "text", label: "Text", icon: "T" },
                 { kind: "panel", id: "layers", label: "Layers", icon: "▱" },
                 { kind: "tool", id: "ai", label: "AI", icon: "✦" },
@@ -15805,6 +15960,12 @@ export default function Home() {
                         setMobilePanel(null);
                       } else {
                         openMobileTextEditor();
+                      }
+                    } else if (item.id === "brush") {
+                      if (mobilePanel === "brush") {
+                        setMobilePanel(null);
+                      } else {
+                        openMobileBrushEditor();
                       }
                     } else {
                       setMobilePanel((value) =>
@@ -17121,10 +17282,24 @@ export default function Home() {
               brushSize={paintBrushSize}
               brushHardness={paintBrushHardness}
               brushOpacity={paintBrushOpacity}
+              brushFlow={paintBrushFlow}
+              brushSpacing={paintBrushSpacing}
+              brushSmoothing={paintBrushSmoothing}
+              mode={paintBrushMode}
+              blendMode={paintBrushBlendMode}
+              pressureSize={paintPressureSize}
+              pressureOpacity={paintPressureOpacity}
               onColorChange={setPaintBrushColor}
               onBrushSizeChange={setPaintBrushSize}
               onBrushHardnessChange={setPaintBrushHardness}
               onBrushOpacityChange={setPaintBrushOpacity}
+              onBrushFlowChange={setPaintBrushFlow}
+              onBrushSpacingChange={setPaintBrushSpacing}
+              onBrushSmoothingChange={setPaintBrushSmoothing}
+              onModeChange={setPaintBrushMode}
+              onBlendModeChange={setPaintBrushBlendMode}
+              onPressureSizeChange={setPaintPressureSize}
+              onPressureOpacityChange={setPaintPressureOpacity}
             />
           )}
 
