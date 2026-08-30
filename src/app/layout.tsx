@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "SIHAG AI STUDIO — Browser Image Editor",
+    default: "SIHAG AI STUDIO — Online Image & Photo Editor",
     template: "%s | SIHAG AI STUDIO",
   },
   description:
-    "A modern browser-based image editor with layers, masks, selections, color adjustments, retouching, project recovery, and flexible export tools.",
+    "Edit photos online with SIHAG AI STUDIO. Use layers, masks, selections, color adjustments, retouching, transforms, and flexible image export tools.",
   applicationName: "SIHAG AI STUDIO",
 };
 
