@@ -770,6 +770,21 @@ export default function Home() {
   ] = useState(false);
 
   const [
+    mobileMenuOpen,
+    setMobileMenuOpen,
+  ] = useState(false);
+
+  const [
+    mobilePanel,
+    setMobilePanel,
+  ] = useState<
+    | "adjust"
+    | "layers"
+    | "more"
+    | null
+  >(null);
+
+  const [
     topMenuOpen,
     setTopMenuOpen,
   ] = useState<
@@ -3226,6 +3241,23 @@ export default function Home() {
   const dragStart = useRef({
     mouseX: 0,
     mouseY: 0,
+    panX: 0,
+    panY: 0,
+  });
+
+  const touchPointers = useRef(
+    new Map<
+      number,
+      { x: number; y: number }
+    >()
+  );
+
+  const pinchStart = useRef({
+    active: false,
+    distance: 1,
+    zoom: 1,
+    centerX: 0,
+    centerY: 0,
     panX: 0,
     panY: 0,
   });
@@ -9134,6 +9166,28 @@ export default function Home() {
   ]);
 
   /*
+    STEP 6 - MOBILE DIALOG COORDINATION
+
+    Full-screen dialogs should always take priority over
+    the mobile menu and bottom sheets.
+  */
+
+  useEffect(() => {
+    if (
+      !exportDialogOpen &&
+      !shortcutsOpen
+    ) {
+      return;
+    }
+
+    setMobileMenuOpen(false);
+    setMobilePanel(null);
+  }, [
+    exportDialogOpen,
+    shortcutsOpen,
+  ]);
+
+  /*
     TOP MENU BEHAVIOR
 
     Close any open menu when the user clicks outside
@@ -10236,22 +10290,80 @@ export default function Home() {
     }
   }
 
-  /* PAN */
+  /* PAN / MOBILE PINCH ZOOM */
+
+  function getTouchGesture() {
+    const points = Array.from(
+      touchPointers.current.values()
+    );
+
+    if (points.length < 2) {
+      return null;
+    }
+
+    const first = points[0];
+    const second = points[1];
+
+    return {
+      distance: Math.max(
+        1,
+        Math.hypot(
+          second.x - first.x,
+          second.y - first.y
+        )
+      ),
+      centerX:
+        (first.x + second.x) / 2,
+      centerY:
+        (first.y + second.y) / 2,
+    };
+  }
 
   function startPan(
     event: PointerEvent<HTMLDivElement>
   ) {
     if (!image) return;
 
-    if (
-      activeTool !== "hand"
-    ) {
+    if (activeTool !== "hand") {
       return;
     }
 
     event.currentTarget.setPointerCapture(
       event.pointerId
     );
+
+    if (event.pointerType === "touch") {
+      event.preventDefault();
+
+      touchPointers.current.set(
+        event.pointerId,
+        {
+          x: event.clientX,
+          y: event.clientY,
+        }
+      );
+
+      const gesture =
+        getTouchGesture();
+
+      if (gesture) {
+        pinchStart.current = {
+          active: true,
+          distance:
+            gesture.distance,
+          zoom,
+          centerX:
+            gesture.centerX,
+          centerY:
+            gesture.centerY,
+          panX: pan.x,
+          panY: pan.y,
+        };
+
+        setDragging(false);
+        return;
+      }
+    }
 
     setDragging(true);
 
@@ -10266,6 +10378,56 @@ export default function Home() {
   function movePan(
     event: PointerEvent<HTMLDivElement>
   ) {
+    if (
+      event.pointerType === "touch" &&
+      activeTool === "hand" &&
+      touchPointers.current.has(
+        event.pointerId
+      )
+    ) {
+      event.preventDefault();
+
+      touchPointers.current.set(
+        event.pointerId,
+        {
+          x: event.clientX,
+          y: event.clientY,
+        }
+      );
+
+      const gesture =
+        getTouchGesture();
+
+      if (
+        pinchStart.current.active &&
+        gesture
+      ) {
+        const ratio =
+          gesture.distance /
+          pinchStart.current.distance;
+
+        changeZoom(
+          pinchStart.current.zoom *
+            ratio
+        );
+
+        setPan({
+          x:
+            pinchStart.current.panX +
+            (gesture.centerX -
+              pinchStart.current
+                .centerX),
+          y:
+            pinchStart.current.panY +
+            (gesture.centerY -
+              pinchStart.current
+                .centerY),
+        });
+
+        return;
+      }
+    }
+
     if (!dragging) return;
 
     const deltaX =
@@ -10287,7 +10449,22 @@ export default function Home() {
     });
   }
 
-  function endPan() {
+  function endPan(
+    event: PointerEvent<HTMLDivElement>
+  ) {
+    if (event.pointerType === "touch") {
+      touchPointers.current.delete(
+        event.pointerId
+      );
+
+      if (
+        touchPointers.current.size < 2
+      ) {
+        pinchStart.current.active =
+          false;
+      }
+    }
+
     setDragging(false);
   }
 
@@ -11566,11 +11743,149 @@ export default function Home() {
   ];
 
   return (
-    <main className="h-screen overflow-hidden bg-[#0b0d12] text-white">
+    <main className="h-[100dvh] overflow-hidden bg-[#0b0d12] text-white lg:h-screen">
+      {/* STEP 7 - FINAL MOBILE RESPONSIVE POLISH */}
+
+{/* MOBILE TOP BAR */}
+
+<header className="relative z-[200] flex h-14 shrink-0 items-center border-b border-white/10 bg-[#111318] px-2 sm:px-3 lg:hidden">
+  <div className="min-w-0 shrink-0">
+    <div className="text-[12px] font-bold tracking-[0.18em] text-white sm:text-[13px]">
+      SIHAG
+    </div>
+
+    <div className="text-[7px] tracking-[0.25em] text-gray-500">
+      AI STUDIO
+    </div>
+  </div>
+
+  <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-1.5">
+    <button
+      type="button"
+      onClick={undo}
+      disabled={history.length === 0}
+      className="flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg text-gray-200 active:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+      title="Undo"
+      aria-label="Undo"
+    >
+      ↶
+    </button>
+
+    <button
+      type="button"
+      onClick={redo}
+      disabled={future.length === 0}
+      className="flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg text-gray-200 active:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+      title="Redo"
+      aria-label="Redo"
+    >
+      ↷
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setMobileMenuOpen(false);
+        void openExportDialog();
+      }}
+      disabled={layers.length === 0}
+      className="h-10 touch-manipulation rounded-lg bg-indigo-600 px-2.5 text-[10px] font-medium text-white active:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:text-[11px]"
+    >
+      Export
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setMobilePanel(null);
+        setMobileMenuOpen(
+          (value) => !value
+        );
+      }}
+      className="flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xl text-gray-200 active:bg-white/10"
+      aria-label="Open menu"
+      title="Menu"
+    >
+      ☰
+    </button>
+  </div>
+
+  {mobileMenuOpen && (
+    <div className="absolute right-2 top-full z-[220] w-56 max-w-[calc(100vw-16px)] overflow-hidden rounded-xl border border-white/10 bg-[#151821]/98 p-1.5 shadow-2xl backdrop-blur-xl sm:right-3 sm:w-64">
+      <label
+        className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-3 text-xs text-gray-300 active:bg-white/10"
+        onClick={() =>
+          setMobileMenuOpen(false)
+        }
+      >
+        <span>Open Image</span>
+
+        <span className="text-[9px] text-gray-600">
+          IMAGE
+        </span>
+
+        <input
+          hidden
+          type="file"
+          accept="image/*"
+          onChange={openImage}
+        />
+      </label>
+
+      <button
+        type="button"
+        onClick={() => {
+          setMobileMenuOpen(false);
+          openProjectPicker();
+        }}
+        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-xs text-gray-300 active:bg-white/10"
+      >
+        <span>Open Project</span>
+
+        <span className="text-[9px] text-gray-600">
+          .SIHAG
+        </span>
+      </button>
+
+      <button
+        type="button"
+        disabled={layers.length === 0}
+        onClick={() => {
+          setMobileMenuOpen(false);
+          saveProject();
+        }}
+        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-xs text-gray-300 active:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        <span>Save Project</span>
+
+        <span className="text-[9px] text-gray-600">
+          SAVE
+        </span>
+      </button>
+
+      <div className="my-1 border-t border-white/10" />
+
+      <button
+        type="button"
+        onClick={() => {
+          setMobileMenuOpen(false);
+          setShortcutsOpen(true);
+        }}
+        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-xs text-gray-300 active:bg-white/10"
+      >
+        <span>Keyboard Shortcuts</span>
+
+        <span className="text-[9px] text-gray-600">
+          ?
+        </span>
+      </button>
+    </div>
+  )}
+</header>
 
       {/* TOP */}
 
-      <header className="flex h-14 items-center border-b border-white/10 bg-[#111318] px-4">
+      <header className="hidden h-14 items-center border-b border-white/10 bg-[#111318] px-4 lg:flex">
 
         <div>
           <div className="font-bold tracking-[0.2em]">
@@ -13465,10 +13780,12 @@ export default function Home() {
 
       </header>
 
-      {recoveryProject && (
-        <div className="fixed left-1/2 top-16 z-[100] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-indigo-500/30 bg-[#161925]/95 px-4 py-3 shadow-2xl backdrop-blur">
+      {/* STEP 6 - MOBILE DIALOGS / EXPORT FLOW */}
 
-          <div className="min-w-0">
+      {recoveryProject && (
+        <div className="fixed inset-x-2 top-16 z-[250] flex flex-wrap items-center gap-2 rounded-xl border border-indigo-500/30 bg-[#161925]/95 px-3 py-3 shadow-2xl backdrop-blur lg:left-1/2 lg:right-auto lg:flex-nowrap lg:-translate-x-1/2 lg:gap-3 lg:px-4">
+
+          <div className="min-w-0 w-full lg:w-auto">
 
             <div className="text-xs font-semibold text-white">
               Recovery project found
@@ -13489,7 +13806,7 @@ export default function Home() {
             onClick={
               restoreRecovery
             }
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-xs text-white hover:bg-indigo-500"
+            className="flex-1 rounded-lg bg-indigo-600 px-3 py-2.5 text-xs text-white hover:bg-indigo-500 lg:flex-none lg:py-2"
           >
             Restore
           </button>
@@ -13498,7 +13815,7 @@ export default function Home() {
             onClick={
               discardRecovery
             }
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-300 hover:bg-white/10"
+            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-gray-300 hover:bg-white/10 lg:flex-none lg:py-2"
           >
             Discard
           </button>
@@ -13508,7 +13825,7 @@ export default function Home() {
 
       {shortcutsOpen && (
         <div
-          className="fixed inset-0 z-[130] flex items-center justify-center bg-black/65 p-3 backdrop-blur-sm"
+          className="fixed inset-0 z-[330] flex items-end justify-center bg-black/65 p-0 backdrop-blur-sm lg:items-center lg:p-3"
           onPointerDown={(event) => {
             if (
               event.target ===
@@ -13520,9 +13837,9 @@ export default function Home() {
             }
           }}
         >
-          <div className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11131a] shadow-2xl">
+          <div className="flex max-h-[calc(100dvh-64px)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11131a] shadow-2xl lg:max-h-[86vh] lg:rounded-2xl">
 
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3 lg:px-5 lg:py-4">
 
               <div>
                 <div className="text-sm font-semibold text-white">
@@ -13540,16 +13857,17 @@ export default function Home() {
                     false
                   )
                 }
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-300 hover:bg-white/10"
+                className="flex min-h-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-300 hover:bg-white/10"
               >
-                Esc • Close
+                <span className="lg:hidden">Close</span>
+                <span className="hidden lg:inline">Esc • Close</span>
               </button>
 
             </div>
 
-            <div className="overflow-y-auto p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(16px+env(safe-area-inset-bottom))] lg:p-5">
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 lg:gap-4 xl:grid-cols-3">
 
                 {[
                   {
@@ -13624,7 +13942,7 @@ export default function Home() {
                 ].map((section) => (
                   <div
                     key={section.title}
-                    className="rounded-xl border border-white/10 bg-white/[0.025] p-4"
+                    className="rounded-xl border border-white/10 bg-white/[0.025] p-3 lg:p-4"
                   >
                     <div className="mb-3 text-[10px] font-semibold tracking-[0.14em] text-indigo-300">
                       {section.title.toUpperCase()}
@@ -13663,7 +13981,7 @@ export default function Home() {
 
       {exportDialogOpen && (
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-2 backdrop-blur-sm sm:p-4"
+          className="fixed inset-0 z-[320] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm lg:items-center lg:p-4"
           onPointerDown={(
             event
           ) => {
@@ -13682,9 +14000,9 @@ export default function Home() {
             }
           }}
         >
-          <div className="flex max-h-[calc(100vh-24px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#151821] shadow-2xl">
+          <div className="flex max-h-[calc(100dvh-8px)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151821] shadow-2xl lg:max-h-[calc(100vh-24px)] lg:rounded-2xl">
 
-            <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-3 lg:px-5 lg:py-4">
 
               <div>
                 <div className="text-sm font-semibold text-white">
@@ -13707,14 +14025,14 @@ export default function Home() {
                     null
                   );
                 }}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-400 hover:bg-white/10 disabled:opacity-30"
+                className="flex min-h-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-400 hover:bg-white/10 disabled:opacity-30 lg:min-h-0 lg:py-1.5"
               >
                 Close
               </button>
 
             </div>
 
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 lg:space-y-5 lg:p-5">
 
               <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[9px] text-gray-500">
                 Scroll this panel to see all export options. The Export button stays visible below.
@@ -13905,7 +14223,7 @@ export default function Home() {
 
                 </div>
 
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
 
                   <button
                     disabled={
@@ -14083,7 +14401,7 @@ export default function Home() {
                   OUTPUT SCALE
                 </div>
 
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
 
                   {(
                     [
@@ -14276,7 +14594,7 @@ export default function Home() {
 
                 </div>
 
-                <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+                <div className="grid grid-cols-1 items-end gap-2 lg:grid-cols-[1fr_auto_1fr]">
 
                   <label>
 
@@ -14313,7 +14631,7 @@ export default function Home() {
 
                   </label>
 
-                  <div className="pb-2 text-xs text-gray-600">
+                  <div className="hidden pb-2 text-xs text-gray-600 lg:block">
                     ×
                   </div>
 
@@ -14388,7 +14706,7 @@ export default function Home() {
 
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3">
 
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
 
@@ -14456,9 +14774,12 @@ export default function Home() {
 
             </div>
 
-            <div className="shrink-0 flex items-center justify-between border-t border-white/10 bg-[#11141c] px-5 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.20)]">
+            <div
+              className="shrink-0 flex items-center gap-2 border-t border-white/10 bg-[#11141c] px-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,0.20)] lg:justify-between lg:px-5 lg:py-3"
+              style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
+            >
 
-              <div className="text-[10px] text-gray-500">
+              <div className="hidden text-[10px] text-gray-500 lg:block">
                 Ctrl + Shift + E
               </div>
 
@@ -14469,7 +14790,7 @@ export default function Home() {
                 onClick={
                   exportImage
                 }
-                className="min-w-[130px] rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-wait disabled:opacity-60"
+                className="min-h-11 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-wait disabled:opacity-60 lg:min-h-0 lg:w-auto lg:min-w-[130px]"
               >
                 {exporting
                   ? "Exporting…"
@@ -14494,11 +14815,11 @@ export default function Home() {
 
       {/* WORKSPACE */}
 
-      <div className="flex h-[calc(100vh-56px)]">
+      <div className="flex h-[calc(100dvh-56px)] lg:h-[calc(100vh-56px)]">
 
         {/* TOOLS */}
 
-        <aside className="flex w-20 shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-white/10 bg-[#111318] py-3">
+        <aside className="hidden w-20 shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-white/10 bg-[#111318] py-3 lg:flex">
 
           {tools.map(
             (tool) => (
@@ -14533,7 +14854,7 @@ export default function Home() {
             onPointerMove={movePan}
             onPointerUp={endPan}
             onPointerCancel={endPan}
-            className={`relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#181a20] p-8 ${
+            className={`relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#181a20] p-2 sm:p-4 lg:touch-auto lg:p-8 ${
               activeTool === "hand"
                 ? dragging
                   ? "cursor-grabbing"
@@ -14567,9 +14888,9 @@ export default function Home() {
                 >
 
                   <canvas
-                    ref={canvasRef}
-                    className="block max-h-[70vh] max-w-[70vw] shadow-2xl"
-                  />
+  ref={canvasRef}
+  className="block max-h-[calc(100dvh-176px)] max-w-[calc(100vw-16px)] shadow-2xl lg:max-h-[70vh] lg:max-w-[70vw]"
+/>
 
                   {activeTool ===
                     "crop" && (
@@ -14830,23 +15151,23 @@ export default function Home() {
 
             ) : (
 
-              <div className="flex h-[70%] w-[70%] items-center justify-center rounded-2xl border border-white/10 bg-[#202229]">
+             <div className="flex h-[75%] w-[94%] items-center justify-center rounded-2xl border border-white/10 bg-[#202229] sm:w-[88%] lg:h-[70%] lg:w-[70%]">
 
                 <div className="text-center">
 
-                  <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-500/10 text-4xl text-indigo-400">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 text-3xl text-indigo-400 sm:mb-5 sm:h-20 sm:w-20 sm:text-4xl">
                     +
                   </div>
 
-                  <h2 className="text-2xl font-semibold">
+                  <h2 className="text-xl font-semibold sm:text-2xl">
                     Start Editing
                   </h2>
 
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="mt-2 px-3 text-xs text-gray-500 sm:text-sm">
                     Professional browser image editor
                   </p>
 
-                  <label className="mt-6 inline-block cursor-pointer rounded-xl bg-indigo-600 px-6 py-3 text-sm hover:bg-indigo-500">
+                  <label className="mt-5 inline-block min-h-11 cursor-pointer touch-manipulation rounded-xl bg-indigo-600 px-6 py-3 text-sm hover:bg-indigo-500 sm:mt-6">
 
                     Open Image
 
@@ -14867,9 +15188,490 @@ export default function Home() {
 
           </div>
 
+          {/* MOBILE BOTTOM SHEETS */}
+
+          {mobilePanel && (
+            <div
+              className="fixed inset-x-0 top-14 z-[210] lg:hidden"
+              style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}
+            >
+              <button
+                type="button"
+                aria-label="Close mobile panel"
+                onClick={() => setMobilePanel(null)}
+                className="absolute inset-0 bg-black/55 backdrop-blur-[1px]"
+              />
+
+              <div className="absolute inset-x-0 bottom-0 max-h-[72dvh] overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#151821]/95 px-4 py-3 backdrop-blur-xl">
+                  <div>
+                    <div className="text-sm font-semibold text-white">
+                      {mobilePanel === "adjust"
+                        ? "Adjust"
+                        : mobilePanel === "layers"
+                          ? "Layers"
+                          : "More Tools"}
+                    </div>
+                    <div className="mt-0.5 text-[9px] text-gray-500">
+                      {mobilePanel === "adjust"
+                        ? "Image adjustments"
+                        : mobilePanel === "layers"
+                          ? `${layers.length} ${layers.length === 1 ? "layer" : "layers"}`
+                          : "All editor tools"}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setMobilePanel(null)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg text-gray-300 active:bg-white/10"
+                    aria-label="Close panel"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {mobilePanel === "adjust" && (
+                  <section className="p-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">Adjustments</h3>
+                      <button
+                        type="button"
+                        onClick={resetAll}
+                        className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-[10px] text-indigo-200 active:bg-indigo-500/20"
+                      >
+                        Reset All
+                      </button>
+                    </div>
+
+                    <PanelTitle title="LIGHT" />
+
+                    <Slider
+                      title="Exposure"
+                      value={settings.exposure}
+                      min={-2}
+                      max={2}
+                      step={0.1}
+                      suffix=" EV"
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("exposure", v)}
+                    />
+                    <Slider
+                      title="Brightness"
+                      value={settings.brightness}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("brightness", v)}
+                    />
+                    <Slider
+                      title="Contrast"
+                      value={settings.contrast}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("contrast", v)}
+                    />
+                    <Slider
+                      title="Highlights"
+                      value={settings.highlights}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("highlights", v)}
+                    />
+                    <Slider
+                      title="Shadows"
+                      value={settings.shadows}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("shadows", v)}
+                    />
+                    <Slider
+                      title="Whites"
+                      value={settings.whites}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("whites", v)}
+                    />
+                    <Slider
+                      title="Blacks"
+                      value={settings.blacks}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("blacks", v)}
+                    />
+
+                    <PanelTitle title="COLOR" />
+
+                    <Slider
+                      title="Temperature"
+                      value={settings.temperature}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("temperature", v)}
+                    />
+                    <Slider
+                      title="Tint"
+                      value={settings.tint}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("tint", v)}
+                    />
+                    <Slider
+                      title="Vibrance"
+                      value={settings.vibrance}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("vibrance", v)}
+                    />
+                    <Slider
+                      title="Saturation"
+                      value={settings.saturation}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("saturation", v)}
+                    />
+
+                    <PanelTitle title="PRESENCE" />
+
+                    <Slider
+                      title="Texture"
+                      value={settings.texture}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("texture", v)}
+                    />
+                    <Slider
+                      title="Clarity"
+                      value={settings.clarity}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("clarity", v)}
+                    />
+                    <Slider
+                      title="Dehaze"
+                      value={settings.dehaze}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("dehaze", v)}
+                    />
+
+                    <PanelTitle title="DETAIL" />
+
+                    <Slider
+                      title="Sharpening"
+                      value={settings.sharpness}
+                      min={0}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("sharpness", v)}
+                    />
+                    <Slider
+                      title="Noise Reduction"
+                      value={settings.noiseReduction}
+                      min={0}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("noiseReduction", v)}
+                    />
+
+                    <PanelTitle title="EFFECTS" />
+
+                    <Slider
+                      title="Vignette"
+                      value={settings.vignette}
+                      min={-100}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("vignette", v)}
+                    />
+                    <Slider
+                      title="Grain"
+                      value={settings.grain}
+                      min={0}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("grain", v)}
+                    />
+                    <Slider
+                      title="Fade"
+                      value={settings.fade}
+                      min={0}
+                      max={100}
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("fade", v)}
+                    />
+                    <Slider
+                      title="Blur"
+                      value={settings.blur}
+                      min={0}
+                      max={20}
+                      suffix=" px"
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("blur", v)}
+                    />
+
+                    <PanelTitle title="LAYER" />
+
+                    <Slider
+                      title="Opacity"
+                      value={settings.opacity}
+                      min={0}
+                      max={100}
+                      suffix="%"
+                      onEditStart={saveHistory}
+                      onChange={(v) => change("opacity", v)}
+                    />
+                  </section>
+                )}
+
+                {mobilePanel === "layers" && (
+                  <section>
+                    <div className="grid grid-cols-2 gap-2 border-b border-white/10 p-3 sm:grid-cols-4">
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-lg bg-indigo-600 px-2 py-2 text-center text-[9px] text-white active:bg-indigo-500">
+                        + Image
+                        <input
+                          hidden
+                          type="file"
+                          accept="image/*"
+                          onChange={addImageLayer}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        disabled={layers.length === 0}
+                        onClick={() => addTextLayer()}
+                        className="min-h-11 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2 py-2 text-[9px] text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        + Text
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={layers.length === 0}
+                        onClick={() => addShapeLayer()}
+                        className="min-h-11 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2 py-2 text-[9px] text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        + Shape
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={layers.length === 0}
+                        onClick={addAdjustmentLayer}
+                        className="min-h-11 rounded-lg border border-violet-500/30 bg-violet-500/10 px-1 py-2 text-[8px] text-violet-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        + Adjust
+                      </button>
+                    </div>
+
+                    <LayerPanel
+                      layers={layers}
+                      groups={groups}
+                      selectedLayerId={selectedLayerId}
+                      selectedLayerIds={selectedLayerIds}
+                      onCreateGroup={createLayerGroup}
+                      onRenameGroup={renameLayerGroup}
+                      onDeleteGroup={deleteLayerGroup}
+                      onDuplicateGroup={duplicateLayerGroup}
+                      onBringGroupToFront={bringLayerGroupToFront}
+                      onSendGroupToBack={sendLayerGroupToBack}
+                      onMoveGroup={moveLayerGroup}
+                      onToggleGroupCollapsed={toggleLayerGroupCollapsed}
+                      onToggleGroupVisible={toggleLayerGroupVisible}
+                      onToggleGroupLock={toggleLayerGroupLock}
+                      onAssignGroup={assignLayerGroup}
+                      onSelect={selectLayer}
+                      onToggleVisible={toggleLayerVisible}
+                      onToggleLock={toggleLayerLock}
+                      onDuplicate={duplicateLayer}
+                      onDelete={deleteLayer}
+                      onMoveUp={moveLayerUp}
+                      onMoveDown={moveLayerDown}
+                      onRename={renameLayer}
+                      onReorder={reorderLayer}
+                      onOpacityChange={changeLayerOpacity}
+                      onOpacityStart={saveHistory}
+                      onBlendModeChange={changeLayerBlendMode}
+                      onAddMask={addLayerMask}
+                      onToggleMask={toggleLayerMask}
+                      onInvertMask={invertLayerMask}
+                      onRemoveMask={removeLayerMask}
+                      onMaskDensityChange={changeLayerMaskDensity}
+                      onMaskDensityStart={saveHistory}
+                      onMaskFeatherChange={changeLayerMaskFeather}
+                      onMaskFeatherStart={saveHistory}
+                      onRevealAllMask={revealAllLayerMask}
+                      onHideAllMask={hideAllLayerMask}
+                    />
+                  </section>
+                )}
+
+                {mobilePanel === "more" && (
+                  <section className="p-3">
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {tools
+                        .filter(
+                          (tool) =>
+                            ![
+                              "move",
+                              "crop",
+                              "paint",
+                              "text",
+                              "ai",
+                            ].includes(tool.id)
+                        )
+                        .map((tool) => (
+                          <button
+                            key={tool.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveTool(tool.id);
+                              setMobilePanel(null);
+                              setMobileMenuOpen(false);
+                            }}
+                            className={
+                              activeTool === tool.id
+                                ? "min-h-12 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-2 py-3 text-[10px] font-medium text-indigo-200"
+                                : "min-h-12 rounded-xl border border-white/10 bg-white/5 px-2 py-3 text-[10px] text-gray-300 active:bg-white/10"
+                            }
+                          >
+                            {tool.name}
+                          </button>
+                        ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* MOBILE CANVAS CONTROLS */}
+
+          {layers.length > 0 && (
+            <div className="grid h-12 shrink-0 select-none grid-cols-5 overflow-hidden border-t border-white/10 bg-[#0f1116] lg:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobilePanel(null);
+                  setMobileMenuOpen(false);
+                  setActiveTool("hand");
+                }}
+                className={
+                  activeTool === "hand"
+                    ? "flex min-h-11 touch-manipulation items-center justify-center bg-indigo-500/15 px-2 text-[10px] font-medium text-indigo-300"
+                    : "flex min-h-11 touch-manipulation items-center justify-center px-2 text-[10px] text-gray-300 active:bg-white/10"
+                }
+                title="Pan canvas"
+              >
+                Pan
+              </button>
+
+              <button
+                type="button"
+                onClick={zoomOut}
+                className="flex min-h-11 touch-manipulation items-center justify-center text-xl text-gray-200 active:bg-white/10"
+                title="Zoom out"
+                aria-label="Zoom out"
+              >
+                −
+              </button>
+
+              <div className="flex min-h-11 items-center justify-center text-[10px] font-medium text-gray-300">
+                {Math.round(zoom * 100)}%
+              </div>
+
+              <button
+                type="button"
+                onClick={fitToScreen}
+                className="flex min-h-11 touch-manipulation items-center justify-center px-2 text-[10px] text-gray-200 active:bg-white/10"
+                title="Fit canvas"
+              >
+                Fit
+              </button>
+
+              <button
+                type="button"
+                onClick={zoomIn}
+                className="flex min-h-11 touch-manipulation items-center justify-center text-xl text-gray-200 active:bg-white/10"
+                title="Zoom in"
+                aria-label="Zoom in"
+              >
+                +
+              </button>
+            </div>
+          )}
+
+          {/* MOBILE BOTTOM TOOLBAR */}
+
+          <nav
+            className="grid shrink-0 select-none grid-cols-8 overflow-hidden border-t border-white/10 bg-[#111318] lg:hidden"
+            style={{
+              height: "calc(56px + env(safe-area-inset-bottom))",
+              paddingBottom: "env(safe-area-inset-bottom)",
+            }}
+          >
+            {(
+              [
+                { kind: "tool", id: "move", label: "Move", icon: "↔" },
+                { kind: "tool", id: "crop", label: "Crop", icon: "⌗" },
+                { kind: "panel", id: "adjust", label: "Adjust", icon: "☼" },
+                { kind: "tool", id: "paint", label: "Brush", icon: "✎" },
+                { kind: "tool", id: "text", label: "Text", icon: "T" },
+                { kind: "panel", id: "layers", label: "Layers", icon: "▱" },
+                { kind: "tool", id: "ai", label: "AI", icon: "✦" },
+                { kind: "panel", id: "more", label: "More", icon: "•••" },
+              ] as const
+            ).map((item) => {
+              const isActive =
+                item.kind === "tool"
+                  ? mobilePanel === null && activeTool === item.id
+                  : mobilePanel === item.id;
+
+              return (
+                <button
+                  key={`${item.kind}-${item.id}`}
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+
+                    if (item.kind === "tool") {
+                      setMobilePanel(null);
+                      setActiveTool(item.id);
+                    } else {
+                      setMobilePanel((value) =>
+                        value === item.id ? null : item.id
+                      );
+                    }
+                  }}
+                  className={
+                    isActive
+                      ? "flex min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 bg-indigo-500/15 px-0.5 text-[8px] font-medium text-indigo-300 sm:text-[10px]"
+                      : "flex min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 px-0.5 text-[8px] text-gray-400 active:bg-white/10 active:text-white sm:text-[10px]"
+                  }
+                >
+                  <span className="text-[15px] leading-none sm:text-[17px]">{item.icon}</span>
+                  <span className="max-w-full truncate">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
           {/* STATUS */}
 
-          <footer className="flex h-12 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111318] px-4 text-xs text-gray-500">
+          <footer className="hidden h-12 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111318] px-4 text-xs text-gray-500 lg:flex">
 
             <span
               className="max-w-[180px] truncate text-gray-300"
@@ -15006,8 +15808,8 @@ export default function Home() {
         </section>
 
         {/* RIGHT PANEL */}
-
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#111318]">
+<aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#111318] lg:block">
+        
 
           {/* LAYERS */}
 
