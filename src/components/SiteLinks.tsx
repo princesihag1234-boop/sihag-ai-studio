@@ -4,10 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/about", label: "About" },
-  { href: "/help", label: "Help & Guide" },
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/terms", label: "Terms of Use" },
+  { href: "/photo-editor/", label: "Photo Editor" },
+  { href: "/crop-image/", label: "Crop Image" },
+  { href: "/resize-image/", label: "Resize Image" },
+  { href: "/about/", label: "About" },
+  { href: "/help/", label: "Help & Guide" },
+  { href: "/privacy/", label: "Privacy Policy" },
+  { href: "/terms/", label: "Terms of Use" },
 ];
 
 export default function SiteLinks() {
@@ -30,7 +33,7 @@ export default function SiteLinks() {
           </span>
         </summary>
 
-        <div className="absolute bottom-[calc(100%+8px)] right-0 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1117]/98 p-2 shadow-2xl shadow-black/60 backdrop-blur-xl">
+        <div className="absolute bottom-[calc(100%+8px)] right-0 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1117]/98 p-2 shadow-2xl shadow-black/60 backdrop-blur-xl">
           <div className="border-b border-white/10 px-3 pb-2 pt-1">
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
               SIHAG AI STUDIO
