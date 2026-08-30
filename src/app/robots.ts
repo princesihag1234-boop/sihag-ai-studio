@@ -2,8 +2,10 @@ import type { MetadataRoute } from "next";
 
 export const dynamic = "force-static";
 
-const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://sihag-ai-studio.vercel.app";
+const baseUrl = (
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  "https://sihag-ai-studio.pages.dev"
+).replace(/\/$/, "");
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -13,5 +15,6 @@ export default function robots(): MetadataRoute.Robots {
       disallow: ["/api/", "/health"],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
+    host: baseUrl,
   };
 }

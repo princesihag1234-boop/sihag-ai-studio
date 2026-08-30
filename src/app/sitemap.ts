@@ -2,35 +2,37 @@ import type { MetadataRoute } from "next";
 
 export const dynamic = "force-static";
 
-const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://sihag-ai-studio.vercel.app";
+const baseUrl = (
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  "https://sihag-ai-studio.pages.dev"
+).replace(/\/$/, "");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: baseUrl,
+      url: `${baseUrl}/`,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${baseUrl}/about`,
+      url: `${baseUrl}/about/`,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/help`,
+      url: `${baseUrl}/help/`,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/privacy`,
+      url: `${baseUrl}/privacy/`,
       changeFrequency: "yearly",
-      priority: 0.5,
+      priority: 0.4,
     },
     {
-      url: `${baseUrl}/terms`,
+      url: `${baseUrl}/terms/`,
       changeFrequency: "yearly",
-      priority: 0.5,
+      priority: 0.4,
     },
   ];
 }
