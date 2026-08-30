@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | SIHAG AI STUDIO",
+  title: "Privacy Policy",
   description:
     "Privacy Policy for SIHAG AI STUDIO, including browser storage, technical data, advertising, and future online features.",
 };
