@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "Help & Guide | SIHAG AI STUDIO",
+export const metadata: Metadata = {  
+  title: "Help & Guide",
   description:
     "Learn how to use SIHAG AI STUDIO, including opening images, layers, selections, adjustments, saving projects, recovery, and exporting.",
 };
