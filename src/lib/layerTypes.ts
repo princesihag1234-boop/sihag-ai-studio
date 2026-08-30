@@ -16,28 +16,56 @@ export type BlendMode =
 export type TextAlign =
   | "left"
   | "center"
-  | "right";
+  | "right"
+  | "justify";
+
+export type TextVerticalAlign =
+  | "top"
+  | "middle"
+  | "bottom";
+
+export type TextTransform =
+  | "none"
+  | "uppercase"
+  | "lowercase"
+  | "capitalize";
+
+export type TextFontWeight =
+  | "100"
+  | "200"
+  | "300"
+  | "400"
+  | "500"
+  | "600"
+  | "700"
+  | "800"
+  | "900";
 
 export type TextLayerData = {
   text: string;
   fontSize: number;
   fontFamily: string;
   color: string;
-  fontWeight:
-    | "400"
-    | "600"
-    | "700";
+  textOpacity: number;
+  fontWeight: TextFontWeight;
   italic: boolean;
+  underline: boolean;
+  strikethrough: boolean;
+  textTransform: TextTransform;
   align: TextAlign;
+  verticalAlign: TextVerticalAlign;
   lineHeight: number;
 
   letterSpacing: number;
+  wordSpacing: number;
+  paragraphSpacing: number;
 
   strokeWidth: number;
   strokeColor: string;
 
   shadowEnabled: boolean;
   shadowColor: string;
+  shadowOpacity: number;
   shadowBlur: number;
   shadowX: number;
   shadowY: number;
@@ -51,6 +79,8 @@ export type TextLayerData = {
 
   wrapEnabled: boolean;
   boxWidth: number;
+  fixedHeightEnabled: boolean;
+  boxHeight: number;
 };
 
 export type ShapeType =

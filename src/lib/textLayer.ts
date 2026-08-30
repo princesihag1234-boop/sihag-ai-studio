@@ -1,786 +1,605 @@
 import type {
+  TextFontWeight,
   TextLayerData,
 } from "./layerTypes";
 
-export const DEFAULT_TEXT_LAYER:
-  TextLayerData = {
-    text:
-      "Your Text",
+export const DEFAULT_TEXT_LAYER: TextLayerData = {
+  text: "Your Text",
+  fontSize: 96,
+  fontFamily: "Arial",
+  color: "#ffffff",
+  textOpacity: 100,
+  fontWeight: "700",
+  italic: false,
+  underline: false,
+  strikethrough: false,
+  textTransform: "none",
+  align: "center",
+  verticalAlign: "top",
+  lineHeight: 1.15,
+  letterSpacing: 0,
+  wordSpacing: 0,
+  paragraphSpacing: 0,
+  strokeWidth: 0,
+  strokeColor: "#000000",
+  shadowEnabled: false,
+  shadowColor: "#000000",
+  shadowOpacity: 70,
+  shadowBlur: 16,
+  shadowX: 8,
+  shadowY: 8,
+  backgroundEnabled: false,
+  backgroundColor: "#000000",
+  backgroundOpacity: 70,
+  backgroundPaddingX: 28,
+  backgroundPaddingY: 18,
+  backgroundRadius: 16,
+  wrapEnabled: false,
+  boxWidth: 600,
+  fixedHeightEnabled: false,
+  boxHeight: 400,
+};
 
-    fontSize:
-      96,
+const FONT_WEIGHTS: TextFontWeight[] = [
+  "100",
+  "200",
+  "300",
+  "400",
+  "500",
+  "600",
+  "700",
+  "800",
+  "900",
+];
 
-    fontFamily:
-      "Arial",
-
-    color:
-      "#ffffff",
-
-    fontWeight:
-      "700",
-
-    italic:
-      false,
-
-    align:
-      "center",
-
-    lineHeight:
-      1.15,
-
-    letterSpacing:
-      0,
-
-    strokeWidth:
-      0,
-
-    strokeColor:
-      "#000000",
-
-    shadowEnabled:
-      false,
-
-    shadowColor:
-      "#000000",
-
-    shadowBlur:
-      16,
-
-    shadowX:
-      8,
-
-    shadowY:
-      8,
-
-    backgroundEnabled:
-      false,
-
-    backgroundColor:
-      "#000000",
-
-    backgroundOpacity:
-      70,
-
-    backgroundPaddingX:
-      28,
-
-    backgroundPaddingY:
-      18,
-
-    backgroundRadius:
-      16,
-
-    wrapEnabled:
-      false,
-
-    boxWidth:
-      600,
-  };
+function clamp(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number
+) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(min, Math.min(max, value))
+    : fallback;
+}
 
 function normalizeHexColor(
   value: unknown,
   fallback: string
 ) {
-  return (
-    typeof value ===
-      "string" &&
-    /^#[0-9a-fA-F]{6}$/.test(
-      value
-    )
-      ? value
-      : fallback
-  );
+  return typeof value === "string" &&
+    /^#[0-9a-fA-F]{6}$/.test(value)
+    ? value
+    : fallback;
 }
 
 export function normalizeTextLayerData(
-  value:
-    Partial<TextLayerData> | null | undefined
+  value: Partial<TextLayerData> | null | undefined
 ): TextLayerData {
   const fontWeight =
-    value?.fontWeight;
+    typeof value?.fontWeight === "string" &&
+    FONT_WEIGHTS.includes(value.fontWeight as TextFontWeight)
+      ? (value.fontWeight as TextFontWeight)
+      : DEFAULT_TEXT_LAYER.fontWeight;
 
   const align =
-    value?.align;
+    value?.align === "left" ||
+    value?.align === "center" ||
+    value?.align === "right" ||
+    value?.align === "justify"
+      ? value.align
+      : DEFAULT_TEXT_LAYER.align;
+
+  const verticalAlign =
+    value?.verticalAlign === "top" ||
+    value?.verticalAlign === "middle" ||
+    value?.verticalAlign === "bottom"
+      ? value.verticalAlign
+      : DEFAULT_TEXT_LAYER.verticalAlign;
+
+  const textTransform =
+    value?.textTransform === "none" ||
+    value?.textTransform === "uppercase" ||
+    value?.textTransform === "lowercase" ||
+    value?.textTransform === "capitalize"
+      ? value.textTransform
+      : DEFAULT_TEXT_LAYER.textTransform;
 
   return {
     text:
-      typeof value?.text ===
-      "string"
+      typeof value?.text === "string"
         ? value.text
         : DEFAULT_TEXT_LAYER.text,
 
-    fontSize:
-      typeof value?.fontSize ===
-      "number"
-        ? Math.max(
-            8,
-            Math.min(
-              600,
-              value.fontSize
-            )
-          )
-        : DEFAULT_TEXT_LAYER.fontSize,
+    fontSize: clamp(
+      value?.fontSize,
+      6,
+      1000,
+      DEFAULT_TEXT_LAYER.fontSize
+    ),
 
     fontFamily:
-      typeof value?.fontFamily ===
-      "string" &&
+      typeof value?.fontFamily === "string" &&
       value.fontFamily.trim()
-        ? value.fontFamily
+        ? value.fontFamily.trim()
         : DEFAULT_TEXT_LAYER.fontFamily,
 
-    color:
-      normalizeHexColor(
-        value?.color,
-        DEFAULT_TEXT_LAYER.color
-      ),
+    color: normalizeHexColor(
+      value?.color,
+      DEFAULT_TEXT_LAYER.color
+    ),
 
-    fontWeight:
-      fontWeight === "400" ||
-      fontWeight === "600" ||
-      fontWeight === "700"
-        ? fontWeight
-        : DEFAULT_TEXT_LAYER.fontWeight,
+    textOpacity: clamp(
+      value?.textOpacity,
+      0,
+      100,
+      DEFAULT_TEXT_LAYER.textOpacity
+    ),
 
-    italic:
-      value?.italic ===
-      true,
+    fontWeight,
+    italic: value?.italic === true,
+    underline: value?.underline === true,
+    strikethrough: value?.strikethrough === true,
+    textTransform,
+    align,
+    verticalAlign,
 
-    align:
-      align === "left" ||
-      align === "right" ||
-      align === "center"
-        ? align
-        : DEFAULT_TEXT_LAYER.align,
+    lineHeight: clamp(
+      value?.lineHeight,
+      0.5,
+      4,
+      DEFAULT_TEXT_LAYER.lineHeight
+    ),
 
-    lineHeight:
-      typeof value?.lineHeight ===
-      "number"
-        ? Math.max(
-            0.8,
-            Math.min(
-              3,
-              value.lineHeight
-            )
-          )
-        : DEFAULT_TEXT_LAYER.lineHeight,
+    letterSpacing: clamp(
+      value?.letterSpacing,
+      -40,
+      160,
+      DEFAULT_TEXT_LAYER.letterSpacing
+    ),
 
-    letterSpacing:
-      typeof value?.letterSpacing ===
-      "number"
-        ? Math.max(
-            -20,
-            Math.min(
-              80,
-              value.letterSpacing
-            )
-          )
-        : DEFAULT_TEXT_LAYER.letterSpacing,
+    wordSpacing: clamp(
+      value?.wordSpacing,
+      -40,
+      240,
+      DEFAULT_TEXT_LAYER.wordSpacing
+    ),
 
-    strokeWidth:
-      typeof value?.strokeWidth ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              30,
-              value.strokeWidth
-            )
-          )
-        : DEFAULT_TEXT_LAYER.strokeWidth,
+    paragraphSpacing: clamp(
+      value?.paragraphSpacing,
+      0,
+      400,
+      DEFAULT_TEXT_LAYER.paragraphSpacing
+    ),
 
-    strokeColor:
-      normalizeHexColor(
-        value?.strokeColor,
-        DEFAULT_TEXT_LAYER.strokeColor
-      ),
+    strokeWidth: clamp(
+      value?.strokeWidth,
+      0,
+      40,
+      DEFAULT_TEXT_LAYER.strokeWidth
+    ),
 
-    shadowEnabled:
-      value?.shadowEnabled ===
-      true,
+    strokeColor: normalizeHexColor(
+      value?.strokeColor,
+      DEFAULT_TEXT_LAYER.strokeColor
+    ),
 
-    shadowColor:
-      normalizeHexColor(
-        value?.shadowColor,
-        DEFAULT_TEXT_LAYER.shadowColor
-      ),
+    shadowEnabled: value?.shadowEnabled === true,
 
-    shadowBlur:
-      typeof value?.shadowBlur ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              100,
-              value.shadowBlur
-            )
-          )
-        : DEFAULT_TEXT_LAYER.shadowBlur,
+    shadowColor: normalizeHexColor(
+      value?.shadowColor,
+      DEFAULT_TEXT_LAYER.shadowColor
+    ),
 
-    shadowX:
-      typeof value?.shadowX ===
-      "number"
-        ? Math.max(
-            -100,
-            Math.min(
-              100,
-              value.shadowX
-            )
-          )
-        : DEFAULT_TEXT_LAYER.shadowX,
+    shadowOpacity: clamp(
+      value?.shadowOpacity,
+      0,
+      100,
+      DEFAULT_TEXT_LAYER.shadowOpacity
+    ),
 
-    shadowY:
-      typeof value?.shadowY ===
-      "number"
-        ? Math.max(
-            -100,
-            Math.min(
-              100,
-              value.shadowY
-            )
-          )
-        : DEFAULT_TEXT_LAYER.shadowY,
+    shadowBlur: clamp(
+      value?.shadowBlur,
+      0,
+      200,
+      DEFAULT_TEXT_LAYER.shadowBlur
+    ),
 
-    backgroundEnabled:
-      value?.backgroundEnabled ===
-      true,
+    shadowX: clamp(
+      value?.shadowX,
+      -300,
+      300,
+      DEFAULT_TEXT_LAYER.shadowX
+    ),
 
-    backgroundColor:
-      normalizeHexColor(
-        value?.backgroundColor,
-        DEFAULT_TEXT_LAYER.backgroundColor
-      ),
+    shadowY: clamp(
+      value?.shadowY,
+      -300,
+      300,
+      DEFAULT_TEXT_LAYER.shadowY
+    ),
 
-    backgroundOpacity:
-      typeof value?.backgroundOpacity ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              100,
-              value.backgroundOpacity
-            )
-          )
-        : DEFAULT_TEXT_LAYER.backgroundOpacity,
+    backgroundEnabled: value?.backgroundEnabled === true,
 
-    backgroundPaddingX:
-      typeof value?.backgroundPaddingX ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              200,
-              value.backgroundPaddingX
-            )
-          )
-        : DEFAULT_TEXT_LAYER.backgroundPaddingX,
+    backgroundColor: normalizeHexColor(
+      value?.backgroundColor,
+      DEFAULT_TEXT_LAYER.backgroundColor
+    ),
 
-    backgroundPaddingY:
-      typeof value?.backgroundPaddingY ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              200,
-              value.backgroundPaddingY
-            )
-          )
-        : DEFAULT_TEXT_LAYER.backgroundPaddingY,
+    backgroundOpacity: clamp(
+      value?.backgroundOpacity,
+      0,
+      100,
+      DEFAULT_TEXT_LAYER.backgroundOpacity
+    ),
 
-    backgroundRadius:
-      typeof value?.backgroundRadius ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              200,
-              value.backgroundRadius
-            )
-          )
-        : DEFAULT_TEXT_LAYER.backgroundRadius,
+    backgroundPaddingX: clamp(
+      value?.backgroundPaddingX,
+      0,
+      300,
+      DEFAULT_TEXT_LAYER.backgroundPaddingX
+    ),
 
-    wrapEnabled:
-      value?.wrapEnabled ===
-      true,
+    backgroundPaddingY: clamp(
+      value?.backgroundPaddingY,
+      0,
+      300,
+      DEFAULT_TEXT_LAYER.backgroundPaddingY
+    ),
 
-    boxWidth:
-      typeof value?.boxWidth ===
-      "number"
-        ? Math.max(
-            80,
-            Math.min(
-              3000,
-              value.boxWidth
-            )
-          )
-        : DEFAULT_TEXT_LAYER.boxWidth,
+    backgroundRadius: clamp(
+      value?.backgroundRadius,
+      0,
+      300,
+      DEFAULT_TEXT_LAYER.backgroundRadius
+    ),
+
+    wrapEnabled: value?.wrapEnabled === true,
+
+    boxWidth: clamp(
+      value?.boxWidth,
+      80,
+      5000,
+      DEFAULT_TEXT_LAYER.boxWidth
+    ),
+
+    fixedHeightEnabled: value?.fixedHeightEnabled === true,
+
+    boxHeight: clamp(
+      value?.boxHeight,
+      80,
+      5000,
+      DEFAULT_TEXT_LAYER.boxHeight
+    ),
   };
 }
 
-function measureSpacedText(
-  context:
-    CanvasRenderingContext2D,
+function applyTextTransform(
   text: string,
-  letterSpacing: number
+  mode: TextLayerData["textTransform"]
 ) {
-  if (
-    text.length === 0
-  ) {
-    return context.measureText(
-      " "
-    ).width;
+  if (mode === "uppercase") return text.toUpperCase();
+  if (mode === "lowercase") return text.toLowerCase();
+  if (mode === "capitalize") {
+    return text.replace(/(^|\s)(\S)/g, (match) => match.toUpperCase());
   }
+  return text;
+}
 
-  let width =
-    0;
-
-  for (
-    let index = 0;
-    index <
-      text.length;
-    index += 1
-  ) {
-    width +=
-      context.measureText(
-        text[index]
-      ).width;
-
-    if (
-      index <
-      text.length - 1
-    ) {
-      width +=
-        letterSpacing;
-    }
-  }
-
-  return Math.max(
-    1,
-    width
+function characterAdvance(
+  context: CanvasRenderingContext2D,
+  character: string,
+  letterSpacing: number,
+  wordSpacing: number,
+  includeLetterSpacing: boolean
+) {
+  return (
+    context.measureText(character).width +
+    (character === " " ? wordSpacing : 0) +
+    (includeLetterSpacing ? letterSpacing : 0)
   );
 }
 
+function measureSpacedText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  letterSpacing: number,
+  wordSpacing: number
+) {
+  if (!text.length) return 0;
+
+  let width = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    width += characterAdvance(
+      context,
+      text[index],
+      letterSpacing,
+      wordSpacing,
+      index < text.length - 1
+    );
+  }
+  return Math.max(0, width);
+}
+
 function drawSpacedText(
-  context:
-    CanvasRenderingContext2D,
+  context: CanvasRenderingContext2D,
   text: string,
   startX: number,
   y: number,
   letterSpacing: number,
-  draw:
-    (
-      character: string,
-      x: number,
-      y: number
-    ) => void
+  wordSpacing: number,
+  draw: (character: string, x: number, y: number) => void
 ) {
-  let x =
-    startX;
+  let x = startX;
 
-  for (
-    let index = 0;
-    index <
-      text.length;
-    index += 1
-  ) {
-    const character =
-      text[index];
-
-    draw(
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    draw(character, x, y);
+    x += characterAdvance(
+      context,
       character,
-      x,
-      y
+      letterSpacing,
+      wordSpacing,
+      index < text.length - 1
     );
-
-    x +=
-      context.measureText(
-        character
-      ).width;
-
-    if (
-      index <
-      text.length - 1
-    ) {
-      x +=
-        letterSpacing;
-    }
   }
 }
 
-function wrapTextLines(
-  context:
-    CanvasRenderingContext2D,
-  rawLines: string[],
+type RenderLine = {
+  text: string;
+  paragraphEnd: boolean;
+  canJustify: boolean;
+};
+
+function wrapParagraph(
+  context: CanvasRenderingContext2D,
+  paragraph: string,
   maxWidth: number,
-  letterSpacing: number
+  letterSpacing: number,
+  wordSpacing: number
 ) {
-  const result: string[] =
-    [];
+  if (!paragraph.length) return [""];
 
-  for (
-    const paragraph of
-      rawLines
-  ) {
-    if (
-      paragraph.length ===
-      0
-    ) {
-      result.push(
-        ""
-      );
+  const words = paragraph.split(/\s+/);
+  const result: string[] = [];
+  let line = "";
 
-      continue;
-    }
-
-    const words =
-      paragraph.split(
-        /\s+/
-      );
-
-    let line =
-      "";
-
-    for (
-      const word of words
-    ) {
-      const candidate =
-        line
-          ? `${line} ${word}`
-          : word;
-
-      const candidateWidth =
-        measureSpacedText(
-          context,
-          candidate,
-          letterSpacing
-        );
-
-      if (
-        candidateWidth <=
-          maxWidth ||
-        !line
-      ) {
-        line =
-          candidate;
-      } else {
-        result.push(
-          line
-        );
-
-        line =
-          word;
-      }
-    }
-
-    result.push(
-      line
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    const width = measureSpacedText(
+      context,
+      candidate,
+      letterSpacing,
+      wordSpacing
     );
+
+    if (width <= maxWidth || !line) {
+      line = candidate;
+    } else {
+      result.push(line);
+      line = word;
+    }
   }
 
-  return result.length > 0
+  result.push(line);
+  return result;
+}
+
+function buildRenderLines(
+  context: CanvasRenderingContext2D,
+  rawText: string,
+  data: TextLayerData
+): RenderLine[] {
+  const paragraphs = rawText.split("\n");
+  const result: RenderLine[] = [];
+
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    const lines = data.wrapEnabled
+      ? wrapParagraph(
+          context,
+          paragraph,
+          data.boxWidth,
+          data.letterSpacing,
+          data.wordSpacing
+        )
+      : [paragraph];
+
+    lines.forEach((line, lineIndex) => {
+      const isLastLine = lineIndex === lines.length - 1;
+      result.push({
+        text: line,
+        paragraphEnd: isLastLine,
+        canJustify:
+          data.wrapEnabled &&
+          !isLastLine &&
+          line.trim().split(/\s+/).length > 1,
+      });
+    });
+
+    if (paragraphIndex === paragraphs.length - 1 && !lines.length) {
+      result.push({
+        text: "",
+        paragraphEnd: true,
+        canJustify: false,
+      });
+    }
+  });
+
+  return result.length
     ? result
-    : [""];
+    : [{ text: "", paragraphEnd: true, canJustify: false }];
 }
 
 function drawRoundedRect(
-  context:
-    CanvasRenderingContext2D,
+  context: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
   height: number,
   radius: number
 ) {
-  const safeRadius =
-    Math.max(
-      0,
-      Math.min(
-        radius,
-        width / 2,
-        height / 2
-      )
-    );
+  const safeRadius = Math.max(
+    0,
+    Math.min(radius, width / 2, height / 2)
+  );
 
   context.beginPath();
-
-  context.moveTo(
-    x + safeRadius,
-    y
-  );
-
-  context.lineTo(
-    x + width -
-      safeRadius,
-    y
-  );
-
-  context.quadraticCurveTo(
-    x + width,
-    y,
-    x + width,
-    y + safeRadius
-  );
-
-  context.lineTo(
-    x + width,
-    y + height -
-      safeRadius
-  );
-
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
   context.quadraticCurveTo(
     x + width,
     y + height,
-    x + width -
-      safeRadius,
+    x + width - safeRadius,
     y + height
   );
-
-  context.lineTo(
-    x + safeRadius,
-    y + height
-  );
-
-  context.quadraticCurveTo(
-    x,
-    y + height,
-    x,
-    y + height -
-      safeRadius
-  );
-
-  context.lineTo(
-    x,
-    y + safeRadius
-  );
-
-  context.quadraticCurveTo(
-    x,
-    y,
-    x + safeRadius,
-    y
-  );
-
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
   context.closePath();
 }
 
-export function renderTextLayerToDataUrl(
-  input:
-    Partial<TextLayerData>
-): string {
-  const data =
-    normalizeTextLayerData(
-      input
-    );
+function hexToRgba(
+  hex: string,
+  alpha: number
+) {
+  const value = hex.replace("#", "");
+  const red = parseInt(value.slice(0, 2), 16);
+  const green = parseInt(value.slice(2, 4), 16);
+  const blue = parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha))})`;
+}
 
-  const measureCanvas =
-    document.createElement(
-      "canvas"
+function drawJustifiedText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  startX: number,
+  y: number,
+  width: number,
+  data: TextLayerData,
+  draw: (character: string, x: number, y: number) => void
+) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 1) {
+    drawSpacedText(
+      context,
+      text,
+      startX,
+      y,
+      data.letterSpacing,
+      data.wordSpacing,
+      draw
     );
-
-  const measureContext =
-    measureCanvas.getContext(
-      "2d"
-    );
-
-  if (!measureContext) {
-    return "";
+    return;
   }
 
-  const fontStyle =
-    data.italic
-      ? "italic"
-      : "normal";
-
-  const font =
-    `${fontStyle} ${data.fontWeight} ${data.fontSize}px ${data.fontFamily}`;
-
-  measureContext.font =
-    font;
-
-  const rawLines =
-    data.text.split(
-      "\n"
-    );
-
-  const lines =
-    data.wrapEnabled
-      ? wrapTextLines(
-          measureContext,
-          rawLines,
-          data.boxWidth,
-          data.letterSpacing
-        )
-      : rawLines.length > 0
-        ? rawLines
-        : [""];
-
-  const lineWidths =
-    lines.map(
-      (line) =>
-        measureSpacedText(
-          measureContext,
-          line.length > 0
-            ? line
-            : " ",
-          data.letterSpacing
-        )
-    );
-
-  const maxLineWidth =
-    Math.max(
-      1,
-      ...lineWidths
-    );
-
-  const contentWidth =
-    data.wrapEnabled
-      ? data.boxWidth
-      : maxLineWidth;
-
-  const effectPadding =
-    Math.ceil(
-      Math.max(
-        data.strokeWidth *
-          2,
-
-        data.shadowEnabled
-          ? data.shadowBlur *
-              2 +
-              Math.abs(
-                data.shadowX
-              ) +
-              Math.abs(
-                data.shadowY
-              )
-          : 0
-      )
-    );
-
-  const textPadding =
-    Math.max(
-      24,
-      Math.ceil(
-        data.fontSize *
-          0.35
-      )
-    );
-
-  const backgroundExtraX =
-    data.backgroundEnabled
-      ? data.backgroundPaddingX
-      : 0;
-
-  const backgroundExtraY =
-    data.backgroundEnabled
-      ? data.backgroundPaddingY
-      : 0;
-
-  const paddingX =
-    textPadding +
-    effectPadding +
-    backgroundExtraX;
-
-  const paddingY =
-    textPadding +
-    effectPadding +
-    backgroundExtraY;
-
-  const lineHeightPixels =
-    Math.max(
-      1,
-      data.fontSize *
-      data.lineHeight
-    );
-
-  const width =
-    Math.max(
-      64,
-      Math.ceil(
-        contentWidth +
-        paddingX *
-        2
-      )
-    );
-
-  const height =
-    Math.max(
-      64,
-      Math.ceil(
-        lineHeightPixels *
-          lines.length +
-        paddingY *
-          2
-      )
-    );
-
-  const canvas =
-    document.createElement(
-      "canvas"
-    );
-
-  canvas.width =
-    width;
-
-  canvas.height =
-    height;
-
-  const context =
-    canvas.getContext(
-      "2d"
-    );
-
-  if (!context) {
-    return "";
-  }
-
-  context.clearRect(
+  const wordWidths = words.map((word) =>
+    measureSpacedText(
+      context,
+      word,
+      data.letterSpacing,
+      0
+    )
+  );
+  const totalWordWidth = wordWidths.reduce((sum, value) => sum + value, 0);
+  const gap = Math.max(
     0,
-    0,
-    width,
-    height
+    (width - totalWordWidth) / (words.length - 1)
   );
 
-  if (
-    data.backgroundEnabled
-  ) {
-    const backgroundX =
-      Math.max(
-        0,
-        textPadding +
-        effectPadding
-      );
+  let x = startX;
+  words.forEach((word, index) => {
+    drawSpacedText(
+      context,
+      word,
+      x,
+      y,
+      data.letterSpacing,
+      0,
+      draw
+    );
+    x += wordWidths[index] + (index < words.length - 1 ? gap : 0);
+  });
+}
 
-    const backgroundY =
-      Math.max(
-        0,
-        textPadding +
-        effectPadding
-      );
+export function renderTextLayerToDataUrl(
+  input: Partial<TextLayerData>
+): string {
+  const data = normalizeTextLayerData(input);
 
-    const backgroundWidth =
-      Math.max(
-        1,
-        width -
-        backgroundX *
-          2
-      );
+  const measureCanvas = document.createElement("canvas");
+  const measureContext = measureCanvas.getContext("2d");
+  if (!measureContext) return "";
 
-    const backgroundHeight =
-      Math.max(
-        1,
-        height -
-        backgroundY *
-          2
-      );
+  const fontStyle = data.italic ? "italic" : "normal";
+  const font = `${fontStyle} ${data.fontWeight} ${data.fontSize}px ${data.fontFamily}`;
+  measureContext.font = font;
+
+  const transformedText = applyTextTransform(data.text, data.textTransform);
+  const lines = buildRenderLines(measureContext, transformedText, data);
+
+  const lineWidths = lines.map((line) =>
+    measureSpacedText(
+      measureContext,
+      line.text,
+      data.letterSpacing,
+      data.wordSpacing
+    )
+  );
+
+  const maxLineWidth = Math.max(1, ...lineWidths);
+  const contentWidth = data.wrapEnabled ? data.boxWidth : maxLineWidth;
+  const lineHeightPixels = Math.max(1, data.fontSize * data.lineHeight);
+
+  let naturalTextHeight = 0;
+  lines.forEach((line, index) => {
+    naturalTextHeight += lineHeightPixels;
+    if (line.paragraphEnd && index < lines.length - 1) {
+      naturalTextHeight += data.paragraphSpacing;
+    }
+  });
+
+  const contentHeight = data.fixedHeightEnabled
+    ? Math.max(data.boxHeight, naturalTextHeight)
+    : naturalTextHeight;
+
+  const effectPadding = Math.ceil(
+    Math.max(
+      data.strokeWidth * 2,
+      data.shadowEnabled
+        ? data.shadowBlur * 2 + Math.abs(data.shadowX) + Math.abs(data.shadowY)
+        : 0
+    )
+  );
+
+  const textPadding = Math.max(24, Math.ceil(data.fontSize * 0.35));
+  const backgroundExtraX = data.backgroundEnabled ? data.backgroundPaddingX : 0;
+  const backgroundExtraY = data.backgroundEnabled ? data.backgroundPaddingY : 0;
+  const paddingX = textPadding + effectPadding + backgroundExtraX;
+  const paddingY = textPadding + effectPadding + backgroundExtraY;
+
+  const width = Math.max(64, Math.ceil(contentWidth + paddingX * 2));
+  const height = Math.max(64, Math.ceil(contentHeight + paddingY * 2));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return "";
+
+  context.clearRect(0, 0, width, height);
+
+  if (data.backgroundEnabled) {
+    const backgroundX = Math.max(0, textPadding + effectPadding);
+    const backgroundY = Math.max(0, textPadding + effectPadding);
+    const backgroundWidth = Math.max(1, width - backgroundX * 2);
+    const backgroundHeight = Math.max(1, height - backgroundY * 2);
 
     context.save();
-
-    context.globalAlpha =
-      data.backgroundOpacity /
-      100;
-
-    context.fillStyle =
-      data.backgroundColor;
-
+    context.globalAlpha = data.backgroundOpacity / 100;
+    context.fillStyle = data.backgroundColor;
     drawRoundedRect(
       context,
       backgroundX,
@@ -789,133 +608,141 @@ export function renderTextLayerToDataUrl(
       backgroundHeight,
       data.backgroundRadius
     );
-
     context.fill();
-
     context.restore();
   }
 
-  context.font =
-    font;
+  context.font = font;
+  context.textBaseline = "top";
+  context.textAlign = "left";
+  context.lineJoin = "round";
+  context.lineCap = "round";
 
-  context.textBaseline =
-    "top";
+  const verticalOffset =
+    !data.fixedHeightEnabled || data.verticalAlign === "top"
+      ? 0
+      : data.verticalAlign === "middle"
+        ? Math.max(0, (contentHeight - naturalTextHeight) / 2)
+        : Math.max(0, contentHeight - naturalTextHeight);
 
-  context.textAlign =
-    "left";
+  let y = paddingY + verticalOffset;
 
-  context.lineJoin =
-    "round";
+  lines.forEach((line, index) => {
+    const lineText = line.text;
+    const lineWidth = lineWidths[index];
+    const justify = data.align === "justify" && line.canJustify;
 
-  context.lineCap =
-    "round";
+    const startX =
+      data.align === "right"
+        ? paddingX + contentWidth - lineWidth
+        : data.align === "center"
+          ? paddingX + (contentWidth - lineWidth) / 2
+          : paddingX;
 
-  if (
-    data.shadowEnabled
-  ) {
-    context.shadowColor =
-      data.shadowColor;
+    const visualLineWidth = justify ? contentWidth : lineWidth;
 
-    context.shadowBlur =
-      data.shadowBlur;
+    context.save();
+    context.globalAlpha = data.textOpacity / 100;
 
-    context.shadowOffsetX =
-      data.shadowX;
+    if (data.shadowEnabled) {
+      context.shadowColor = hexToRgba(
+        data.shadowColor,
+        data.shadowOpacity / 100
+      );
+      context.shadowBlur = data.shadowBlur;
+      context.shadowOffsetX = data.shadowX;
+      context.shadowOffsetY = data.shadowY;
+    }
 
-    context.shadowOffsetY =
-      data.shadowY;
-  }
+    const drawStroke = (character: string, x: number, drawY: number) => {
+      context.strokeText(character, x, drawY);
+    };
+    const drawFill = (character: string, x: number, drawY: number) => {
+      context.fillText(character, x, drawY);
+    };
 
-  lines.forEach(
-    (line, index) => {
-      const drawLine =
-        line.length > 0
-          ? line
-          : " ";
-
-      const lineWidth =
-        measureSpacedText(
+    if (lineText.length > 0 && data.strokeWidth > 0) {
+      context.strokeStyle = data.strokeColor;
+      context.lineWidth = data.strokeWidth * 2;
+      if (justify) {
+        drawJustifiedText(
           context,
-          drawLine,
-          data.letterSpacing
+          lineText,
+          paddingX,
+          y,
+          contentWidth,
+          data,
+          drawStroke
         );
-
-      const startX =
-        data.align === "left"
-          ? paddingX
-          : data.align ===
-              "right"
-            ? paddingX +
-              contentWidth -
-              lineWidth
-            : paddingX +
-              (
-                contentWidth -
-                lineWidth
-              ) /
-              2;
-
-      const y =
-        paddingY +
-        index *
-          lineHeightPixels;
-
-      if (
-        data.strokeWidth >
-        0
-      ) {
-        context.strokeStyle =
-          data.strokeColor;
-
-        context.lineWidth =
-          data.strokeWidth *
-          2;
-
+      } else {
         drawSpacedText(
           context,
-          drawLine,
+          lineText,
           startX,
           y,
           data.letterSpacing,
-          (
-            character,
-            x,
-            drawY
-          ) => {
-            context.strokeText(
-              character,
-              x,
-              drawY
-            );
-          }
+          data.wordSpacing,
+          drawStroke
+        );
+      }
+    }
+
+    if (lineText.length > 0) {
+      context.fillStyle = data.color;
+      if (justify) {
+        drawJustifiedText(
+          context,
+          lineText,
+          paddingX,
+          y,
+          contentWidth,
+          data,
+          drawFill
+        );
+      } else {
+        drawSpacedText(
+          context,
+          lineText,
+          startX,
+          y,
+          data.letterSpacing,
+          data.wordSpacing,
+          drawFill
         );
       }
 
-      context.fillStyle =
-        data.color;
+      // Decorations are rendered as vector lines so they work with all fonts.
+      context.shadowColor = "transparent";
+      context.fillStyle = data.color;
+      const decorationX = justify ? paddingX : startX;
+      const decorationHeight = Math.max(1, data.fontSize * 0.045);
 
-      drawSpacedText(
-        context,
-        drawLine,
-        startX,
-        y,
-        data.letterSpacing,
-        (
-          character,
-          x,
-          drawY
-        ) => {
-          context.fillText(
-            character,
-            x,
-            drawY
-          );
-        }
-      );
+      if (data.underline) {
+        context.fillRect(
+          decorationX,
+          y + data.fontSize * 1.03,
+          visualLineWidth,
+          decorationHeight
+        );
+      }
+
+      if (data.strikethrough) {
+        context.fillRect(
+          decorationX,
+          y + data.fontSize * 0.52,
+          visualLineWidth,
+          decorationHeight
+        );
+      }
     }
-  );
 
-  return canvas.toDataURL(
-    "image/png"
-  );
+    context.restore();
+
+    y += lineHeightPixels;
+    if (line.paragraphEnd && index < lines.length - 1) {
+      y += data.paragraphSpacing;
+    }
+  });
+
+  return canvas.toDataURL("image/png");
 }

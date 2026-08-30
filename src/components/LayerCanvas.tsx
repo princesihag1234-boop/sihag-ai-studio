@@ -11221,11 +11221,12 @@ export default function LayerCanvas({
   }
 
   /*
-    TEXT TOOL
+    TEXT TOOL - TEXT PRO
 
-    Click an existing text layer to select it.
-    Click elsewhere on the document to create
-    a new editable text layer at that point.
+    Clicking an existing text layer selects it.
+    Empty canvas taps no longer create text implicitly;
+    new text is added intentionally from the Text panel.
+    This avoids repeated "Your Text" layers on touch screens.
   */
 
   function startTextTool(
@@ -11244,50 +11245,21 @@ export default function LayerCanvas({
         event.clientY
       );
 
+    event.preventDefault();
+    event.stopPropagation();
+
     if (
       hitLayer &&
       hitLayer.layerKind ===
         "text"
     ) {
-      event.preventDefault();
-      event.stopPropagation();
-
       onSelectLayer(
         hitLayer.id
       );
-
       return;
     }
 
-    const point =
-      pointerToDocumentPoint(
-        event.clientX,
-        event.clientY
-      );
-
-    if (!point) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const x =
-      point.x *
-        documentSize.width -
-      documentSize.width /
-        2;
-
-    const y =
-      point.y *
-        documentSize.height -
-      documentSize.height /
-        2;
-
-    onAddTextAt(
-      x,
-      y
-    );
+    onDeselectLayer();
   }
 
   /*
@@ -14593,8 +14565,8 @@ export default function LayerCanvas({
                             : `Drag ${selectionAspect} ${selectionShape} • Alt: center`
                     : activeTool === "text"
                       ? selectedLayer.layerKind === "text"
-                        ? "Text selected — edit it in the Text panel, or click elsewhere to add another"
-                        : "Click on the canvas to place a new text layer"
+                        ? "Text selected — edit it in the Text Pro panel"
+                        : "Use + Add Text in the Text Pro panel to create a new text layer"
                       : activeTool === "shape"
                         ? drawingShape
                           ? "Drawing shape • Shift: square/circle • Alt: from center"

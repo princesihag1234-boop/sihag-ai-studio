@@ -780,6 +780,7 @@ export default function Home() {
   ] = useState<
     | "adjust"
     | "layers"
+    | "text"
     | "more"
     | null
   >(null);
@@ -910,6 +911,26 @@ export default function Home() {
     layers.find(
       (layer) => layer.id === selectedLayerId
     ) ?? null;
+
+  useEffect(() => {
+    if (mobilePanel !== "text") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const panel = document.querySelector(
+        '[data-mobile-text-editor="true"]'
+      );
+
+      const field = panel?.querySelector(
+        'textarea, input[type="text"]'
+      ) as HTMLTextAreaElement | HTMLInputElement | null;
+
+      field?.focus();
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [mobilePanel, selectedLayerId]);
 
   const [settings, setSettings] =
     useState<Settings>({
@@ -6937,6 +6958,72 @@ export default function Home() {
       [next[index], next[index - 1]] = [next[index - 1], next[index]];
       return next;
     });
+  }
+
+  /* MOBILE TEXT / RASTER TOOL FIX
+
+     On phones, Text is edited in a bottom sheet instead of
+     staying in canvas-placement mode. Crop and Paint should
+     operate on a raster image layer when a text/shape/adjustment
+     layer is currently selected. Desktop behavior is unchanged.
+  */
+
+  function selectRasterLayerForMobileTool() {
+    if (
+      !selectedLayer ||
+      selectedLayer.layerKind === "image"
+    ) {
+      return;
+    }
+
+    const selectedIndex = layers.findIndex(
+      (layer) => layer.id === selectedLayer.id
+    );
+
+    const layerBelow =
+      selectedIndex > 0
+        ? [...layers.slice(0, selectedIndex)]
+            .reverse()
+            .find((layer) => layer.layerKind === "image")
+        : undefined;
+
+    const rasterLayer =
+      layerBelow ??
+      [...layers]
+        .reverse()
+        .find((layer) => layer.layerKind === "image");
+
+    if (!rasterLayer) {
+      return;
+    }
+
+    setSelectedLayerId(rasterLayer.id);
+    setSelectedLayerIds([rasterLayer.id]);
+    showLayerInEditor(rasterLayer, false);
+  }
+
+  function activateMobileTool(tool: Tool) {
+    setMobileMenuOpen(false);
+    setMobilePanel(null);
+
+    if (tool === "crop" || tool === "paint") {
+      selectRasterLayerForMobileTool();
+    }
+
+    setActiveTool(tool);
+  }
+
+  function openMobileTextEditor() {
+    setMobileMenuOpen(false);
+
+    /*
+      Text Pro opens the editor first. A new text layer is only
+      created when the user intentionally presses Add Text.
+      Keeping Move active prevents canvas taps from spawning
+      repeated "Your Text" layers on touch devices.
+    */
+    setActiveTool("move");
+    setMobilePanel("text");
   }
 
   function addTextLayer(
@@ -14855,7 +14942,7 @@ export default function Home() {
             onPointerUp={endPan}
             onPointerCancel={endPan}
             className={`relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#181a20] lg:touch-auto ${
-              mobilePanel === "adjust" || mobilePanel === "layers"
+              mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text"
                 ? "p-2 pb-[42dvh] sm:p-4 sm:pb-[48dvh] lg:p-8"
                 : "p-2 sm:p-4 lg:p-8"
             } ${
@@ -15192,6 +15279,10 @@ export default function Home() {
 
           </div>
 
+          {/* MOBILE TEXT / CROP / BRUSH FIX - text editor sheet + raster targeting */}
+
+          {/* TEXT PRO STAGE 1 - intentional add, mobile keyboard, advanced typography */}
+
           {/* MOBILE ADJUST + LAYERS PREVIEW FIX - keeps canvas visible while editing */}
 
           {/* MOBILE BOTTOM SHEETS */}
@@ -15206,7 +15297,7 @@ export default function Home() {
                 aria-label="Close mobile panel"
                 onClick={() => setMobilePanel(null)}
                 className={
-                  mobilePanel === "adjust" || mobilePanel === "layers"
+                  mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text"
                     ? "absolute inset-0 bg-transparent"
                     : "absolute inset-0 bg-black/55 backdrop-blur-[1px]"
                 }
@@ -15214,7 +15305,7 @@ export default function Home() {
 
               <div
                 className={`absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border ${
-                  mobilePanel === "adjust" || mobilePanel === "layers"
+                  mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text"
                     ? "h-[42dvh] max-h-[420px] sm:h-[48dvh] sm:max-h-[520px]"
                     : "max-h-[72dvh]"
                 }`}
@@ -15226,14 +15317,18 @@ export default function Home() {
                         ? "Adjust"
                         : mobilePanel === "layers"
                           ? "Layers"
-                          : "More Tools"}
+                          : mobilePanel === "text"
+                            ? "Text"
+                            : "More Tools"}
                     </div>
                     <div className="mt-0.5 text-[9px] text-gray-500">
                       {mobilePanel === "adjust"
                         ? "Image adjustments"
                         : mobilePanel === "layers"
                           ? `${layers.length} ${layers.length === 1 ? "layer" : "layers"}`
-                          : "All editor tools"}
+                          : mobilePanel === "text"
+                            ? "Edit text and formatting"
+                            : "All editor tools"}
                     </div>
                   </div>
 
@@ -15468,7 +15563,7 @@ export default function Home() {
                       <button
                         type="button"
                         disabled={layers.length === 0}
-                        onClick={() => addTextLayer()}
+                        onClick={openMobileTextEditor}
                         className="min-h-11 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2 py-2 text-[9px] text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         + Text
@@ -15532,6 +15627,46 @@ export default function Home() {
                       onRevealAllMask={revealAllLayerMask}
                       onHideAllMask={hideAllLayerMask}
                     />
+                  </section>
+                )}
+
+                {mobilePanel === "text" && (
+                  <section
+                    className="p-3"
+                    data-mobile-text-editor="true"
+                  >
+                    {selectedLayer?.layerKind === "text" ? (
+                      <TextLayerPanel
+                        layer={selectedLayer}
+                        onAdd={() => {
+                          addTextLayer();
+                          setActiveTool("move");
+                        }}
+                        onChange={updateTextLayer}
+                        onChangeStart={saveHistory}
+                        onDuplicate={duplicateLayer}
+                        onDelete={deleteLayer}
+                        onLayerChange={updateLayerTransform}
+                        onLayerChangeStart={saveHistory}
+                        autoFocusText
+                      />
+                    ) : (
+                      <div className="flex min-h-28 flex-col items-center justify-center gap-3 text-center">
+                        <p className="text-xs text-gray-400">
+                          Select a text layer or add a new one.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            addTextLayer();
+                            setActiveTool("move");
+                          }}
+                          className="min-h-11 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white active:bg-indigo-500"
+                        >
+                          Add Text
+                        </button>
+                      </div>
+                    )}
                   </section>
                 )}
 
@@ -15645,7 +15780,7 @@ export default function Home() {
                 { kind: "tool", id: "crop", label: "Crop", icon: "⌗" },
                 { kind: "panel", id: "adjust", label: "Adjust", icon: "☼" },
                 { kind: "tool", id: "paint", label: "Brush", icon: "✎" },
-                { kind: "tool", id: "text", label: "Text", icon: "T" },
+                { kind: "panel", id: "text", label: "Text", icon: "T" },
                 { kind: "panel", id: "layers", label: "Layers", icon: "▱" },
                 { kind: "tool", id: "ai", label: "AI", icon: "✦" },
                 { kind: "panel", id: "more", label: "More", icon: "•••" },
@@ -15664,8 +15799,13 @@ export default function Home() {
                     setMobileMenuOpen(false);
 
                     if (item.kind === "tool") {
-                      setMobilePanel(null);
-                      setActiveTool(item.id);
+                      activateMobileTool(item.id);
+                    } else if (item.id === "text") {
+                      if (mobilePanel === "text") {
+                        setMobilePanel(null);
+                      } else {
+                        openMobileTextEditor();
+                      }
                     } else {
                       setMobilePanel((value) =>
                         value === item.id ? null : item.id
@@ -16858,6 +16998,10 @@ export default function Home() {
               }
               onChange={updateTextLayer}
               onChangeStart={saveHistory}
+              onDuplicate={duplicateLayer}
+              onDelete={deleteLayer}
+              onLayerChange={updateLayerTransform}
+              onLayerChangeStart={saveHistory}
             />
           )}
 
