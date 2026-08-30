@@ -44,12 +44,21 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "SIHAG AI STUDIO — Free Online Photo Editor",
+      },
+    ],
   },
 
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
+    images: ["/og-image.png"],
   },
 
   robots: {
@@ -74,6 +83,7 @@ const structuredData = [
     alternateName: ["SIHAG AI", "sihag-ai-studio.pages.dev"],
     url: `${SITE_URL}/`,
     description: SITE_DESCRIPTION,
+    image: `${SITE_URL}/og-image.png`,
     inLanguage: "en",
   },
   {
@@ -86,6 +96,7 @@ const structuredData = [
     operatingSystem: "Any",
     browserRequirements: "Requires JavaScript and a modern web browser.",
     description: SITE_DESCRIPTION,
+    image: `${SITE_URL}/og-image.png`,
     featureList: [
       "Online photo editing",
       "Layers",
