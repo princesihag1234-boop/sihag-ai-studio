@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms of Use | SIHAG AI STUDIO",
+ title: "Terms of Use",
   description:
     "Terms of Use for SIHAG AI STUDIO, including user content, acceptable use, service availability, and future online features.",
 };
