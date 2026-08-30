@@ -835,6 +835,27 @@ export default function LayerCanvas({
   const lastPaintEmitRef =
     useRef(0);
 
+  const paintStampCacheRef =
+    useRef<{
+      key: string;
+      canvas:
+        HTMLCanvasElement;
+    } | null>(
+      null
+    );
+
+  const paintLivePreviewBusyRef =
+    useRef(false);
+
+  const paintLivePreviewQueuedRef =
+    useRef(false);
+
+  const paintLivePreviewVersionRef =
+    useRef(0);
+
+  const lastPaintLivePreviewRef =
+    useRef(0);
+
   const layerDragStart =
     useRef({
       layerId: "",
@@ -912,11 +933,14 @@ export default function LayerCanvas({
     useRef(0);
 
   /*
-    Render the visible stack.
+    PERFORMANCE STAGE 2 PREVIEW PIPELINE
 
-    Rapid slider/brush/layer updates can trigger many
-    renders in a short time. We debounce them slightly,
-    render offscreen, and only commit the newest result.
+    While controls are changing, render a small draft and
+    upscale it into the normal editor canvas. After edits
+    settle, refine once at the selected preview quality.
+
+    This keeps transforms/selection geometry stable because
+    the visible canvas keeps the normal preview dimensions.
   */
 
   useEffect(() => {
@@ -941,10 +965,65 @@ export default function LayerCanvas({
       true
     );
 
-    void getDocumentInfo(
-      layers,
-      effectivePreviewMaxSize
-    ).then((info) => {
+    const infoPromise =
+      getDocumentInfo(
+        layers,
+        effectivePreviewMaxSize
+      );
+
+    void infoPromise.then(
+      (info) => {
+        if (
+          cancelled ||
+          previewRenderVersionRef.current !==
+            renderVersion
+        ) {
+          return;
+        }
+
+        setPreviewScale(
+          (current) =>
+            current ===
+            info.previewScale
+              ? current
+              : info.previewScale
+        );
+
+        setDocumentSize(
+          (current) =>
+            current.width ===
+                info.documentWidth &&
+              current.height ===
+                info.documentHeight
+              ? current
+              : {
+                  width:
+                    info.documentWidth,
+                  height:
+                    info.documentHeight,
+                }
+        );
+      }
+    );
+
+    async function commitPreview(
+      maxSize: number,
+      settled: boolean
+    ) {
+      const offscreen =
+        document.createElement(
+          "canvas"
+        );
+
+      await renderLayerStack(
+        offscreen,
+        layers,
+        maxSize
+      );
+
+      const info =
+        await infoPromise;
+
       if (
         cancelled ||
         previewRenderVersionRef.current !==
@@ -953,108 +1032,136 @@ export default function LayerCanvas({
         return;
       }
 
-      setPreviewScale(
-        info.previewScale
+      const target =
+        canvasRef.current;
+
+      if (!target) {
+        return;
+      }
+
+      /*
+        Keep the editor's intrinsic preview size stable.
+        Draft pixels are simply scaled up temporarily.
+      */
+      if (
+        target.width !==
+          info.documentWidth ||
+        target.height !==
+          info.documentHeight
+      ) {
+        target.width =
+          info.documentWidth;
+
+        target.height =
+          info.documentHeight;
+      }
+
+      const context =
+        target.getContext(
+          "2d"
+        );
+
+      if (!context) {
+        return;
+      }
+
+      context.clearRect(
+        0,
+        0,
+        target.width,
+        target.height
       );
 
-      setDocumentSize({
-        width:
-          info.documentWidth,
-        height:
-          info.documentHeight,
-      });
-    });
+      context.imageSmoothingEnabled =
+        true;
+
+      context.imageSmoothingQuality =
+        "high";
+
+      context.drawImage(
+        offscreen,
+        0,
+        0,
+        target.width,
+        target.height
+      );
+
+      if (settled) {
+        setRenderingPreview(
+          false
+        );
+      }
+    }
+
+    const interactiveMaxSize =
+      Math.min(
+        effectivePreviewMaxSize,
+        420
+      );
 
     /*
-      A short delay collapses bursts from sliders,
-      brush previews and repeated layer changes.
+      A quick draft gives responsive slider/transform feedback.
+      The expensive selected-quality render only runs after the
+      layer state has stayed unchanged for a short moment.
     */
-
-    const timer =
+    const interactiveTimer =
       window.setTimeout(
         () => {
-          const offscreen =
-            document.createElement(
-              "canvas"
-            );
-
-          void renderLayerStack(
-            offscreen,
-            layers,
-            effectivePreviewMaxSize
-          )
-            .then(
-              () => {
-                if (
-                  cancelled ||
-                  previewRenderVersionRef.current !==
-                    renderVersion
-                ) {
-                  return;
-                }
-
-                const target =
-                  canvasRef.current;
-
-                if (!target) {
-                  return;
-                }
-
-                target.width =
-                  offscreen.width;
-
-                target.height =
-                  offscreen.height;
-
-                const context =
-                  target.getContext(
-                    "2d"
-                  );
-
-                if (!context) {
-                  return;
-                }
-
-                context.clearRect(
-                  0,
-                  0,
-                  target.width,
-                  target.height
-                );
-
-                context.drawImage(
-                  offscreen,
-                  0,
-                  0
-                );
-
-                setRenderingPreview(
-                  false
-                );
+          void commitPreview(
+            interactiveMaxSize,
+            false
+          ).catch(
+            (error) => {
+              if (
+                cancelled ||
+                previewRenderVersionRef.current !==
+                  renderVersion
+              ) {
+                return;
               }
-            )
-            .catch(
-              (error) => {
-                if (
-                  cancelled ||
-                  previewRenderVersionRef.current !==
-                    renderVersion
-                ) {
-                  return;
-                }
 
-                setRenderingPreview(
-                  false
-                );
+              setRenderingPreview(
+                false
+              );
 
-                console.error(
-                  "Layer render failed:",
-                  error
-                );
-              }
-            );
+              console.error(
+                "Draft layer render failed:",
+                error
+              );
+            }
+          );
         },
-        45
+        12
+      );
+
+    const settledTimer =
+      window.setTimeout(
+        () => {
+          void commitPreview(
+            effectivePreviewMaxSize,
+            true
+          ).catch(
+            (error) => {
+              if (
+                cancelled ||
+                previewRenderVersionRef.current !==
+                  renderVersion
+              ) {
+                return;
+              }
+
+              setRenderingPreview(
+                false
+              );
+
+              console.error(
+                "Layer render failed:",
+                error
+              );
+            }
+          );
+        },
+        260
       );
 
     return () => {
@@ -1062,7 +1169,11 @@ export default function LayerCanvas({
         true;
 
       window.clearTimeout(
-        timer
+        interactiveTimer
+      );
+
+      window.clearTimeout(
+        settledTimer
       );
     };
   }, [
@@ -10713,7 +10824,7 @@ export default function LayerCanvas({
     editor-history operation by page.tsx.
   */
 
-  function emitPaintPreview(
+  function requestPaintLivePreview(
     layerId: string,
     force = false
   ) {
@@ -10730,17 +10841,205 @@ export default function LayerCanvas({
     const now =
       performance.now();
 
+    /*
+      Do not serialize the full-resolution raster layer while
+      the pointer is moving. Render a small temporary document
+      preview directly from the mutable brush canvas instead.
+    */
     if (
       !force &&
       now -
-        lastPaintEmitRef.current <
-        45
+        lastPaintLivePreviewRef.current <
+        32
+    ) {
+      paintLivePreviewQueuedRef.current =
+        true;
+
+      return;
+    }
+
+    if (
+      paintLivePreviewBusyRef.current
+    ) {
+      paintLivePreviewQueuedRef.current =
+        true;
+
+      return;
+    }
+
+    lastPaintLivePreviewRef.current =
+      now;
+
+    paintLivePreviewBusyRef.current =
+      true;
+
+    paintLivePreviewQueuedRef.current =
+      false;
+
+    const renderVersion =
+      paintLivePreviewVersionRef.current;
+
+    const draftCanvas =
+      document.createElement(
+        "canvas"
+      );
+
+    const sourceOverrides =
+      new Map<
+        string,
+        HTMLCanvasElement
+      >([
+        [
+          layerId,
+          workingCanvas,
+        ],
+      ]);
+
+    const draftMaxSize =
+      Math.min(
+        effectivePreviewMaxSize,
+        360
+      );
+
+    void renderLayerStack(
+      draftCanvas,
+      layers,
+      draftMaxSize,
+      sourceOverrides
+    )
+      .then(() => {
+        if (
+          paintLivePreviewVersionRef.current !==
+            renderVersion ||
+          paintCanvasRef.current !==
+            workingCanvas ||
+          paintStrokeLayerIdRef.current !==
+            layerId
+        ) {
+          return;
+        }
+
+        const target =
+          canvasRef.current;
+
+        if (
+          !target ||
+          target.width <= 0 ||
+          target.height <= 0
+        ) {
+          return;
+        }
+
+        const context =
+          target.getContext(
+            "2d"
+          );
+
+        if (!context) {
+          return;
+        }
+
+        context.clearRect(
+          0,
+          0,
+          target.width,
+          target.height
+        );
+
+        context.imageSmoothingEnabled =
+          true;
+
+        context.imageSmoothingQuality =
+          "high";
+
+        context.drawImage(
+          draftCanvas,
+          0,
+          0,
+          target.width,
+          target.height
+        );
+      })
+      .catch((error) => {
+        if (
+          paintLivePreviewVersionRef.current ===
+            renderVersion
+        ) {
+          console.error(
+            "Brush live preview failed:",
+            error
+          );
+        }
+      })
+      .finally(() => {
+        paintLivePreviewBusyRef.current =
+          false;
+
+        if (
+          !paintLivePreviewQueuedRef.current
+        ) {
+          return;
+        }
+
+        paintLivePreviewQueuedRef.current =
+          false;
+
+        const currentLayerId =
+          paintStrokeLayerIdRef.current;
+
+        if (
+          !currentLayerId ||
+          !paintCanvasRef.current
+        ) {
+          return;
+        }
+
+        window.requestAnimationFrame(
+          () => {
+            requestPaintLivePreview(
+              currentLayerId,
+              true
+            );
+          }
+        );
+      });
+  }
+
+  function emitPaintPreview(
+    layerId: string,
+    force = false
+  ) {
+    const workingCanvas =
+      paintCanvasRef.current;
+
+    if (
+      !workingCanvas ||
+      !layerId
     ) {
       return;
     }
 
+    if (!force) {
+      requestPaintLivePreview(
+        layerId
+      );
+
+      return;
+    }
+
+    /*
+      One complete brush stroke becomes one raster source update.
+      This preserves the existing Undo/history behavior while
+      removing the expensive PNG + React update from pointermove.
+    */
+    paintLivePreviewVersionRef.current +=
+      1;
+
+    paintLivePreviewQueuedRef.current =
+      false;
+
     lastPaintEmitRef.current =
-      now;
+      performance.now();
 
     onLayerSourceChange(
       layerId,
@@ -10859,128 +11158,317 @@ export default function LayerCanvas({
     y: number,
     pressure = 1
   ) {
-    const workingCanvas = paintCanvasRef.current;
+    const workingCanvas =
+      paintCanvasRef.current;
 
     if (!workingCanvas) {
       return;
     }
 
-    const context = workingCanvas.getContext("2d");
+    const context =
+      workingCanvas.getContext(
+        "2d"
+      );
 
     if (!context) {
       return;
     }
 
-    const pressureSizeScale = paintPressureSize
-      ? Math.max(0.08, Math.min(1, pressure))
-      : 1;
+    const pressureSizeScale =
+      paintPressureSize
+        ? Math.max(
+            0.08,
+            Math.min(
+              1,
+              pressure
+            )
+          )
+        : 1;
 
-    const effectiveSize = Math.max(
-      2,
-      paintBrushSize * pressureSizeScale
-    );
-
-    const radius = Math.max(1, effectiveSize / 2);
-    const diameter = Math.max(2, Math.ceil(radius * 2));
-
-    const stamp = document.createElement("canvas");
-    stamp.width = diameter;
-    stamp.height = diameter;
-
-    const stampContext = stamp.getContext("2d");
-
-    if (!stampContext) {
-      return;
-    }
-
-    const { r, g, b } = hexToRgb(paintBrushColor);
-    const center = diameter / 2;
-    const outer = diameter / 2;
-    const inner =
-      outer *
-      Math.min(
-        0.98,
-        Math.max(0, paintBrushHardness / 100)
+    const effectiveSize =
+      Math.max(
+        2,
+        paintBrushSize *
+          pressureSizeScale
       );
 
-    const pressureOpacityScale = paintPressureOpacity
-      ? Math.max(0.05, Math.min(1, pressure))
-      : 1;
-
-    const opacity = Math.max(
-      0.002,
-      Math.min(
+    const radius =
+      Math.max(
         1,
-        (paintBrushOpacity / 100) *
-          (paintBrushFlow / 100) *
-          pressureOpacityScale
-      )
-    );
+        effectiveSize / 2
+      );
 
-    const gradient = stampContext.createRadialGradient(
-      center,
-      center,
-      inner,
-      center,
-      center,
-      outer
-    );
+    const drawSize =
+      radius * 2;
 
-    // Erase mode only needs alpha, but keeping the same colored
-    // stamp gives identical hardness/flow behavior for both modes.
-    gradient.addColorStop(
-      0,
-      `rgba(${r},${g},${b},${opacity})`
-    );
-    gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    const diameter =
+      Math.max(
+        2,
+        Math.ceil(
+          drawSize
+        )
+      );
 
-    stampContext.fillStyle = gradient;
-    stampContext.fillRect(0, 0, diameter, diameter);
+    const pressureOpacityScale =
+      paintPressureOpacity
+        ? Math.max(
+            0.05,
+            Math.min(
+              1,
+              pressure
+            )
+          )
+        : 1;
 
-    const selectionMask = paintSelectionMaskRef.current;
-    const operation = paintCompositeOperation();
+    const opacity =
+      Math.max(
+        0.002,
+        Math.min(
+          1,
+          (paintBrushOpacity /
+            100) *
+            (paintBrushFlow /
+              100) *
+            pressureOpacityScale
+        )
+      );
+
+    const canReuseStamp =
+      !paintPressureSize &&
+      !paintPressureOpacity;
+
+    const stampKey =
+      canReuseStamp
+        ? [
+            diameter,
+            paintBrushHardness,
+            paintBrushColor,
+            opacity.toFixed(4),
+          ].join("|")
+        : "";
+
+    let stamp =
+      canReuseStamp &&
+      paintStampCacheRef.current?.key ===
+        stampKey
+        ? paintStampCacheRef.current
+            .canvas
+        : null;
+
+    if (!stamp) {
+      stamp =
+        document.createElement(
+          "canvas"
+        );
+
+      stamp.width =
+        diameter;
+
+      stamp.height =
+        diameter;
+
+      const stampContext =
+        stamp.getContext(
+          "2d"
+        );
+
+      if (!stampContext) {
+        return;
+      }
+
+      const { r, g, b } =
+        hexToRgb(
+          paintBrushColor
+        );
+
+      const center =
+        diameter / 2;
+
+      const outer =
+        diameter / 2;
+
+      const inner =
+        outer *
+        Math.min(
+          0.98,
+          Math.max(
+            0,
+            paintBrushHardness /
+              100
+          )
+        );
+
+      const gradient =
+        stampContext.createRadialGradient(
+          center,
+          center,
+          inner,
+          center,
+          center,
+          outer
+        );
+
+      gradient.addColorStop(
+        0,
+        `rgba(${r},${g},${b},${opacity})`
+      );
+
+      gradient.addColorStop(
+        1,
+        `rgba(${r},${g},${b},0)`
+      );
+
+      stampContext.fillStyle =
+        gradient;
+
+      stampContext.fillRect(
+        0,
+        0,
+        diameter,
+        diameter
+      );
+
+      if (canReuseStamp) {
+        paintStampCacheRef.current =
+          {
+            key:
+              stampKey,
+            canvas:
+              stamp,
+          };
+      }
+    }
+
+    const selectionMask =
+      paintSelectionMaskRef.current;
+
+    const operation =
+      paintCompositeOperation();
 
     context.save();
-    context.globalCompositeOperation = operation;
+
+    context.globalCompositeOperation =
+      operation;
 
     if (selectionMask) {
-      const stroke = document.createElement("canvas");
-      stroke.width = workingCanvas.width;
-      stroke.height = workingCanvas.height;
+      /*
+        Mask only the brush-sized rectangle. The old path created
+        a full image-sized temporary canvas for every single stamp.
+      */
+      const maskedStamp =
+        document.createElement(
+          "canvas"
+        );
 
-      const strokeContext = stroke.getContext("2d");
+      maskedStamp.width =
+        diameter;
 
-      if (!strokeContext) {
+      maskedStamp.height =
+        diameter;
+
+      const maskedContext =
+        maskedStamp.getContext(
+          "2d"
+        );
+
+      if (!maskedContext) {
         context.restore();
         return;
       }
 
-      strokeContext.drawImage(
+      maskedContext.drawImage(
         stamp,
-        x - radius,
-        y - radius,
-        radius * 2,
-        radius * 2
-      );
-
-      strokeContext.globalCompositeOperation = "destination-in";
-      strokeContext.drawImage(
-        selectionMask,
         0,
         0,
-        workingCanvas.width,
-        workingCanvas.height
+        diameter,
+        diameter
       );
-      strokeContext.globalCompositeOperation = "source-over";
 
-      context.drawImage(stroke, 0, 0);
+      const left =
+        x - radius;
+
+      const top =
+        y - radius;
+
+      const sourceLeft =
+        Math.max(
+          0,
+          left
+        );
+
+      const sourceTop =
+        Math.max(
+          0,
+          top
+        );
+
+      const sourceRight =
+        Math.min(
+          selectionMask.width,
+          left + drawSize
+        );
+
+      const sourceBottom =
+        Math.min(
+          selectionMask.height,
+          top + drawSize
+        );
+
+      const sourceWidth =
+        sourceRight -
+        sourceLeft;
+
+      const sourceHeight =
+        sourceBottom -
+        sourceTop;
+
+      if (
+        sourceWidth > 0 &&
+        sourceHeight > 0
+      ) {
+        const localScale =
+          diameter /
+          drawSize;
+
+        maskedContext.globalCompositeOperation =
+          "destination-in";
+
+        maskedContext.drawImage(
+          selectionMask,
+          sourceLeft,
+          sourceTop,
+          sourceWidth,
+          sourceHeight,
+          (sourceLeft -
+            left) *
+            localScale,
+          (sourceTop -
+            top) *
+            localScale,
+          sourceWidth *
+            localScale,
+          sourceHeight *
+            localScale
+        );
+
+        maskedContext.globalCompositeOperation =
+          "source-over";
+
+        context.drawImage(
+          maskedStamp,
+          left,
+          top,
+          drawSize,
+          drawSize
+        );
+      }
     } else {
       context.drawImage(
         stamp,
         x - radius,
         y - radius,
-        radius * 2,
-        radius * 2
+        drawSize,
+        drawSize
       );
     }
 
@@ -11151,6 +11639,15 @@ export default function LayerCanvas({
 
     lastPaintEmitRef.current =
       0;
+
+    lastPaintLivePreviewRef.current =
+      0;
+
+    paintLivePreviewQueuedRef.current =
+      false;
+
+    paintLivePreviewVersionRef.current +=
+      1;
 
     setRasterPainting(
       true
@@ -14863,7 +15360,12 @@ async function getDocumentInfo(
 export async function renderLayerStack(
   canvas: HTMLCanvasElement,
   layers: ImageLayer[],
-  maxPreviewSize: number | null = 1200
+  maxPreviewSize: number | null = 1200,
+  sourceOverrides:
+    ReadonlyMap<
+      string,
+      HTMLCanvasElement
+    > | null = null
 ) {
   const context =
     canvas.getContext("2d");
@@ -15000,10 +15502,22 @@ export async function renderLayerStack(
     return copy;
   }
 
-  for (const layer of layers) {
-    if (!layer.visible) {
-      continue;
-    }
+  const visibleLayers =
+    layers.filter(
+      (layer) =>
+        layer.visible
+    );
+
+  for (
+    let visibleIndex = 0;
+    visibleIndex <
+      visibleLayers.length;
+    visibleIndex += 1
+  ) {
+    const layer =
+      visibleLayers[
+        visibleIndex
+      ];
 
     /*
       ADJUSTMENT LAYER
@@ -15054,13 +15568,6 @@ export async function renderLayerStack(
             lastVisualSurface
           );
 
-        const originalVisualImage =
-          await loadImage(
-            originalVisual.toDataURL(
-              "image/png"
-            )
-          );
-
         const adjustedVisual =
           document.createElement(
             "canvas"
@@ -15068,7 +15575,7 @@ export async function renderLayerStack(
 
         renderImage(
           adjustedVisual,
-          originalVisualImage,
+          originalVisual,
           {
             ...layer.settings,
             opacity:
@@ -15250,13 +15757,6 @@ export async function renderLayerStack(
         0
       );
 
-      const compositeImage =
-        await loadImage(
-          compositeSnapshot.toDataURL(
-            "image/png"
-          )
-        );
-
       const adjustedCanvas =
         document.createElement(
           "canvas"
@@ -15264,7 +15764,7 @@ export async function renderLayerStack(
 
       renderImage(
         adjustedCanvas,
-        compositeImage,
+        compositeSnapshot,
         {
           ...layer.settings,
           opacity:
@@ -15367,10 +15867,44 @@ export async function renderLayerStack(
       continue;
     }
 
-    const image =
-      await loadImage(
-        layer.src
-      );
+    const overrideSource =
+      sourceOverrides?.get(
+        layer.id
+      ) ?? null;
+
+    let image:
+      CanvasImageSource;
+
+    let sourceWidth:
+      number;
+
+    let sourceHeight:
+      number;
+
+    if (overrideSource) {
+      image =
+        overrideSource;
+
+      sourceWidth =
+        overrideSource.width;
+
+      sourceHeight =
+        overrideSource.height;
+    } else {
+      const loadedImage =
+        await loadImage(
+          layer.src
+        );
+
+      image =
+        loadedImage;
+
+      sourceWidth =
+        loadedImage.naturalWidth;
+
+      sourceHeight =
+        loadedImage.naturalHeight;
+    }
 
     const layerCanvas =
       document.createElement(
@@ -15381,7 +15915,7 @@ export async function renderLayerStack(
       Math.max(
         1,
         Math.round(
-          image.naturalWidth *
+          sourceWidth *
             previewScale
         )
       );
@@ -15390,7 +15924,7 @@ export async function renderLayerStack(
       Math.max(
         1,
         Math.round(
-          image.naturalHeight *
+          sourceHeight *
             previewScale
         )
       );
@@ -15437,12 +15971,95 @@ export async function renderLayerStack(
       );
     }
 
-    /*
-      Preserve the composited document before this
-      visual layer. A clipped adjustment immediately
-      above can later rebuild from this exact state.
-    */
+    const nextVisibleLayer =
+      visibleLayers[
+        visibleIndex + 1
+      ];
 
+    const needsClippedAdjustmentState =
+      nextVisibleLayer?.layerKind ===
+        "adjustment" &&
+      nextVisibleLayer.clipToBelow ===
+        true;
+
+    /*
+      Most visual layers are not immediately followed by a
+      clipped Adjustment Layer. Draw those directly into the
+      document canvas instead of allocating and copying two
+      full-document canvases on every preview refresh.
+    */
+    if (
+      !needsClippedAdjustmentState
+    ) {
+      lastVisualBase =
+        null;
+
+      lastVisualSurface =
+        null;
+
+      lastVisualLayer =
+        null;
+
+      context.save();
+
+      context.globalAlpha =
+        Math.max(
+          0,
+          Math.min(
+            1,
+            layer.opacity /
+              100
+          )
+        );
+
+      context.globalCompositeOperation =
+        blendModeToCompositeOperation(
+          layer.blendMode ??
+            "normal"
+        );
+
+      context.translate(
+        documentWidth / 2 +
+          layer.x *
+            previewScale,
+        documentHeight / 2 +
+          layer.y *
+            previewScale
+      );
+
+      context.rotate(
+        (layer.rotation *
+          Math.PI) /
+          180
+      );
+
+      context.scale(
+        layer.scale *
+          (layer.flipHorizontal
+            ? -1
+            : 1),
+        layer.scale *
+          (layer.flipVertical
+            ? -1
+            : 1)
+      );
+
+      context.drawImage(
+        layerCanvas,
+        -layerWidth / 2,
+        -layerHeight / 2
+      );
+
+      context.restore();
+
+      continue;
+    }
+
+    /*
+      A clipped adjustment immediately above needs the exact
+      document state before this visual layer plus this visual
+      layer on its own transparent surface.
+    */
     lastVisualBase =
       copyCanvas(
         canvas
