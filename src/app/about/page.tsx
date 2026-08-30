@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "About | SIHAG AI STUDIO",
+ title: "About",
   description:
     "Discover SIHAG AI STUDIO — a modern browser-based creative image editor built for fast, powerful, accessible editing.",
 };
