@@ -14854,7 +14854,11 @@ export default function Home() {
             onPointerMove={movePan}
             onPointerUp={endPan}
             onPointerCancel={endPan}
-            className={`relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#181a20] p-2 sm:p-4 lg:touch-auto lg:p-8 ${
+            className={`relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#181a20] lg:touch-auto ${
+              mobilePanel === "adjust" || mobilePanel === "layers"
+                ? "p-2 pb-[42dvh] sm:p-4 sm:pb-[48dvh] lg:p-8"
+                : "p-2 sm:p-4 lg:p-8"
+            } ${
               activeTool === "hand"
                 ? dragging
                   ? "cursor-grabbing"
@@ -15188,6 +15192,8 @@ export default function Home() {
 
           </div>
 
+          {/* MOBILE ADJUST + LAYERS PREVIEW FIX - keeps canvas visible while editing */}
+
           {/* MOBILE BOTTOM SHEETS */}
 
           {mobilePanel && (
@@ -15199,10 +15205,20 @@ export default function Home() {
                 type="button"
                 aria-label="Close mobile panel"
                 onClick={() => setMobilePanel(null)}
-                className="absolute inset-0 bg-black/55 backdrop-blur-[1px]"
+                className={
+                  mobilePanel === "adjust" || mobilePanel === "layers"
+                    ? "absolute inset-0 bg-transparent"
+                    : "absolute inset-0 bg-black/55 backdrop-blur-[1px]"
+                }
               />
 
-              <div className="absolute inset-x-0 bottom-0 max-h-[72dvh] overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border">
+              <div
+                className={`absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border ${
+                  mobilePanel === "adjust" || mobilePanel === "layers"
+                    ? "h-[42dvh] max-h-[420px] sm:h-[48dvh] sm:max-h-[520px]"
+                    : "max-h-[72dvh]"
+                }`}
+              >
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#151821]/95 px-4 py-3 backdrop-blur-xl">
                   <div>
                     <div className="text-sm font-semibold text-white">
