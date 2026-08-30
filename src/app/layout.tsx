@@ -34,6 +34,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           name="google-adsense-account"
           content="ca-pub-7076692916715736"
         />
+
+        <meta
+          name="google-site-verification"
+          content="bvYv3JJqVrP-M6SGUMReVGO310gr10u2SWA5vA8f1FE"
+        />
       </head>
       <body className="min-h-full flex flex-col">
         {children}
