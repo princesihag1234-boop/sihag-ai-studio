@@ -30,6 +30,34 @@ type ToolLandingPageProps = {
 
 const SITE_URL = "https://sihag-ai-studio.pages.dev";
 
+const CORE_TOOL_LINKS: RelatedTool[] = [
+  {
+    href: "/photo-editor/",
+    label: "Online Photo Editor",
+    text: "Use the complete SIHAG AI STUDIO workspace for layers, adjustments, text, brush tools, retouching, and export.",
+  },
+  {
+    href: "/crop-image/",
+    label: "Crop Image Online",
+    text: "Reframe a photo with the dedicated Crop tool and continue editing in the same workspace.",
+  },
+  {
+    href: "/resize-image/",
+    label: "Resize Image Online",
+    text: "Choose custom output width and height or an available preset when exporting your image.",
+  },
+  {
+    href: "/add-text-to-photo/",
+    label: "Add Text to Photo",
+    text: "Create editable text layers and control the words, font, size, color, alignment, and styling.",
+  },
+  {
+    href: "/image-filters/",
+    label: "Image Filters & Adjustments",
+    text: "Build a custom look with exposure, brightness, contrast, color, saturation, and other photo adjustments.",
+  },
+];
+
 export default function ToolLandingPage({
   eyebrow,
   title,
@@ -42,6 +70,14 @@ export default function ToolLandingPage({
   canonicalPath,
 }: ToolLandingPageProps) {
   const pageUrl = `${SITE_URL}${canonicalPath}`;
+
+  const relatedToolLinks = Array.from(
+    new Map(
+      [...relatedTools, ...CORE_TOOL_LINKS]
+        .filter((tool) => tool.href !== canonicalPath)
+        .map((tool) => [tool.href, tool])
+    ).values()
+  );
 
   const structuredData = [
     {
@@ -231,8 +267,8 @@ export default function ToolLandingPage({
               Continue with SIHAG AI STUDIO.
             </h2>
 
-            <div className="mt-8 grid gap-3 md:grid-cols-3">
-              {relatedTools.map((tool) => (
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {relatedToolLinks.map((tool) => (
                 <Link
                   key={tool.href}
                   href={tool.href}
@@ -260,6 +296,21 @@ export default function ToolLandingPage({
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               <Link href="/" className="transition hover:text-white">
                 Editor
+              </Link>
+              <Link href="/photo-editor/" className="transition hover:text-white">
+                Photo Editor
+              </Link>
+              <Link href="/crop-image/" className="transition hover:text-white">
+                Crop
+              </Link>
+              <Link href="/resize-image/" className="transition hover:text-white">
+                Resize
+              </Link>
+              <Link href="/add-text-to-photo/" className="transition hover:text-white">
+                Add Text
+              </Link>
+              <Link href="/image-filters/" className="transition hover:text-white">
+                Filters
               </Link>
               <Link href="/about/" className="transition hover:text-white">
                 About
