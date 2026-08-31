@@ -15006,7 +15006,7 @@ export default function Home() {
 
         {/* CENTER */}
 
-        <section className="sihag-workspace flex min-w-0 flex-1 flex-col">
+        <section className="sihag-workspace relative flex min-w-0 flex-1 flex-col bg-[#12151a]">
 
           <div
             onWheel={handleWheel}
@@ -15014,7 +15014,7 @@ export default function Home() {
             onPointerMove={movePan}
             onPointerUp={endPan}
             onPointerCancel={endPan}
-            className={`sihag-canvas-stage relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#181a20] lg:touch-auto ${
+            className={`sihag-canvas-stage relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.035),transparent_34%),linear-gradient(180deg,#171a20_0%,#12151a_100%)] before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] before:bg-[size:24px_24px] before:[mask-image:radial-gradient(circle_at_center,black,transparent_78%)] lg:touch-auto ${
               mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
                 ? "p-2 pb-[42dvh] sm:p-4 sm:pb-[48dvh] lg:p-8"
                 : "p-2 sm:p-4 lg:p-8"
@@ -15026,6 +15026,11 @@ export default function Home() {
                 : "cursor-default"
             }`}
           >
+
+            <div className="pointer-events-none absolute left-3 top-3 z-10 hidden items-center gap-2 rounded-full border border-white/[0.07] bg-[#0d1016]/75 px-2.5 py-1.5 text-[9px] font-medium tracking-[0.10em] text-gray-500 shadow-lg backdrop-blur-md sm:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-300/70 shadow-[0_0_10px_rgba(103,232,249,0.45)]" />
+              CANVAS
+            </div>
 
             {layers.length > 0 ? (
 
@@ -15048,12 +15053,12 @@ export default function Home() {
 
                 <div
                   ref={imageStageRef}
-                  className="relative inline-block"
+                  className="relative inline-block rounded-[4px] ring-1 ring-black/50 shadow-[0_30px_80px_rgba(0,0,0,0.42)]"
                 >
 
                   <canvas
   ref={canvasRef}
-  className="block max-h-[calc(100dvh-176px)] max-w-[calc(100vw-16px)] shadow-2xl lg:max-h-[70vh] lg:max-w-[70vw]"
+  className="block max-h-[calc(100dvh-176px)] max-w-[calc(100vw-16px)] rounded-[3px] ring-1 ring-white/[0.10] shadow-[0_28px_70px_rgba(0,0,0,0.55),0_0_0_1px_rgba(0,0,0,0.35)] lg:max-h-[70vh] lg:max-w-[70vw]"
 />
 
                   {activeTool ===
