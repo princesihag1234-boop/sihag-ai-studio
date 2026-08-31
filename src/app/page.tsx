@@ -15016,8 +15016,8 @@ export default function Home() {
             onPointerCancel={endPan}
             className={`sihag-canvas-stage relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.035),transparent_34%),linear-gradient(180deg,#171a20_0%,#12151a_100%)] before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] before:bg-[size:24px_24px] before:[mask-image:radial-gradient(circle_at_center,black,transparent_78%)] lg:touch-auto ${
               mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
-                ? "p-2 pb-[42dvh] sm:p-4 sm:pb-[48dvh] lg:p-8"
-                : "p-2 sm:p-4 lg:p-8"
+                ? "p-2.5 pb-[42dvh] sm:p-4 sm:pb-[48dvh] lg:p-8"
+                : "p-2.5 sm:p-4 lg:p-8"
             } ${
               activeTool === "hand"
                 ? dragging
@@ -15327,11 +15327,11 @@ export default function Home() {
 
             ) : (
 
-             <div className="flex h-[75%] w-[94%] items-center justify-center rounded-2xl border border-white/10 bg-[#202229] sm:w-[88%] lg:h-[70%] lg:w-[70%]">
+             <div className="relative flex h-[75%] w-[94%] items-center justify-center overflow-hidden rounded-[24px] border border-white/[0.075] bg-[radial-gradient(circle_at_50%_20%,rgba(34,211,238,0.055),transparent_38%),#171a20] shadow-[0_24px_60px_rgba(0,0,0,0.22)] sm:w-[88%] lg:h-[70%] lg:w-[70%]">
 
                 <div className="text-center">
 
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 text-3xl text-indigo-400 sm:mb-5 sm:h-20 sm:w-20 sm:text-4xl">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border border-cyan-400/15 bg-cyan-400/[0.055] text-3xl text-cyan-300 shadow-[0_12px_30px_rgba(0,0,0,0.18)] sm:mb-5 sm:h-20 sm:w-20 sm:text-4xl">
                     +
                   </div>
 
@@ -15343,7 +15343,7 @@ export default function Home() {
                     Professional browser image editor
                   </p>
 
-                  <label className="mt-5 inline-block min-h-11 cursor-pointer touch-manipulation rounded-xl bg-indigo-600 px-6 py-3 text-sm hover:bg-indigo-500 sm:mt-6">
+                  <label className="mt-5 inline-block min-h-11 cursor-pointer touch-manipulation rounded-xl border border-cyan-300/20 bg-cyan-500/90 px-6 py-3 text-sm font-semibold text-[#061114] shadow-[0_10px_24px_rgba(0,0,0,0.20)] active:scale-[0.98] sm:mt-6">
 
                     Open Image
 
@@ -15395,13 +15395,13 @@ export default function Home() {
               />
 
               <div
-                className={`sihag-mobile-sheet pointer-events-auto absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border ${
+                className={`sihag-mobile-sheet pointer-events-auto absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-[22px] border-t border-white/[0.08] bg-[linear-gradient(180deg,#151923_0%,#11141b_100%)] shadow-[0_-22px_60px_rgba(0,0,0,0.52)] ring-1 ring-white/[0.025] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-[22px] sm:border ${
                   mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
                     ? "h-[42dvh] max-h-[420px] sm:h-[48dvh] sm:max-h-[520px]"
                     : "max-h-[72dvh]"
                 }`}
               >
-                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#151821]/95 px-4 py-3 backdrop-blur-xl">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.07] bg-[#151923]/95 px-4 py-3.5 backdrop-blur-xl before:absolute before:left-1/2 before:top-1 before:h-1 before:w-10 before:-translate-x-1/2 before:rounded-full before:bg-white/15">
                   <div>
                     <div className="text-sm font-semibold text-white">
                       {mobilePanel === "adjust"
@@ -15430,7 +15430,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setMobilePanel(null)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg text-gray-300 active:bg-white/10"
+                    className="flex h-10 w-10 touch-manipulation items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-lg text-gray-300 transition active:scale-[0.97] active:bg-white/[0.09]"
                     aria-label="Close panel"
                   >
                     ×
@@ -15444,7 +15444,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={resetAll}
-                        className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-[10px] text-indigo-200 active:bg-indigo-500/20"
+                        className="min-h-10 touch-manipulation rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-2 text-[10px] font-medium text-cyan-100 active:bg-cyan-400/[0.12]"
                       >
                         Reset All
                       </button>
@@ -15857,7 +15857,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={zoomOut}
-                className="flex min-h-11 touch-manipulation items-center justify-center text-xl text-gray-200 active:bg-white/10"
+                className="flex min-h-11 touch-manipulation items-center justify-center text-xl text-gray-200 transition active:bg-white/[0.08] active:text-cyan-200"
                 title="Zoom out"
                 aria-label="Zoom out"
               >
@@ -15880,7 +15880,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={zoomIn}
-                className="flex min-h-11 touch-manipulation items-center justify-center text-xl text-gray-200 active:bg-white/10"
+                className="flex min-h-11 touch-manipulation items-center justify-center text-xl text-gray-200 transition active:bg-white/[0.08] active:text-cyan-200"
                 title="Zoom in"
                 aria-label="Zoom in"
               >
@@ -15892,7 +15892,7 @@ export default function Home() {
           {/* MOBILE BOTTOM TOOLBAR */}
 
           <nav
-            className="sihag-mobile-dock grid shrink-0 select-none grid-cols-8 overflow-hidden border-t border-white/10 bg-[#111318] lg:hidden"
+            className="sihag-mobile-dock grid shrink-0 select-none grid-cols-8 overflow-hidden border-t border-white/[0.07] bg-[#0f1218]/98 shadow-[0_-10px_28px_rgba(0,0,0,0.24)] backdrop-blur-xl lg:hidden"
             style={{
               height: "calc(56px + env(safe-area-inset-bottom))",
               paddingBottom: "env(safe-area-inset-bottom)",
@@ -15944,11 +15944,11 @@ export default function Home() {
                   }}
                   className={
                     isActive
-                      ? "flex min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 bg-indigo-500/15 px-0.5 text-[8px] font-medium text-indigo-300 sm:text-[10px]"
-                      : "flex min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 px-0.5 text-[8px] text-gray-400 active:bg-white/10 active:text-white sm:text-[10px]"
+                      ? "relative flex min-w-0 touch-manipulation flex-col items-center justify-center gap-1 bg-cyan-400/[0.075] px-0.5 text-[8px] font-semibold text-cyan-200 before:absolute before:inset-x-2 before:top-0 before:h-0.5 before:rounded-full before:bg-cyan-300 sm:text-[10px]"
+                      : "flex min-w-0 touch-manipulation flex-col items-center justify-center gap-1 px-0.5 text-[8px] text-gray-500 transition active:bg-white/[0.07] active:text-white sm:text-[10px]"
                   }
                 >
-                  <span className="text-[15px] leading-none sm:text-[17px]">{item.icon}</span>
+                  <span className="text-[16px] leading-none sm:text-[18px]">{item.icon}</span>
                   <span className="max-w-full truncate">{item.label}</span>
                 </button>
               );
