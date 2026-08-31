@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import ToolLandingPage from "@/components/ToolLandingPage";
 
 export const metadata: Metadata = {
-  title: "Crop Image Online",
+  title: "Crop Image Online - Free Photo Crop Tool",
   description:
-    "Crop images online with SIHAG AI STUDIO. Open a photo, choose the Crop tool, adjust the frame, apply the crop, and continue editing in your browser.",
+    "Crop images online with SIHAG AI STUDIO. Open a photo, adjust the crop frame and aspect controls, apply the crop, then continue editing and export in your browser.",
   alternates: {
     canonical: "/crop-image/",
   },
@@ -14,12 +14,21 @@ export const metadata: Metadata = {
     title: "Crop Image Online | SIHAG AI STUDIO",
     description:
       "Crop a photo in your browser, then continue with layers, adjustments, text, brush tools, and export controls.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "SIHAG AI STUDIO online photo editor",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Crop Image Online | SIHAG AI STUDIO",
     description:
       "Crop a photo in your browser and continue editing with SIHAG AI STUDIO.",
+    images: ["/og-image.png"],
   },
 };
 
@@ -62,6 +71,24 @@ export default function CropImagePage() {
         {
           title: "Browser-based workflow",
           text: "The core editing workspace runs in the browser, so the crop can be part of a larger online editing session.",
+        },
+      ]}
+      faqs={[
+        {
+          question: "How do I crop an image online in SIHAG AI STUDIO?",
+          answer: "Open your image, choose the Crop tool, adjust the crop frame and aspect behavior, then apply the crop when the composition looks right.",
+        },
+        {
+          question: "Can I choose an aspect ratio while cropping?",
+          answer: "The crop workflow includes aspect controls, allowing you to choose how the crop frame behaves before you apply the result.",
+        },
+        {
+          question: "Can I continue editing after I crop the photo?",
+          answer: "Yes. After cropping, you can continue with layers, selections, text, brushes, photo adjustments, retouching, transforms, and export controls in the same editor.",
+        },
+        {
+          question: "Does cropping require a separate app?",
+          answer: "No. The crop workflow is built into the browser-based SIHAG AI STUDIO editor, so cropping can be part of the same online editing session.",
         },
       ]}
       relatedTools={[

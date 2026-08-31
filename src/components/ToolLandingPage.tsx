@@ -16,6 +16,11 @@ type RelatedTool = {
   text: string;
 };
 
+type Faq = {
+  question: string;
+  answer: string;
+};
+
 type ToolLandingPageProps = {
   eyebrow: string;
   title: string;
@@ -25,6 +30,7 @@ type ToolLandingPageProps = {
   steps: Step[];
   features: Feature[];
   relatedTools: RelatedTool[];
+  faqs: Faq[];
   canonicalPath: string;
 };
 
@@ -67,6 +73,7 @@ export default function ToolLandingPage({
   steps,
   features,
   relatedTools,
+  faqs,
   canonicalPath,
 }: ToolLandingPageProps) {
   const pageUrl = `${SITE_URL}${canonicalPath}`;
@@ -116,6 +123,18 @@ export default function ToolLandingPage({
           item: pageUrl,
         },
       ],
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: faq.answer,
+        },
+      })),
     },
   ];
 
@@ -258,7 +277,39 @@ export default function ToolLandingPage({
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-6 pb-20 sm:px-8 lg:px-10 lg:pb-28">
+        <section className="border-y border-white/10 bg-white/[0.018]">
+          <div className="mx-auto max-w-7xl px-6 py-20 sm:px-8 lg:px-10 lg:py-24">
+            <div className="max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
+                Quick answers
+              </p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                Frequently asked questions.
+              </h2>
+              <p className="mt-4 leading-7 text-zinc-400">
+                Clear answers about this workflow and how it fits into the SIHAG AI STUDIO editor.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-3 lg:grid-cols-2">
+              {faqs.map((faq) => (
+                <article
+                  key={faq.question}
+                  className="rounded-2xl border border-white/10 bg-[#0b0e14]/80 p-6"
+                >
+                  <h3 className="font-semibold leading-6 text-white">
+                    {faq.question}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-zinc-400">
+                    {faq.answer}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-6 py-20 sm:px-8 lg:px-10 lg:py-28">
           <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.025] px-6 py-10 sm:px-10 sm:py-12">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
               Explore more tools

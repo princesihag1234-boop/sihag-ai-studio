@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import ToolLandingPage from "@/components/ToolLandingPage";
 
 export const metadata: Metadata = {
-  title: "Resize Image Online",
+  title: "Resize Image Online - Custom Width & Height",
   description:
-    "Resize image output online with SIHAG AI STUDIO. Edit your photo, open Export, choose custom width and height or an available preset, and export the resized result.",
+    "Resize image output online with SIHAG AI STUDIO. Edit your photo, open Export, enter custom width and height or choose an available preset, then export the result.",
   alternates: {
     canonical: "/resize-image/",
   },
@@ -14,12 +14,21 @@ export const metadata: Metadata = {
     title: "Resize Image Online | SIHAG AI STUDIO",
     description:
       "Choose custom output width and height or an available export preset, then export your image from SIHAG AI STUDIO.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "SIHAG AI STUDIO online photo editor",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Resize Image Online | SIHAG AI STUDIO",
     description:
       "Choose custom output dimensions and export a resized image with SIHAG AI STUDIO.",
+    images: ["/og-image.png"],
   },
 };
 
@@ -62,6 +71,24 @@ export default function ResizeImagePage() {
         {
           title: "Edit before resizing",
           text: "Crop, adjust, retouch, add text, or work with layers before choosing the final output size.",
+        },
+      ]}
+      faqs={[
+        {
+          question: "How do I resize an image in SIHAG AI STUDIO?",
+          answer: "Finish your edits, open Export, then choose the output width and height or use an available size preset before exporting the finished image.",
+        },
+        {
+          question: "Does resizing change my editing canvas immediately?",
+          answer: "This page describes the export-size workflow. You can complete your edits first and choose the final output dimensions when exporting.",
+        },
+        {
+          question: "Can I enter custom image dimensions?",
+          answer: "Yes. The export controls include custom width and height settings for choosing exact output dimensions.",
+        },
+        {
+          question: "Can I crop before resizing the exported image?",
+          answer: "Yes. You can crop and make other edits first, then select the output dimensions during export.",
         },
       ]}
       relatedTools={[

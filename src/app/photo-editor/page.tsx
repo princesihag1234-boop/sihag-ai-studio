@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import ToolLandingPage from "@/components/ToolLandingPage";
 
 export const metadata: Metadata = {
-  title: "Free Online Photo Editor",
+  title: "Free Online Photo Editor - Edit Photos in Browser",
   description:
-    "Edit photos online with SIHAG AI STUDIO. Work with layers, text, brush tools, selections, color adjustments, retouching, transforms, and image export in your browser.",
+    "Edit photos online for free with SIHAG AI STUDIO. Crop, use layers, add text, paint, retouch, adjust color and light, transform images, and export in your browser.",
   alternates: {
     canonical: "/photo-editor/",
   },
@@ -14,12 +14,21 @@ export const metadata: Metadata = {
     title: "Free Online Photo Editor | SIHAG AI STUDIO",
     description:
       "Edit photos online with layers, text, brush tools, selections, adjustments, retouching, transforms, and flexible export controls.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "SIHAG AI STUDIO online photo editor",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Free Online Photo Editor | SIHAG AI STUDIO",
     description:
       "Edit photos online with layers, text, brush tools, adjustments, retouching, transforms, and export controls.",
+    images: ["/og-image.png"],
   },
 };
 
@@ -62,6 +71,24 @@ export default function PhotoEditorPage() {
         {
           title: "Flexible export",
           text: "Export the full document or a selection and choose sizing controls for the finished file.",
+        },
+      ]}
+      faqs={[
+        {
+          question: "Can I edit a photo online without installing software?",
+          answer: "Yes. SIHAG AI STUDIO runs its core editing workspace in a modern web browser, so you can open an image and work with the available editing tools without installing a large desktop editor.",
+        },
+        {
+          question: "What can I do in the online photo editor?",
+          answer: "The editor includes layers, masks, selections, crop, editable text, paint and retouching tools, image adjustments, transforms, and export controls for broader photo-editing workflows.",
+        },
+        {
+          question: "Can I keep editing after cropping or adding text?",
+          answer: "Yes. Crop, text, adjustments, brushes, layers, and other available tools are part of the same workspace, so you can continue refining the image before export.",
+        },
+        {
+          question: "Can I choose the output size when I export?",
+          answer: "Yes. The export workflow includes sizing controls, including custom output dimensions and available presets, so you can choose the finished image size after editing.",
         },
       ]}
       relatedTools={[
