@@ -635,3 +635,152 @@ label:has(input:focus-visible) {
     gap: 4px !important;
   }
 }
+
+/* ──────────────────────────────────────────────
+   SIHAG UI STAGE 7 — FINAL POLISH
+   Presentation only. Keeps editor behavior intact.
+   ────────────────────────────────────────────── */
+
+.sihag-editor-shell {
+  isolation: isolate;
+}
+
+.sihag-desktop-header,
+.sihag-mobile-header,
+.sihag-tool-rail,
+.sihag-inspector,
+.sihag-statusbar,
+.sihag-mobile-dock {
+  -webkit-font-smoothing: antialiased;
+}
+
+.sihag-header-button:disabled,
+.sihag-export-button:disabled,
+.sihag-tool-button:disabled,
+.sihag-layer-panel button:disabled,
+.sihag-inspector button:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.72);
+}
+
+.sihag-header-button:focus-visible,
+.sihag-export-button:focus-visible,
+.sihag-tool-button:focus-visible,
+.sihag-mobile-dock > button:focus-visible {
+  outline-color: rgba(77, 231, 255, 0.66);
+  outline-offset: 2px;
+}
+
+.sihag-inspector select,
+.sihag-inspector input[type="text"],
+.sihag-inspector input[type="number"],
+.sihag-inspector textarea,
+.sihag-layer-panel select,
+.sihag-layer-panel input[type="text"] {
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.sihag-inspector select:hover:not(:disabled),
+.sihag-inspector input[type="text"]:hover:not(:disabled),
+.sihag-inspector input[type="number"]:hover:not(:disabled),
+.sihag-inspector textarea:hover:not(:disabled),
+.sihag-layer-panel select:hover:not(:disabled),
+.sihag-layer-panel input[type="text"]:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.17) !important;
+}
+
+.sihag-inspector select:focus-visible,
+.sihag-inspector input[type="text"]:focus-visible,
+.sihag-inspector input[type="number"]:focus-visible,
+.sihag-inspector textarea:focus-visible,
+.sihag-layer-panel select:focus-visible,
+.sihag-layer-panel input[type="text"]:focus-visible {
+  border-color: rgba(77, 231, 255, 0.38) !important;
+  box-shadow:
+    0 0 0 3px rgba(77, 231, 255, 0.055),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.sihag-tool-rail,
+.sihag-inspector {
+  scrollbar-gutter: stable;
+}
+
+.sihag-tool-button,
+.sihag-header-button,
+.sihag-export-button {
+  user-select: none;
+}
+
+.sihag-document-pill {
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.sihag-statusbar {
+  color: #707b8c;
+}
+
+.sihag-layer-panel-header {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+.sihag-folder-row,
+.sihag-layer-row {
+  transform: translateZ(0);
+}
+
+.sihag-folder-row:focus-within,
+.sihag-layer-row:focus-within {
+  border-color: rgba(77, 231, 255, 0.22) !important;
+}
+
+.sihag-mobile-sheet {
+  scrollbar-gutter: stable;
+}
+
+.sihag-mobile-dock > button {
+  min-height: 44px;
+}
+
+.sihag-mobile-dock > button[class*="bg-cyan"]::after {
+  opacity: 0.82;
+}
+
+.sihag-mobile-dock > button[class*="bg-indigo"]::after {
+  opacity: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sihag-header-button:hover:not(:disabled),
+  .sihag-tool-button:hover:not(:disabled),
+  .sihag-folder-row:hover,
+  .sihag-layer-row:hover {
+    transition-duration: 120ms;
+  }
+
+  .sihag-mobile-icon-button:hover,
+  .sihag-mobile-export:hover {
+    filter: brightness(1.06);
+  }
+}
+
+@media (max-width: 1023px) {
+  .sihag-mobile-sheet {
+    overscroll-behavior: contain;
+  }
+
+  .sihag-mobile-dock {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  .sihag-canvas-stage {
+    min-width: 0;
+  }
+}
+
