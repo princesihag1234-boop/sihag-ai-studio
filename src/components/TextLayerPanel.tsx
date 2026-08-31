@@ -121,10 +121,10 @@ export default function TextLayerPanel({
 
   if (!isTextLayer || !text || !layer) {
     return (
-      <section className="border-b border-white/10 p-4">
+      <section className="border-b border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0))] p-4">
         <Header />
 
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
           <p className="text-[10px] leading-5 text-gray-400">
             Select an existing text layer or add one intentionally. The canvas will not create repeated text layers just because you tap it.
           </p>
@@ -144,7 +144,7 @@ export default function TextLayerPanel({
   const locked = layer.locked;
 
   return (
-    <section className="border-b border-white/10 p-4">
+    <section className="border-b border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0))] p-4">
       <Header />
 
       <div className="mt-4 space-y-4">
@@ -195,7 +195,7 @@ export default function TextLayerPanel({
               })
             }
             rows={4}
-            className="min-h-24 w-full resize-y rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-gray-100 outline-none focus:border-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-24 w-full resize-y rounded-xl border border-white/[0.08] bg-[#0d1016] px-3 py-2.5 text-sm text-gray-100 outline-none transition placeholder:text-gray-600 focus:border-cyan-400/35 focus:ring-2 focus:ring-cyan-400/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
             placeholder="Type text..."
           />
 
@@ -1011,7 +1011,7 @@ export default function TextLayerPanel({
 
 function Header() {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.018] px-3 py-2.5">
       <div>
         <h3 className="text-sm font-semibold text-white">
           Text Pro
@@ -1020,7 +1020,7 @@ function Header() {
           Professional editable typography
         </p>
       </div>
-      <span className="rounded bg-indigo-500/10 px-2 py-1 text-[10px] font-medium text-indigo-300">
+      <span className="rounded-full border border-cyan-400/15 bg-cyan-400/[0.07] px-2.5 py-1 text-[9px] font-semibold tracking-[0.12em] text-cyan-200">
         TEXT
       </span>
     </div>
@@ -1039,7 +1039,7 @@ function PanelSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+    <div className="rounded-2xl border border-white/[0.065] bg-white/[0.02] p-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <div className="text-[10px] font-semibold tracking-[0.14em] text-gray-400">
@@ -1091,8 +1091,8 @@ function ToggleButton({
       onClick={onClick}
       className={
         active
-          ? "min-h-10 touch-manipulation rounded-lg border border-indigo-500/50 bg-indigo-500/20 px-2 py-2 text-[10px] font-medium text-indigo-100"
-          : "min-h-10 touch-manipulation rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-[10px] text-gray-400 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
+          ? "min-h-10 touch-manipulation rounded-xl border border-cyan-400/35 bg-cyan-400/[0.10] px-2 py-2 text-[10px] font-medium text-cyan-100"
+          : "min-h-10 touch-manipulation rounded-xl border border-white/[0.08] bg-white/[0.03] px-2 py-2 text-[10px] text-gray-400 transition hover:border-white/[0.13] hover:bg-white/[0.065] disabled:cursor-not-allowed disabled:opacity-35"
       }
     >
       {children}
@@ -1133,7 +1133,7 @@ function ColorField({
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
-      <div className="flex min-h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2">
+      <div className="flex min-h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#0d1016] px-2.5 transition focus-within:border-cyan-400/35 focus-within:ring-2 focus-within:ring-cyan-400/[0.06]">
         <input
           type="color"
           value={value}
@@ -1248,7 +1248,7 @@ function RangeField({
             Number(event.target.value)
           )
         }
-        className="w-full cursor-pointer accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full cursor-pointer accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
       />
     </div>
   );
@@ -1272,7 +1272,7 @@ function NumberField({
   return (
     <label>
       <FieldLabel>{label}</FieldLabel>
-      <div className="flex min-h-10 items-center rounded-lg border border-white/10 bg-white/[0.03] px-2">
+      <div className="flex min-h-10 items-center rounded-xl border border-white/[0.08] bg-[#0d1016] px-2.5 transition focus-within:border-cyan-400/35 focus-within:ring-2 focus-within:ring-cyan-400/[0.06]">
         <input
           type="number"
           value={Math.round(value)}

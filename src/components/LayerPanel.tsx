@@ -605,9 +605,9 @@ export default function LayerPanel({
     );
 
   return (
-    <section className="sihag-layer-panel border-b border-white/10">
+    <section className="sihag-layer-panel border-b border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.018),rgba(255,255,255,0))]">
 
-      <div className="sihag-layer-panel-header flex items-center justify-between gap-2 px-4 py-3">
+      <div className="sihag-layer-panel-header sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/[0.06] bg-[#11141b]/95 px-4 py-3 backdrop-blur-xl">
 
         <div>
           <h3 className="text-xs font-semibold tracking-[0.16em] text-gray-300">
@@ -634,7 +634,7 @@ export default function LayerPanel({
           onClick={
             onCreateGroup
           }
-          className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+          className="rounded-lg border border-cyan-400/20 bg-cyan-400/[0.06] px-2.5 py-1.5 text-[10px] font-medium text-cyan-100 transition hover:border-cyan-300/30 hover:bg-cyan-400/[0.10] disabled:cursor-not-allowed disabled:opacity-30"
         >
           + Folder
         </button>
@@ -701,10 +701,10 @@ export default function LayerPanel({
                   }
                   className={
                     [
-                      "sihag-folder-row relative flex items-center gap-2 rounded-lg border px-2 py-2 transition",
+                      "sihag-folder-row relative flex items-center gap-2 rounded-xl border px-2.5 py-2.5 transition-all duration-150",
                       dragOverGroupId ===
                       group.id
-                        ? "border-indigo-400/70 bg-indigo-500/20 shadow-[0_0_0_1px_rgba(129,140,248,0.18)]"
+                        ? "border-cyan-400/60 bg-cyan-400/[0.10] shadow-[0_0_0_1px_rgba(34,211,238,0.10)]"
                         : "border-white/[0.04] bg-white/[0.03]",
                     ].join(
                       " "
@@ -1165,7 +1165,7 @@ export default function LayerPanel({
                     {/* THUMBNAIL */}
 
                     <div className="flex shrink-0 items-center gap-1">
-                      <div className="h-10 w-10 overflow-hidden rounded border border-white/10 bg-black/30">
+                      <div className="h-10 w-10 overflow-hidden rounded-lg border border-white/[0.10] bg-black/30 shadow-inner">
 
                         {layer.layerKind ===
                         "adjustment" ? (
@@ -1386,7 +1386,7 @@ export default function LayerPanel({
                                   null
                               )
                             }
-                            className="w-full rounded-md border border-white/10 bg-[#151823] px-2 py-1.5 text-[11px] text-gray-200 outline-none focus:border-indigo-500/60"
+                            className="w-full rounded-lg border border-white/[0.09] bg-[#0d1016] px-2.5 py-2 text-[11px] text-gray-100 outline-none transition focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/[0.06]"
                           >
                             <option value="">
                               No Folder
@@ -1432,7 +1432,7 @@ export default function LayerPanel({
                                 .value as BlendMode
                             )
                           }
-                          className="mb-3 w-full rounded-md border border-white/10 bg-[#151823] px-2 py-1.5 text-[11px] text-gray-200 outline-none focus:border-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-30"
+                          className="mb-3 w-full rounded-lg border border-white/[0.09] bg-[#0d1016] px-2.5 py-2 text-[11px] text-gray-100 outline-none transition focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
                         >
                           <option value="normal">Normal</option>
                           <option value="multiply">Multiply</option>
@@ -1475,7 +1475,7 @@ export default function LayerPanel({
                               )
                             )
                           }
-                          className="w-full cursor-pointer accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-30"
+                          className="w-full cursor-pointer accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-30"
                         />
                       </div>
 
@@ -1618,7 +1618,7 @@ export default function LayerPanel({
                                     )
                                   )
                                 }
-                                className="w-full cursor-pointer accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-30"
+                                className="w-full cursor-pointer accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-30"
                               />
                             </div>
 
@@ -1661,7 +1661,7 @@ export default function LayerPanel({
                                     )
                                   )
                                 }
-                                className="w-full cursor-pointer accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-30"
+                                className="w-full cursor-pointer accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-30"
                               />
                             </div>
                           </>

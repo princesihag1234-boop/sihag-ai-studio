@@ -24,7 +24,7 @@ export default function LayerTransformPanel({
 }: LayerTransformPanelProps) {
   if (!layer) {
     return (
-      <section className="border-b border-white/10 p-4">
+      <section className="border-b border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0))] p-4">
 
         <h3 className="text-sm font-semibold">
           Layer Transform
@@ -42,11 +42,11 @@ export default function LayerTransformPanel({
     layer.locked;
 
   return (
-    <section className="border-b border-white/10 p-4">
+    <section className="border-b border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0))] p-4">
 
       {/* HEADER */}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.018] px-3 py-2.5">
 
         <div>
           <h3 className="text-sm font-semibold">
@@ -63,7 +63,7 @@ export default function LayerTransformPanel({
           onClick={() =>
             onReset(layer.id)
           }
-          className="text-xs text-indigo-400 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-30"
+          className="rounded-lg border border-cyan-400/15 bg-cyan-400/[0.055] px-2.5 py-1.5 text-[10px] font-medium text-cyan-200 transition hover:bg-cyan-400/[0.10] disabled:cursor-not-allowed disabled:opacity-30"
         >
           Reset
         </button>
@@ -309,7 +309,7 @@ function PanelTitle({
   title: string;
 }) {
   return (
-    <div className="mb-3 mt-6 border-b border-white/10 pb-2 text-[10px] font-semibold tracking-[0.2em] text-gray-500">
+    <div className="mb-3 mt-5 flex items-center gap-2 border-b border-white/[0.06] pb-2.5 text-[9px] font-semibold tracking-[0.18em] text-gray-500 before:h-px before:w-3 before:bg-cyan-400/30">
       {title}
     </div>
   );
@@ -374,7 +374,7 @@ function Slider({
             )
           )
         }
-        className="w-full cursor-pointer accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-30"
+        className="w-full cursor-pointer accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-30"
       />
 
     </div>
@@ -416,7 +416,7 @@ function NumberControl({
             )
           )
         }
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-200 outline-none focus:border-indigo-500/60 disabled:opacity-30"
+        className="w-full rounded-xl border border-white/[0.08] bg-[#0d1016] px-3 py-2 text-xs text-gray-100 outline-none transition focus:border-cyan-400/35 focus:ring-2 focus:ring-cyan-400/[0.06] disabled:opacity-30"
       />
 
       <span className="text-[10px] text-gray-500">
@@ -441,7 +441,7 @@ function PresetButton({
     <button
       disabled={disabled}
       onClick={onClick}
-      className="rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-[10px] text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+      className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-2 py-2 text-[10px] text-gray-300 transition hover:border-cyan-400/20 hover:bg-cyan-400/[0.055] disabled:cursor-not-allowed disabled:opacity-30"
     >
       {title}
     </button>

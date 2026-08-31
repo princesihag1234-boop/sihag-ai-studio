@@ -111,10 +111,10 @@ export default function PaintBrushPanel({
       className={
         compact
           ? "p-3"
-          : "border-b border-white/10 p-4"
+          : "border-b border-white/[0.07] bg-[linear-gradient(180deg,rgba(236,72,153,0.025),rgba(255,255,255,0))] p-4"
       }
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.018] px-3 py-2.5">
         <div>
           <h3 className="text-sm font-semibold text-gray-200">
             Brush Pro
@@ -177,7 +177,7 @@ export default function PaintBrushPanel({
       <SectionTitle>COLOR</SectionTitle>
       <div className="flex items-center gap-3">
         <label
-          className="relative h-10 w-12 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-white/5"
+          className="relative h-10 w-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-white/[0.10] bg-white/[0.04] shadow-inner"
           title="Choose brush color"
         >
           <input
@@ -204,7 +204,7 @@ export default function PaintBrushPanel({
               onColorChange("#ffffff");
             }
           }}
-          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[10px] uppercase text-gray-300 outline-none focus:border-pink-500/40 disabled:opacity-30"
+          className="min-w-0 flex-1 rounded-xl border border-white/[0.08] bg-[#0d1016] px-3 py-2 text-[10px] uppercase text-gray-200 outline-none transition focus:border-pink-400/35 focus:ring-2 focus:ring-pink-400/[0.06] disabled:opacity-30"
         />
       </div>
 
@@ -261,7 +261,7 @@ export default function PaintBrushPanel({
         onChange={(event) =>
           onBlendModeChange(event.target.value as PaintBrushBlendMode)
         }
-        className="w-full rounded-lg border border-white/10 bg-[#0f1116] px-3 py-2.5 text-[10px] text-gray-300 outline-none disabled:opacity-30"
+        className="w-full rounded-xl border border-white/[0.08] bg-[#0d1016] px-3 py-2.5 text-[10px] text-gray-200 outline-none transition focus:border-pink-400/35 focus:ring-2 focus:ring-pink-400/[0.06] disabled:opacity-30"
       >
         <option value="normal">Normal</option>
         <option value="multiply">Multiply</option>
@@ -300,7 +300,7 @@ export default function PaintBrushPanel({
 
 function SectionTitle({ children }: { children: string }) {
   return (
-    <div className="mb-2 mt-4 text-[10px] font-semibold tracking-[0.14em] text-gray-500">
+    <div className="mb-2 mt-5 flex items-center gap-2 text-[9px] font-semibold tracking-[0.16em] text-gray-500 before:h-px before:w-3 before:bg-pink-400/30">
       {children}
     </div>
   );
@@ -394,7 +394,7 @@ function PaintSlider({
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full cursor-pointer accent-pink-500 disabled:cursor-not-allowed disabled:opacity-30"
+        className="w-full cursor-pointer accent-pink-400 disabled:cursor-not-allowed disabled:opacity-30"
       />
     </div>
   );
