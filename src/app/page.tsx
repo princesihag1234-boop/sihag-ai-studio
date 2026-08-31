@@ -11855,87 +11855,34 @@ export default function Home() {
   const tools: {
     id: Tool;
     name: string;
+    icon: string;
+    shortcut?: string;
+    group: "navigate" | "select" | "retouch" | "create" | "view";
   }[] = [
-    {
-      id: "move",
-      name: "Move",
-    },
-    {
-      id: "hand",
-      name: "Hand",
-    },
-    {
-      id: "crop",
-      name: "Crop",
-    },
-    {
-      id: "select",
-      name: "Select",
-    },
-    {
-      id: "lasso",
-      name: "Lasso",
-    },
-    {
-      id: "polygonal-lasso",
-      name: "Polygon",
-    },
-    {
-      id: "magic-wand",
-      name: "Magic Wand",
-    },
-    {
-      id: "quick-select",
-      name: "Quick Select",
-    },
-    {
-      id: "brush",
-      name: "Mask Brush",
-    },
-    {
-      id: "paint",
-      name: "Paint",
-    },
-    {
-      id: "heal",
-      name: "Heal",
-    },
-    {
-      id: "clone",
-      name: "Clone",
-    },
-    {
-      id: "eraser",
-      name: "Eraser",
-    },
-    {
-      id: "dodge-burn",
-      name: "Dodge/Burn",
-    },
-    {
-      id: "blur-sharpen",
-      name: "Blur/Sharp/Smudge",
-    },
-    {
-      id: "text",
-      name: "Text",
-    },
-    {
-      id: "shape",
-      name: "Shape",
-    },
-    {
-      id: "gradient",
-      name: "Gradient",
-    },
-    {
-      id: "ai",
-      name: "AI",
-    },
-    {
-      id: "zoom",
-      name: "Zoom",
-    },
+    { id: "move", name: "Move", icon: "↗", shortcut: "V", group: "navigate" },
+    { id: "hand", name: "Hand", icon: "✋", shortcut: "H", group: "navigate" },
+    { id: "crop", name: "Crop", icon: "⌗", shortcut: "C", group: "navigate" },
+
+    { id: "select", name: "Select", icon: "▣", shortcut: "M", group: "select" },
+    { id: "lasso", name: "Lasso", icon: "⌁", group: "select" },
+    { id: "polygonal-lasso", name: "Polygon", icon: "◇", group: "select" },
+    { id: "magic-wand", name: "Magic Wand", icon: "✦", group: "select" },
+    { id: "quick-select", name: "Quick Select", icon: "◌", group: "select" },
+
+    { id: "brush", name: "Mask Brush", icon: "◐", shortcut: "B", group: "retouch" },
+    { id: "paint", name: "Paint", icon: "✎", group: "retouch" },
+    { id: "heal", name: "Heal", icon: "✚", group: "retouch" },
+    { id: "clone", name: "Clone", icon: "⧉", group: "retouch" },
+    { id: "eraser", name: "Eraser", icon: "⌫", group: "retouch" },
+    { id: "dodge-burn", name: "Dodge/Burn", icon: "◒", group: "retouch" },
+    { id: "blur-sharpen", name: "Blur/Sharp/Smudge", icon: "◉", group: "retouch" },
+
+    { id: "text", name: "Text", icon: "T", shortcut: "T", group: "create" },
+    { id: "shape", name: "Shape", icon: "□", shortcut: "U", group: "create" },
+    { id: "gradient", name: "Gradient", icon: "◩", group: "create" },
+    { id: "ai", name: "AI", icon: "✧", group: "create" },
+
+    { id: "zoom", name: "Zoom", icon: "⌕", group: "view" },
   ];
 
   return (
@@ -11985,7 +11932,7 @@ export default function Home() {
         void openExportDialog();
       }}
       disabled={layers.length === 0}
-      className="h-10 touch-manipulation rounded-lg bg-indigo-600 px-2.5 text-[10px] font-medium text-white active:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:text-[11px]"
+      className="sihag-mobile-export h-10 touch-manipulation px-3 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 sm:text-[11px]"
     >
       Export
     </button>
@@ -11998,7 +11945,7 @@ export default function Home() {
           (value) => !value
         );
       }}
-      className="flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xl text-gray-200 active:bg-white/10"
+      className="sihag-mobile-icon-button flex h-10 w-10 touch-manipulation items-center justify-center text-xl text-gray-200"
       aria-label="Open menu"
       title="Menu"
     >
@@ -13852,14 +13799,24 @@ export default function Home() {
 
         </nav>
 
-        <div className="ml-auto flex gap-2">
+        <div className="sihag-document-status ml-6 hidden min-w-0 flex-1 items-center justify-center xl:flex">
+          <div className="sihag-document-pill min-w-0 max-w-[360px]">
+            <span className={layers.length > 0 ? "sihag-document-dot sihag-document-dot-open" : "sihag-document-dot"} />
+            <span className="truncate">{fileName}</span>
+            {layers.length > 0 && (
+              <span className="sihag-document-meta">{layers.length} {layers.length === 1 ? "layer" : "layers"}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="sihag-header-actions ml-auto flex items-center gap-1.5">
 
           <button
             onClick={undo}
             disabled={
               history.length === 0
             }
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+            className="sihag-header-button sihag-header-button-compact disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↶ Undo
           </button>
@@ -13869,7 +13826,7 @@ export default function Home() {
             disabled={
               future.length === 0
             }
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+            className="sihag-header-button sihag-header-button-compact disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↷ Redo
           </button>
@@ -13911,7 +13868,7 @@ export default function Home() {
                 true
               );
             }}
-            className="hidden rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 lg:block"
+            className="sihag-header-button hidden xl:inline-flex"
             title="Keyboard shortcuts (? or F1)"
           >
             Shortcuts
@@ -13922,7 +13879,7 @@ export default function Home() {
             disabled={
               layers.length === 0
             }
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+            className="sihag-header-button sihag-header-button-compact disabled:cursor-not-allowed disabled:opacity-30"
             title="Save project (Ctrl+S)"
           >
             Save Project
@@ -13932,7 +13889,7 @@ export default function Home() {
             onClick={
               openProjectPicker
             }
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10"
+            className="sihag-header-button"
             title="Open project (Ctrl+O)"
           >
             Open Project
@@ -13946,7 +13903,7 @@ export default function Home() {
             onChange={openProject}
           />
 
-          <label className="cursor-pointer rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10">
+          <label className="sihag-header-button sihag-open-image-button cursor-pointer">
 
             Open Image
 
@@ -13966,7 +13923,7 @@ export default function Home() {
             disabled={
               layers.length === 0
             }
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm hover:bg-indigo-500 disabled:opacity-40"
+            className="sihag-export-button disabled:opacity-40"
             title="Export image (Ctrl+Shift+E)"
           >
             Export
@@ -15015,28 +14972,35 @@ export default function Home() {
 
         {/* TOOLS */}
 
-        <aside className="sihag-tool-rail hidden w-20 shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-white/10 bg-[#111318] py-3 lg:flex">
+        <aside className="sihag-tool-rail hidden shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-[#111318] lg:flex">
 
-          {tools.map(
-            (tool) => (
-              <button
-                key={tool.id}
-                onClick={() =>
-                  setActiveTool(
-                    tool.id
-                  )
-                }
-                className={
-                  activeTool ===
-                  tool.id
-                    ? "sihag-tool-button sihag-tool-button-active h-12 w-16 shrink-0 rounded-lg bg-indigo-500/20 text-[11px] text-indigo-300"
-                    : "sihag-tool-button h-12 w-16 shrink-0 rounded-lg text-[11px] text-gray-400 hover:bg-white/10 hover:text-white"
-                }
-              >
-                {tool.name}
-              </button>
-            )
-          )}
+          <div className="sihag-tool-rail-label">TOOLS</div>
+
+          {tools.map((tool, index) => {
+            const previous = tools[index - 1];
+            const startsGroup = index > 0 && previous?.group !== tool.group;
+
+            return (
+              <div key={tool.id} className="sihag-tool-slot">
+                {startsGroup && <div className="sihag-tool-divider" />}
+
+                <button
+                  onClick={() => setActiveTool(tool.id)}
+                  className={
+                    activeTool === tool.id
+                      ? "sihag-tool-button sihag-tool-button-active"
+                      : "sihag-tool-button"
+                  }
+                  title={`${tool.name}${tool.shortcut ? ` (${tool.shortcut})` : ""}`}
+                  aria-label={tool.name}
+                >
+                  <span className="sihag-tool-icon" aria-hidden="true">{tool.icon}</span>
+                  <span className="sihag-tool-name">{tool.name}</span>
+                  {tool.shortcut && <span className="sihag-tool-shortcut">{tool.shortcut}</span>}
+                </button>
+              </div>
+            );
+          })}
 
         </aside>
 

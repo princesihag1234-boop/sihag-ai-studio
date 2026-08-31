@@ -393,3 +393,245 @@ label:has(input:focus-visible) {
     background-size: auto, 24px 24px, 24px 24px;
   }
 }
+
+
+/* ──────────────────────────────────────────────
+   SIHAG UI STAGE 2 — TOP BAR + TOOL RAIL PRO
+   Presentation only. No editor-engine behavior changes.
+   ────────────────────────────────────────────── */
+
+.sihag-desktop-header {
+  height: 58px !important;
+  padding-right: 12px !important;
+  padding-left: 18px !important;
+}
+
+.sihag-header-actions {
+  min-width: 0;
+}
+
+.sihag-header-button,
+.sihag-export-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  padding: 0 11px;
+  font-size: 11px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.sihag-header-button {
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background: rgba(255, 255, 255, 0.035);
+  color: #c9d0dc;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.sihag-header-button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.075);
+  color: #fff;
+}
+
+.sihag-header-button-compact {
+  min-width: 70px;
+}
+
+.sihag-open-image-button {
+  border-color: rgba(77, 231, 255, 0.14);
+  background: rgba(77, 231, 255, 0.055);
+  color: #d9fbff;
+}
+
+.sihag-open-image-button:hover {
+  border-color: rgba(77, 231, 255, 0.28) !important;
+  background: rgba(77, 231, 255, 0.095) !important;
+}
+
+.sihag-export-button {
+  position: relative;
+  min-width: 82px;
+  border: 1px solid rgba(153, 139, 255, 0.36);
+  background: linear-gradient(135deg, #7064ed, #5f7bf4 58%, #4e9ae6);
+  color: #fff;
+  box-shadow: 0 7px 22px rgba(83, 91, 226, 0.24), inset 0 1px 0 rgba(255,255,255,0.18);
+}
+
+.sihag-export-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 9px 28px rgba(83, 91, 226, 0.34), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+
+.sihag-document-status {
+  pointer-events: none;
+}
+
+.sihag-document-pill {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.022);
+  padding: 0 10px;
+  color: #aeb7c6;
+  font-size: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+.sihag-document-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #4d5666;
+}
+
+.sihag-document-dot-open {
+  background: #55d6b5;
+  box-shadow: 0 0 9px rgba(85, 214, 181, 0.42);
+}
+
+.sihag-document-meta {
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  padding-left: 8px;
+  color: #687386;
+  font-size: 9px;
+}
+
+.sihag-tool-rail {
+  width: 70px !important;
+  gap: 0 !important;
+  padding: 8px 6px 12px !important;
+  overflow-x: hidden;
+}
+
+.sihag-tool-rail-label {
+  padding: 3px 0 8px;
+  color: #4d586a;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-align: center;
+}
+
+.sihag-tool-slot {
+  width: 100%;
+}
+
+.sihag-tool-divider {
+  height: 1px;
+  margin: 6px 8px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.09), transparent);
+}
+
+.sihag-tool-button {
+  position: relative;
+  display: grid;
+  width: 58px !important;
+  height: 50px !important;
+  margin: 0 auto;
+  grid-template-rows: 25px 13px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 11px !important;
+  background: transparent !important;
+  color: #7f8999 !important;
+}
+
+.sihag-tool-icon {
+  display: flex;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 520;
+  line-height: 1;
+  color: #a9b2c0;
+  transform: translateY(1px);
+}
+
+.sihag-tool-name {
+  display: block;
+  max-width: 53px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 8px;
+  font-weight: 560;
+  line-height: 1;
+  letter-spacing: 0.005em;
+}
+
+.sihag-tool-shortcut {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  color: #4f596a;
+  font-size: 7px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.sihag-tool-button:hover {
+  border-color: rgba(255, 255, 255, 0.075) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  color: #e8edf5 !important;
+}
+
+.sihag-tool-button:hover .sihag-tool-shortcut {
+  opacity: 1;
+}
+
+.sihag-tool-button:hover .sihag-tool-icon {
+  color: #e9edf5;
+}
+
+.sihag-tool-button-active {
+  border-color: rgba(119, 104, 247, 0.34) !important;
+  background: linear-gradient(145deg, rgba(118, 103, 248, 0.19), rgba(69, 208, 236, 0.055)) !important;
+  color: #dedbff !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.018), 0 5px 16px rgba(58, 46, 161, 0.13);
+}
+
+.sihag-tool-button-active .sihag-tool-icon {
+  color: #eceaff;
+  text-shadow: 0 0 14px rgba(116, 103, 247, 0.35);
+}
+
+.sihag-tool-button-active::before {
+  top: 10px !important;
+  bottom: 10px !important;
+  left: -7px !important;
+}
+
+.sihag-mobile-export {
+  border: 1px solid rgba(153, 139, 255, 0.32);
+  border-radius: 9px;
+  background: linear-gradient(135deg, #7064ed, #5c80f1);
+  box-shadow: 0 6px 18px rgba(82, 84, 221, 0.22), inset 0 1px 0 rgba(255,255,255,0.16);
+}
+
+.sihag-mobile-icon-button {
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 1279px) {
+  .sihag-header-button {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  .sihag-header-actions {
+    gap: 4px !important;
+  }
+}
