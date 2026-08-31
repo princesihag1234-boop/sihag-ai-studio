@@ -11939,12 +11939,12 @@ export default function Home() {
   ];
 
   return (
-    <main className="h-[100dvh] overflow-hidden bg-[#0b0d12] text-white lg:h-screen">
+    <main className="sihag-editor-shell h-[100dvh] overflow-hidden bg-[#0b0d12] text-white lg:h-screen">
       {/* STEP 7 - FINAL MOBILE RESPONSIVE POLISH */}
 
 {/* MOBILE TOP BAR */}
 
-<header className="relative z-[200] flex h-14 shrink-0 items-center border-b border-white/10 bg-[#111318] px-2 sm:px-3 lg:hidden">
+<header className="sihag-mobile-header relative z-[200] flex h-14 shrink-0 items-center border-b border-white/10 bg-[#111318] px-2 sm:px-3 lg:hidden">
   <div className="min-w-0 shrink-0">
     <div className="text-[12px] font-bold tracking-[0.18em] text-white sm:text-[13px]">
       SIHAG
@@ -12081,7 +12081,7 @@ export default function Home() {
 
       {/* TOP */}
 
-      <header className="hidden h-14 items-center border-b border-white/10 bg-[#111318] px-4 lg:flex">
+      <header className="sihag-desktop-header hidden h-14 items-center border-b border-white/10 bg-[#111318] px-4 lg:flex">
 
         <div>
           <div className="font-bold tracking-[0.2em]">
@@ -12095,7 +12095,7 @@ export default function Home() {
 
         <nav
           data-top-menu-root
-          className="relative ml-10 flex gap-5 text-sm text-gray-400"
+          className="sihag-menu-bar relative ml-10 flex gap-5 text-sm text-gray-400"
         >
 
           <div className="relative">
@@ -15015,7 +15015,7 @@ export default function Home() {
 
         {/* TOOLS */}
 
-        <aside className="hidden w-20 shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-white/10 bg-[#111318] py-3 lg:flex">
+        <aside className="sihag-tool-rail hidden w-20 shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-white/10 bg-[#111318] py-3 lg:flex">
 
           {tools.map(
             (tool) => (
@@ -15029,8 +15029,8 @@ export default function Home() {
                 className={
                   activeTool ===
                   tool.id
-                    ? "h-12 w-16 shrink-0 rounded-lg bg-indigo-500/20 text-[11px] text-indigo-300"
-                    : "h-12 w-16 shrink-0 rounded-lg text-[11px] text-gray-400 hover:bg-white/10 hover:text-white"
+                    ? "sihag-tool-button sihag-tool-button-active h-12 w-16 shrink-0 rounded-lg bg-indigo-500/20 text-[11px] text-indigo-300"
+                    : "sihag-tool-button h-12 w-16 shrink-0 rounded-lg text-[11px] text-gray-400 hover:bg-white/10 hover:text-white"
                 }
               >
                 {tool.name}
@@ -15042,7 +15042,7 @@ export default function Home() {
 
         {/* CENTER */}
 
-        <section className="flex min-w-0 flex-1 flex-col">
+        <section className="sihag-workspace flex min-w-0 flex-1 flex-col">
 
           <div
             onWheel={handleWheel}
@@ -15050,7 +15050,7 @@ export default function Home() {
             onPointerMove={movePan}
             onPointerUp={endPan}
             onPointerCancel={endPan}
-            className={`relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#181a20] lg:touch-auto ${
+            className={`sihag-canvas-stage relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#181a20] lg:touch-auto ${
               mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
                 ? "p-2 pb-[42dvh] sm:p-4 sm:pb-[48dvh] lg:p-8"
                 : "p-2 sm:p-4 lg:p-8"
@@ -15426,7 +15426,7 @@ export default function Home() {
               />
 
               <div
-                className={`pointer-events-auto absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border ${
+                className={`sihag-mobile-sheet pointer-events-auto absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/10 bg-[#151821] shadow-[0_-18px_45px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-2xl sm:border ${
                   mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
                     ? "h-[42dvh] max-h-[420px] sm:h-[48dvh] sm:max-h-[520px]"
                     : "max-h-[72dvh]"
@@ -15923,7 +15923,7 @@ export default function Home() {
           {/* MOBILE BOTTOM TOOLBAR */}
 
           <nav
-            className="grid shrink-0 select-none grid-cols-8 overflow-hidden border-t border-white/10 bg-[#111318] lg:hidden"
+            className="sihag-mobile-dock grid shrink-0 select-none grid-cols-8 overflow-hidden border-t border-white/10 bg-[#111318] lg:hidden"
             style={{
               height: "calc(56px + env(safe-area-inset-bottom))",
               paddingBottom: "env(safe-area-inset-bottom)",
@@ -15988,7 +15988,7 @@ export default function Home() {
 
           {/* STATUS */}
 
-          <footer className="hidden h-12 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111318] px-4 text-xs text-gray-500 lg:flex">
+          <footer className="sihag-statusbar hidden h-12 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111318] px-4 text-xs text-gray-500 lg:flex">
 
             <span
               className="max-w-[180px] truncate text-gray-300"
@@ -16125,7 +16125,7 @@ export default function Home() {
         </section>
 
         {/* RIGHT PANEL */}
-<aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#111318] lg:block">
+<aside className="sihag-inspector hidden w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#111318] lg:block">
         
 
           {/* LAYERS */}

@@ -605,9 +605,9 @@ export default function LayerPanel({
     );
 
   return (
-    <section className="border-b border-white/10">
+    <section className="sihag-layer-panel border-b border-white/10">
 
-      <div className="flex items-center justify-between gap-2 px-4 py-3">
+      <div className="sihag-layer-panel-header flex items-center justify-between gap-2 px-4 py-3">
 
         <div>
           <h3 className="text-xs font-semibold tracking-[0.16em] text-gray-300">
@@ -701,7 +701,7 @@ export default function LayerPanel({
                   }
                   className={
                     [
-                      "relative flex items-center gap-2 rounded-lg border px-2 py-2 transition",
+                      "sihag-folder-row relative flex items-center gap-2 rounded-lg border px-2 py-2 transition",
                       dragOverGroupId ===
                       group.id
                         ? "border-indigo-400/70 bg-indigo-500/20 shadow-[0_0_0_1px_rgba(129,140,248,0.18)]"
@@ -1100,7 +1100,7 @@ export default function LayerPanel({
                   }
                   className={
                     [
-                      "relative rounded-lg border p-2 transition",
+                      "sihag-layer-row relative rounded-lg border p-2 transition",
                       layer.groupId
                         ? "ml-4"
                         : "",
