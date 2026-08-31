@@ -98,14 +98,14 @@ export default function PhotoEditorPage() {
           text: "Trim an image and focus the frame on the area you want to keep.",
         },
         {
-          href: "/resize-image/",
-          label: "Resize Image Online",
-          text: "Choose custom output dimensions when exporting your edited image.",
+          href: "/rotate-image/",
+          label: "Rotate Image Online",
+          text: "Correct orientation or fine-tune the angle before export.",
         },
         {
-          href: "/about/",
-          label: "About SIHAG AI STUDIO",
-          text: "Learn more about the browser-based editor and its capabilities.",
+          href: "/adjust-image-brightness/",
+          label: "Adjust Image Brightness",
+          text: "Brighten or darken a photo with the editor's adjustment workflow.",
         },
       ]}
     />

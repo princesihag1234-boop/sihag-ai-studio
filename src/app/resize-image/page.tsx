@@ -93,19 +93,19 @@ export default function ResizeImagePage() {
       ]}
       relatedTools={[
         {
-          href: "/photo-editor/",
-          label: "Online Photo Editor",
-          text: "Open the complete editor for layers, adjustments, retouching, text, brushes, and more.",
-        },
-        {
           href: "/crop-image/",
           label: "Crop Image Online",
           text: "Reframe the photo before choosing its final export dimensions.",
         },
         {
-          href: "/help/",
-          label: "Help & Guide",
-          text: "Find guidance for using SIHAG AI STUDIO's editing features.",
+          href: "/adjust-image-brightness/",
+          label: "Adjust Image Brightness",
+          text: "Correct the image's overall light level before exporting.",
+        },
+        {
+          href: "/photo-editor/",
+          label: "Online Photo Editor",
+          text: "Open the complete editor for layers, adjustments, retouching, text, brushes, and more.",
         },
       ]}
     />

@@ -93,9 +93,9 @@ export default function CropImagePage() {
       ]}
       relatedTools={[
         {
-          href: "/photo-editor/",
-          label: "Online Photo Editor",
-          text: "Use the complete SIHAG AI STUDIO workspace for broader photo editing.",
+          href: "/rotate-image/",
+          label: "Rotate Image Online",
+          text: "Correct the image orientation before or after reframing the photo.",
         },
         {
           href: "/resize-image/",
@@ -103,9 +103,9 @@ export default function CropImagePage() {
           text: "Set custom output dimensions from the editor's export workflow.",
         },
         {
-          href: "/help/",
-          label: "Help & Guide",
-          text: "Read guidance for using SIHAG AI STUDIO's editing workspace.",
+          href: "/photo-editor/",
+          label: "Online Photo Editor",
+          text: "Use the complete SIHAG AI STUDIO workspace for broader photo editing.",
         },
       ]}
     />
