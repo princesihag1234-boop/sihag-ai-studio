@@ -798,6 +798,13 @@ export default function Home() {
   >(null);
 
   const [
+    desktopInspectorTab,
+    setDesktopInspectorTab,
+  ] = useState<
+    "properties" | "adjust" | "layers"
+  >("properties");
+
+  const [
     topMenuOpen,
     setTopMenuOpen,
   ] = useState<
@@ -16097,6 +16104,49 @@ export default function Home() {
 <aside className="sihag-inspector hidden w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#111318] lg:block">
         
 
+          <div className="sihag-inspector-tabs sticky top-0 z-30 grid grid-cols-3 border-b border-white/[0.08] bg-[#0f131b]/96 p-2 backdrop-blur-xl">
+            {([
+              ["properties", "Properties"],
+              ["adjust", "Adjust"],
+              ["layers", "Layers"],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setDesktopInspectorTab(id)}
+                className={
+                  desktopInspectorTab === id
+                    ? "sihag-inspector-tab sihag-inspector-tab-active"
+                    : "sihag-inspector-tab"
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="sihag-inspector-context px-4 py-3">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+              {desktopInspectorTab === "properties"
+                ? "Contextual workspace"
+                : desktopInspectorTab === "adjust"
+                  ? "Image & adjustment controls"
+                  : "Document structure"}
+            </div>
+            <div className="mt-1 truncate text-[11px] text-gray-300">
+              {desktopInspectorTab === "properties"
+                ? selectedLayer
+                  ? `${selectedLayer.name} • ${activeTool}`
+                  : `No layer selected • ${activeTool}`
+                : desktopInspectorTab === "adjust"
+                  ? selectedLayer?.layerKind === "adjustment"
+                    ? selectedLayer.name
+                    : "Adjust current image or adjustment layer"
+                  : `${layers.length} ${layers.length === 1 ? "layer" : "layers"} • ${groups.length} ${groups.length === 1 ? "folder" : "folders"}`}
+            </div>
+          </div>
+          {desktopInspectorTab === "layers" && (
+            <>
           {/* LAYERS */}
 
           <div className="border-b border-white/10 p-3">
@@ -16153,7 +16203,10 @@ export default function Home() {
             </div>
 
           </div>
-
+            </>
+          )}
+          {desktopInspectorTab === "properties" && (
+            <>
           <section className="border-b border-white/10 p-4">
 
             <div className="flex items-center justify-between">
@@ -16555,7 +16608,10 @@ export default function Home() {
           </section>
 
           <AiToolsPanel />
-
+            </>
+          )}
+          {desktopInspectorTab === "layers" && (
+            <>
           <section className="border-b border-white/10 p-4">
 
             <div className="flex items-center justify-between">
@@ -16677,7 +16733,10 @@ export default function Home() {
             </div>
 
           </section>
-
+            </>
+          )}
+          {desktopInspectorTab === "properties" && (
+            <>
           <section className="border-b border-white/10 p-4">
 
             <div className="flex items-center justify-between">
@@ -16909,7 +16968,10 @@ export default function Home() {
             </div>
 
           </section>
-
+            </>
+          )}
+          {desktopInspectorTab === "layers" && (
+            <>
           <LayerPanel
             layers={layers}
             groups={groups}
@@ -16950,6 +17012,10 @@ export default function Home() {
             onHideAllMask={hideAllLayerMask}
           />
 
+          </>
+          )}
+          {desktopInspectorTab === "properties" && (
+            <>
           {selectedLayer?.layerKind !==
             "adjustment" && (
             <LayerTransformPanel
@@ -16958,7 +17024,10 @@ export default function Home() {
               onReset={resetLayerTransform}
             />
           )}
-
+            </>
+          )}
+          {desktopInspectorTab === "adjust" && (
+            <>
           <AdjustmentLayerPanel
             layer={selectedLayer}
             onApplyPreset={
@@ -17146,6 +17215,10 @@ export default function Home() {
             />
           )}
 
+            </>
+          )}
+          {desktopInspectorTab === "properties" && (
+            <>
           {activeTool === "brush" && (
             <MaskBrushPanel
               layer={selectedLayer}
@@ -18348,7 +18421,10 @@ export default function Home() {
             />
 
           </section>
-
+            </>
+          )}
+          {desktopInspectorTab === "adjust" && (
+            <>
           {/* ADJUSTMENTS */}
 
           <section className="p-4">
@@ -18681,7 +18757,8 @@ export default function Home() {
             />
 
           </section>
-
+            </>
+          )}
         </aside>
 
       </div>
