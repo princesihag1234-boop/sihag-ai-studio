@@ -748,10 +748,10 @@ export default function LayerPanel({
                       : "▼"}
                   </button>
 
-                  <span className="sihag-folder-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.055] bg-black/10 text-sm">
-                    {group.collapsed
-                      ? "📁"
-                      : "📂"}
+                  <span className="sihag-folder-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.055] bg-black/10 text-gray-400">
+                    <FolderVectorIcon
+                      open={!group.collapsed}
+                    />
                   </span>
 
                   <div className="min-w-0 flex-1">
@@ -785,9 +785,9 @@ export default function LayerPanel({
                         : "sihag-layer-quick-action bg-red-500/10 text-red-300"
                     }
                   >
-                    {group.visible
-                      ? "👁"
-                      : "○"}
+                    <LayerVisibilityIcon
+                      visible={group.visible}
+                    />
                   </button>
 
                   <button
@@ -807,9 +807,9 @@ export default function LayerPanel({
                         : "sihag-layer-quick-action text-gray-500"
                     }
                   >
-                    {group.locked
-                      ? "🔒"
-                      : "🔓"}
+                    <LayerLockIcon
+                      locked={group.locked}
+                    />
                   </button>
 
                   <button
@@ -1119,9 +1119,9 @@ export default function LayerPanel({
                       }}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-xs text-gray-300 transition hover:border-white/[0.07] hover:bg-white/[0.06]"
                     >
-                      {layer.visible
-                        ? "👁"
-                        : "○"}
+                      <LayerVisibilityIcon
+                        visible={layer.visible}
+                      />
                     </button>
 
                     {/* THUMBNAIL */}
@@ -1258,7 +1258,7 @@ export default function LayerPanel({
                           layer.groupId
                         ) && (
                           <>
-                            {" • 📁 "}
+                            {" • Folder: "}
                             {getGroupName(
                               layer.groupId
                             )}
@@ -1304,9 +1304,9 @@ export default function LayerPanel({
                       }}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-xs transition hover:border-white/[0.07] hover:bg-white/[0.06]"
                     >
-                      {layer.locked
-                        ? "🔒"
-                        : "🔓"}
+                      <LayerLockIcon
+                        locked={layer.locked}
+                      />
                     </button>
 
                     <button
@@ -1728,3 +1728,92 @@ export default function LayerPanel({
     </section>
   );
 }
+
+function LayerVisibilityIcon({
+  visible,
+}: {
+  visible: boolean;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[15px] w-[15px]"
+      aria-hidden="true"
+    >
+      {visible ? (
+        <>
+          <path d="M2.7 12s3.2-5 9.3-5 9.3 5 9.3 5-3.2 5-9.3 5-9.3-5-9.3-5Z" />
+          <circle cx="12" cy="12" r="2.6" />
+        </>
+      ) : (
+        <>
+          <path d="M4.3 4.3 19.7 19.7" />
+          <path d="M9.6 7.4A10.4 10.4 0 0 1 12 7c6.1 0 9.3 5 9.3 5a15.4 15.4 0 0 1-2.5 2.8" />
+          <path d="M6.2 8.6A15.9 15.9 0 0 0 2.7 12s3.2 5 9.3 5c1 0 1.9-.1 2.7-.4" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function LayerLockIcon({
+  locked,
+}: {
+  locked: boolean;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[14px] w-[14px]"
+      aria-hidden="true"
+    >
+      <rect
+        x="5"
+        y="10"
+        width="14"
+        height="10"
+        rx="2"
+      />
+      <path
+        d={
+          locked
+            ? "M8 10V7.6a4 4 0 0 1 8 0V10"
+            : "M8 10V7.6a4 4 0 0 1 7.4-2.1"
+        }
+      />
+    </svg>
+  );
+}
+
+function FolderVectorIcon({
+  open,
+}: {
+  open: boolean;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[16px] w-[16px]"
+      aria-hidden="true"
+    >
+      <path d="M3.5 7.5h6l1.7 2H20.5v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" />
+      {open && <path d="M4 11h16" />}
+    </svg>
+  );
+}
+

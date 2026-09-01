@@ -794,6 +794,8 @@ export default function Home() {
     mobilePanel,
     setMobilePanel,
   ] = useState<
+    | "tools"
+    | "properties"
     | "adjust"
     | "layers"
     | "text"
@@ -801,6 +803,13 @@ export default function Home() {
     | "more"
     | null
   >(null);
+
+  const [
+    mobileAdjustGroup,
+    setMobileAdjustGroup,
+  ] = useState<
+    "light" | "color" | "presence" | "detail" | "effects" | "layer"
+  >("light");
 
   const [
     desktopInspectorTab,
@@ -12007,6 +12016,109 @@ export default function Home() {
     { id: "zoom", name: "Zoom", icon: "⌕", group: "view" },
   ];
 
+  function mobileDockIcon(
+    id:
+      | "tools"
+      | "properties"
+      | "adjust"
+      | "layers"
+      | "more"
+  ) {
+    const common =
+      "h-[21px] w-[21px]";
+
+    if (id === "tools") {
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.65"
+          className={common}
+          aria-hidden="true"
+        >
+          <rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.4" />
+          <rect x="14" y="3.5" width="6.5" height="6.5" rx="1.4" />
+          <rect x="3.5" y="14" width="6.5" height="6.5" rx="1.4" />
+          <rect x="14" y="14" width="6.5" height="6.5" rx="1.4" />
+        </svg>
+      );
+    }
+
+    if (id === "properties") {
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.65"
+          strokeLinecap="round"
+          className={common}
+          aria-hidden="true"
+        >
+          <path d="M4 6h10" />
+          <path d="M18 6h2" />
+          <circle cx="16" cy="6" r="2" />
+          <path d="M4 12h2" />
+          <path d="M10 12h10" />
+          <circle cx="8" cy="12" r="2" />
+          <path d="M4 18h8" />
+          <path d="M16 18h4" />
+          <circle cx="14" cy="18" r="2" />
+        </svg>
+      );
+    }
+
+    if (id === "adjust") {
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.65"
+          className={common}
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="7.2" />
+          <path d="M12 4.8a7.2 7.2 0 0 1 0 14.4Z" fill="currentColor" stroke="none" opacity="0.24" />
+          <path d="M12 4.8v14.4" />
+        </svg>
+      );
+    }
+
+    if (id === "layers") {
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.65"
+          strokeLinejoin="round"
+          className={common}
+          aria-hidden="true"
+        >
+          <path d="m12 4 8 4.4-8 4.4-8-4.4Z" />
+          <path d="m4 12.1 8 4.4 8-4.4" />
+          <path d="m4 15.8 8 4.2 8-4.2" />
+        </svg>
+      );
+    }
+
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className={common}
+        aria-hidden="true"
+      >
+        <circle cx="5" cy="12" r="1.45" />
+        <circle cx="12" cy="12" r="1.45" />
+        <circle cx="19" cy="12" r="1.45" />
+      </svg>
+    );
+  }
+
+
   return (
     <main className="sihag-editor-shell h-[100dvh] overflow-hidden bg-[#0b0d12] text-white lg:h-screen">
       {/* STEP 7 - FINAL MOBILE RESPONSIVE POLISH */}
@@ -15128,7 +15240,7 @@ export default function Home() {
             onPointerUp={endPan}
             onPointerCancel={endPan}
             className={`sihag-canvas-stage relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(34,211,238,0.035),transparent_34%),linear-gradient(180deg,#171a20_0%,#12151a_100%)] before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] before:bg-[size:24px_24px] before:[mask-image:radial-gradient(circle_at_center,black,transparent_78%)] lg:touch-auto ${
-              mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
+              mobilePanel === "properties" || mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
                 ? "p-2.5 pb-[42dvh] sm:p-4 sm:pb-[48dvh] lg:p-8"
                 : "p-2.5 sm:p-4 lg:p-8"
             } ${
@@ -15478,283 +15590,735 @@ export default function Home() {
 
           {/* MOBILE ADJUST + LAYERS PREVIEW FIX - keeps canvas visible while editing */}
 
-          {/* MOBILE BOTTOM SHEETS */}
+          {/* MOBILE PROFESSIONAL WORKSPACE */}
 
           {mobilePanel && (
             <div
               className={
-                mobilePanel === "brush"
+                mobilePanel === "brush" || mobilePanel === "properties"
                   ? "pointer-events-none fixed inset-x-0 top-14 z-[210] lg:hidden"
                   : "fixed inset-x-0 top-14 z-[210] lg:hidden"
               }
-              style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}
+              style={{ bottom: "calc(64px + env(safe-area-inset-bottom))" }}
             >
               <button
                 type="button"
                 aria-label="Close mobile panel"
                 onClick={() => setMobilePanel(null)}
                 className={
-                  mobilePanel === "brush"
+                  mobilePanel === "brush" || mobilePanel === "properties"
                     ? "pointer-events-none absolute inset-0 bg-transparent"
-                    : mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text"
+                    : mobilePanel === "adjust" ||
+                        mobilePanel === "layers" ||
+                        mobilePanel === "text"
                       ? "absolute inset-0 bg-transparent"
-                    : "absolute inset-0 bg-black/55 backdrop-blur-[1px]"
+                      : "absolute inset-0 bg-black/25"
                 }
               />
 
               <div
-                className={`sihag-mobile-sheet pointer-events-auto absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain rounded-t-[22px] border-t border-white/[0.08] bg-[linear-gradient(180deg,#151923_0%,#11141b_100%)] shadow-[0_-22px_60px_rgba(0,0,0,0.52)] ring-1 ring-white/[0.025] sm:left-1/2 sm:right-auto sm:w-[640px] sm:max-w-[92vw] sm:-translate-x-1/2 sm:rounded-[22px] sm:border ${
-                  mobilePanel === "adjust" || mobilePanel === "layers" || mobilePanel === "text" || mobilePanel === "brush"
-                    ? "h-[42dvh] max-h-[420px] sm:h-[48dvh] sm:max-h-[520px]"
-                    : "max-h-[72dvh]"
+                className={`sihag-mobile-sheet pointer-events-auto absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain border-t lg:hidden ${
+                  mobilePanel === "properties" ||
+                  mobilePanel === "adjust" ||
+                  mobilePanel === "layers" ||
+                  mobilePanel === "text" ||
+                  mobilePanel === "brush"
+                    ? "h-[46dvh] max-h-[470px] sm:h-[50dvh] sm:max-h-[560px]"
+                    : "max-h-[68dvh]"
                 }`}
               >
-                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.07] bg-[#151923]/95 px-4 py-3.5 backdrop-blur-xl before:absolute before:left-1/2 before:top-1 before:h-1 before:w-10 before:-translate-x-1/2 before:rounded-full before:bg-white/15">
-                  <div>
-                    <div className="text-sm font-semibold text-white">
-                      {mobilePanel === "adjust"
-                        ? "Adjust"
-                        : mobilePanel === "layers"
-                          ? "Layers"
-                          : mobilePanel === "text"
-                            ? "Text"
-                            : mobilePanel === "brush"
-                              ? "Brush Pro"
-                              : "More Tools"}
+                <div className="sihag-mobile-sheet-header sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="sihag-mobile-sheet-kicker">
+                      {mobilePanel === "tools"
+                        ? "Workspace"
+                        : mobilePanel === "properties" ||
+                            mobilePanel === "text" ||
+                            mobilePanel === "brush"
+                          ? "Context"
+                          : mobilePanel === "adjust"
+                            ? "Image"
+                            : mobilePanel === "layers"
+                              ? "Document"
+                              : "Studio"}
                     </div>
-                    <div className="mt-0.5 text-[9px] text-gray-500">
-                      {mobilePanel === "adjust"
-                        ? "Image adjustments"
-                        : mobilePanel === "layers"
-                          ? `${layers.length} ${layers.length === 1 ? "layer" : "layers"}`
-                          : mobilePanel === "text"
-                            ? "Edit text and formatting"
-                            : mobilePanel === "brush"
-                              ? "Paint settings • canvas stays touchable"
-                              : "All editor tools"}
+
+                    <div className="mt-0.5 truncate text-[15px] font-semibold tracking-[-0.01em] text-white">
+                      {mobilePanel === "tools"
+                        ? "Tools"
+                        : mobilePanel === "properties"
+                          ? "Properties"
+                          : mobilePanel === "adjust"
+                            ? "Adjust"
+                            : mobilePanel === "layers"
+                              ? "Layers"
+                              : mobilePanel === "text"
+                                ? "Text Properties"
+                                : mobilePanel === "brush"
+                                  ? "Brush Properties"
+                                  : "More"}
+                    </div>
+
+                    <div className="mt-0.5 truncate text-[10px] text-[#7f8793]">
+                      {mobilePanel === "tools"
+                        ? "Choose a tool, then refine it in Properties"
+                        : mobilePanel === "properties"
+                          ? `${activeTool.replaceAll("-", " ")}${selectedLayer ? ` • ${selectedLayer.name}` : ""}`
+                          : mobilePanel === "adjust"
+                            ? "Non-destructive image corrections"
+                            : mobilePanel === "layers"
+                              ? `${layers.length} ${layers.length === 1 ? "layer" : "layers"} • ${groups.length} ${groups.length === 1 ? "folder" : "folders"}`
+                              : mobilePanel === "text"
+                                ? selectedLayer?.layerKind === "text"
+                                  ? selectedLayer.name
+                                  : "Typography and text layer controls"
+                                : mobilePanel === "brush"
+                                  ? "Paint settings • canvas remains available"
+                                  : "Document, export and performance"}
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => setMobilePanel(null)}
-                    className="flex h-10 w-10 touch-manipulation items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-lg text-gray-300 transition active:scale-[0.97] active:bg-white/[0.09]"
+                    className="sihag-mobile-sheet-close"
                     aria-label="Close panel"
                   >
-                    ×
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                      className="h-5 w-5"
+                    >
+                      <path d="m7 7 10 10M17 7 7 17" />
+                    </svg>
                   </button>
                 </div>
 
+                {mobilePanel === "tools" && (
+                  <section className="px-3 pb-5 pt-3">
+                    {(
+                      [
+                        ["navigate", "Navigate"],
+                        ["select", "Select"],
+                        ["retouch", "Retouch"],
+                        ["create", "Create"],
+                        ["view", "View"],
+                      ] as const
+                    ).map(([group, label]) => {
+                      const groupTools = tools.filter(
+                        (tool) => tool.group === group
+                      );
+
+                      if (groupTools.length === 0) {
+                        return null;
+                      }
+
+                      return (
+                        <div key={group} className="mb-4 last:mb-0">
+                          <div className="mb-2 px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#646c78]">
+                            {label}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {groupTools.map((tool) => {
+                              const selected =
+                                activeTool === tool.id;
+
+                              return (
+                                <button
+                                  key={tool.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (tool.id === "text") {
+                                      openMobileTextEditor();
+                                      return;
+                                    }
+
+                                    if (tool.id === "paint") {
+                                      openMobileBrushEditor();
+                                      return;
+                                    }
+
+                                    activateMobileTool(tool.id);
+                                    setMobilePanel("properties");
+                                  }}
+                                  className={
+                                    selected
+                                      ? "sihag-mobile-tool-row sihag-mobile-tool-row-active"
+                                      : "sihag-mobile-tool-row"
+                                  }
+                                >
+                                  <span className="min-w-0 truncate text-left">
+                                    {tool.name}
+                                  </span>
+
+                                  <span className="sihag-mobile-tool-meta">
+                                    {tool.shortcut ?? (selected ? "ACTIVE" : "OPEN")}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </section>
+                )}
+
+                {mobilePanel === "properties" && (
+                  <section>
+                    <div className="sihag-mobile-context-strip">
+                      <div className="min-w-0">
+                        <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#656e7b]">
+                          Active tool
+                        </div>
+                        <div className="mt-1 truncate text-[12px] font-medium capitalize text-[#e7eaf0]">
+                          {activeTool.replaceAll("-", " ")}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setMobilePanel("tools")}
+                        className="sihag-mobile-secondary-button"
+                      >
+                        Change Tool
+                      </button>
+                    </div>
+
+                    {activeTool === "move" &&
+                      selectedLayer?.layerKind !== "adjustment" && (
+                        <LayerTransformPanel
+                          layer={selectedLayer}
+                          onChange={updateLayerTransform}
+                          onReset={resetLayerTransform}
+                        />
+                      )}
+
+                    {activeTool === "crop" && image && (
+                      <div className="px-4 pb-5 pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[13px] font-semibold text-white">
+                              Crop
+                            </div>
+                            <div className="mt-1 text-[10px] text-[#747d89]">
+                              Choose a ratio or adjust directly on canvas
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={resetCrop}
+                            className="sihag-mobile-text-button"
+                          >
+                            Reset
+                          </button>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-5 gap-1.5">
+                          {(
+                            [
+                              "free",
+                              "1:1",
+                              "4:3",
+                              "3:2",
+                              "16:9",
+                            ] as CropAspect[]
+                          ).map((aspect) => (
+                            <button
+                              key={aspect}
+                              type="button"
+                              onClick={() =>
+                                chooseCropAspect(aspect)
+                              }
+                              className={
+                                cropAspect === aspect
+                                  ? "sihag-mobile-segment sihag-mobile-segment-active"
+                                  : "sihag-mobile-segment"
+                              }
+                            >
+                              {aspect === "free" ? "Free" : aspect}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4">
+                          <div>
+                            <div className="text-[9px] uppercase tracking-[0.12em] text-[#646c78]">
+                              Output
+                            </div>
+                            <div className="mt-1 text-[11px] tabular-nums text-[#c7ccd4]">
+                              {Math.round(
+                                crop.width * image.naturalWidth
+                              )}
+                              {" × "}
+                              {Math.round(
+                                crop.height * image.naturalHeight
+                              )}
+                              px
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={cancelCrop}
+                              className="sihag-mobile-secondary-button"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={applyCrop}
+                              className="sihag-mobile-primary-button"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeTool === "shape" && (
+                      <ShapeLayerPanel
+                        layer={selectedLayer}
+                        onAdd={() => addShapeLayer()}
+                        onChange={updateShapeLayer}
+                        onChangeStart={saveHistory}
+                      />
+                    )}
+
+                    {activeTool === "brush" && (
+                      <MaskBrushPanel
+                        layer={selectedLayer}
+                        brushSize={maskBrushSize}
+                        brushHardness={maskBrushHardness}
+                        brushOpacity={maskBrushOpacity}
+                        overlayEnabled={maskOverlayEnabled}
+                        mode={maskBrushMode}
+                        onBrushSizeChange={setMaskBrushSize}
+                        onBrushHardnessChange={setMaskBrushHardness}
+                        onBrushOpacityChange={setMaskBrushOpacity}
+                        onOverlayToggle={() =>
+                          setMaskOverlayEnabled(
+                            (value) => !value
+                          )
+                        }
+                        onModeChange={setMaskBrushMode}
+                      />
+                    )}
+
+                    {activeTool === "heal" && (
+                      <HealBrushPanel
+                        layer={selectedLayer}
+                        brushSize={healBrushSize}
+                        brushHardness={healBrushHardness}
+                        brushOpacity={healBrushOpacity}
+                        onBrushSizeChange={setHealBrushSize}
+                        onBrushHardnessChange={setHealBrushHardness}
+                        onBrushOpacityChange={setHealBrushOpacity}
+                      />
+                    )}
+
+                    {activeTool === "clone" && (
+                      <CloneStampPanel
+                        layer={selectedLayer}
+                        brushSize={cloneBrushSize}
+                        brushHardness={cloneBrushHardness}
+                        brushOpacity={cloneBrushOpacity}
+                        hasSample={
+                          !!cloneSample &&
+                          !!selectedLayer &&
+                          cloneSample.layerId ===
+                            selectedLayer.id
+                        }
+                        onBrushSizeChange={setCloneBrushSize}
+                        onBrushHardnessChange={setCloneBrushHardness}
+                        onBrushOpacityChange={setCloneBrushOpacity}
+                        onClearSample={() =>
+                          setCloneSample(null)
+                        }
+                      />
+                    )}
+
+                    {activeTool === "eraser" && (
+                      <EraserBrushPanel
+                        layer={selectedLayer}
+                        brushSize={eraserBrushSize}
+                        brushHardness={eraserBrushHardness}
+                        brushOpacity={eraserBrushOpacity}
+                        onBrushSizeChange={setEraserBrushSize}
+                        onBrushHardnessChange={setEraserBrushHardness}
+                        onBrushOpacityChange={setEraserBrushOpacity}
+                      />
+                    )}
+
+                    {activeTool === "dodge-burn" && (
+                      <DodgeBurnPanel
+                        layer={selectedLayer}
+                        mode={dodgeBurnMode}
+                        range={dodgeBurnRange}
+                        brushSize={dodgeBurnBrushSize}
+                        brushHardness={dodgeBurnBrushHardness}
+                        exposure={dodgeBurnExposure}
+                        onModeChange={setDodgeBurnMode}
+                        onRangeChange={setDodgeBurnRange}
+                        onBrushSizeChange={setDodgeBurnBrushSize}
+                        onBrushHardnessChange={setDodgeBurnBrushHardness}
+                        onExposureChange={setDodgeBurnExposure}
+                      />
+                    )}
+
+                    {activeTool === "blur-sharpen" && (
+                      <BlurSharpenPanel
+                        layer={selectedLayer}
+                        mode={blurSharpenMode}
+                        brushSize={blurSharpenBrushSize}
+                        brushHardness={blurSharpenBrushHardness}
+                        strength={blurSharpenStrength}
+                        onModeChange={setBlurSharpenMode}
+                        onBrushSizeChange={setBlurSharpenBrushSize}
+                        onBrushHardnessChange={setBlurSharpenBrushHardness}
+                        onStrengthChange={setBlurSharpenStrength}
+                      />
+                    )}
+
+                    {activeTool === "ai" && (
+                      <AiToolsPanel />
+                    )}
+
+                    {![
+                      "move",
+                      "crop",
+                      "shape",
+                      "brush",
+                      "heal",
+                      "clone",
+                      "eraser",
+                      "dodge-burn",
+                      "blur-sharpen",
+                      "ai",
+                    ].includes(activeTool) && (
+                      <div className="px-4 py-5">
+                        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-4">
+                          <div className="text-[12px] font-medium capitalize text-[#e3e6eb]">
+                            {activeTool.replaceAll("-", " ")}
+                          </div>
+                          <p className="mt-1.5 text-[10px] leading-5 text-[#7a828e]">
+                            This tool works directly on the canvas. Use the canvas controls below for navigation, or choose another tool from Tools.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                )}
+
                 {mobilePanel === "adjust" && (
-                  <section className="p-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">Adjustments</h3>
+                  <section className="px-4 pb-6 pt-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[13px] font-semibold text-white">
+                          Basic Adjustments
+                        </div>
+                        <div className="mt-1 text-[10px] text-[#747d89]">
+                          One correction group at a time
+                        </div>
+                      </div>
+
                       <button
                         type="button"
                         onClick={resetAll}
-                        className="min-h-10 touch-manipulation rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-2 text-[10px] font-medium text-cyan-100 active:bg-cyan-400/[0.12]"
+                        className="sihag-mobile-text-button"
                       >
                         Reset All
                       </button>
                     </div>
 
-                    <PanelTitle title="LIGHT" />
+                    <div className="sihag-mobile-adjust-tabs mt-4 flex gap-1.5 overflow-x-auto pb-1">
+                      {(
+                        [
+                          ["light", "Light"],
+                          ["color", "Color"],
+                          ["presence", "Presence"],
+                          ["detail", "Detail"],
+                          ["effects", "Effects"],
+                          ["layer", "Layer"],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() =>
+                            setMobileAdjustGroup(id)
+                          }
+                          className={
+                            mobileAdjustGroup === id
+                              ? "sihag-mobile-adjust-tab sihag-mobile-adjust-tab-active"
+                              : "sihag-mobile-adjust-tab"
+                          }
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
 
-                    <Slider
-                      title="Exposure"
-                      value={settings.exposure}
-                      min={-2}
-                      max={2}
-                      step={0.1}
-                      suffix=" EV"
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("exposure", v)}
-                    />
-                    <Slider
-                      title="Brightness"
-                      value={settings.brightness}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("brightness", v)}
-                    />
-                    <Slider
-                      title="Contrast"
-                      value={settings.contrast}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("contrast", v)}
-                    />
-                    <Slider
-                      title="Highlights"
-                      value={settings.highlights}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("highlights", v)}
-                    />
-                    <Slider
-                      title="Shadows"
-                      value={settings.shadows}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("shadows", v)}
-                    />
-                    <Slider
-                      title="Whites"
-                      value={settings.whites}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("whites", v)}
-                    />
-                    <Slider
-                      title="Blacks"
-                      value={settings.blacks}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("blacks", v)}
-                    />
+                    <div className="mt-4">
+                      {mobileAdjustGroup === "light" && (
+                        <>
+                          <Slider
+                            title="Exposure"
+                            value={settings.exposure}
+                            min={-2}
+                            max={2}
+                            step={0.1}
+                            suffix=" EV"
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("exposure", v)
+                            }
+                          />
+                          <Slider
+                            title="Brightness"
+                            value={settings.brightness}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("brightness", v)
+                            }
+                          />
+                          <Slider
+                            title="Contrast"
+                            value={settings.contrast}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("contrast", v)
+                            }
+                          />
+                          <Slider
+                            title="Highlights"
+                            value={settings.highlights}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("highlights", v)
+                            }
+                          />
+                          <Slider
+                            title="Shadows"
+                            value={settings.shadows}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("shadows", v)
+                            }
+                          />
+                          <Slider
+                            title="Whites"
+                            value={settings.whites}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("whites", v)
+                            }
+                          />
+                          <Slider
+                            title="Blacks"
+                            value={settings.blacks}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("blacks", v)
+                            }
+                          />
+                        </>
+                      )}
 
-                    <PanelTitle title="COLOR" />
+                      {mobileAdjustGroup === "color" && (
+                        <>
+                          <Slider
+                            title="Temperature"
+                            value={settings.temperature}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("temperature", v)
+                            }
+                          />
+                          <Slider
+                            title="Tint"
+                            value={settings.tint}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("tint", v)
+                            }
+                          />
+                          <Slider
+                            title="Vibrance"
+                            value={settings.vibrance}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("vibrance", v)
+                            }
+                          />
+                          <Slider
+                            title="Saturation"
+                            value={settings.saturation}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("saturation", v)
+                            }
+                          />
+                        </>
+                      )}
 
-                    <Slider
-                      title="Temperature"
-                      value={settings.temperature}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("temperature", v)}
-                    />
-                    <Slider
-                      title="Tint"
-                      value={settings.tint}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("tint", v)}
-                    />
-                    <Slider
-                      title="Vibrance"
-                      value={settings.vibrance}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("vibrance", v)}
-                    />
-                    <Slider
-                      title="Saturation"
-                      value={settings.saturation}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("saturation", v)}
-                    />
+                      {mobileAdjustGroup === "presence" && (
+                        <>
+                          <Slider
+                            title="Texture"
+                            value={settings.texture}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("texture", v)
+                            }
+                          />
+                          <Slider
+                            title="Clarity"
+                            value={settings.clarity}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("clarity", v)
+                            }
+                          />
+                          <Slider
+                            title="Dehaze"
+                            value={settings.dehaze}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("dehaze", v)
+                            }
+                          />
+                        </>
+                      )}
 
-                    <PanelTitle title="PRESENCE" />
+                      {mobileAdjustGroup === "detail" && (
+                        <>
+                          <Slider
+                            title="Sharpening"
+                            value={settings.sharpness}
+                            min={0}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("sharpness", v)
+                            }
+                          />
+                          <Slider
+                            title="Noise Reduction"
+                            value={settings.noiseReduction}
+                            min={0}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("noiseReduction", v)
+                            }
+                          />
+                        </>
+                      )}
 
-                    <Slider
-                      title="Texture"
-                      value={settings.texture}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("texture", v)}
-                    />
-                    <Slider
-                      title="Clarity"
-                      value={settings.clarity}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("clarity", v)}
-                    />
-                    <Slider
-                      title="Dehaze"
-                      value={settings.dehaze}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("dehaze", v)}
-                    />
+                      {mobileAdjustGroup === "effects" && (
+                        <>
+                          <Slider
+                            title="Vignette"
+                            value={settings.vignette}
+                            min={-100}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("vignette", v)
+                            }
+                          />
+                          <Slider
+                            title="Grain"
+                            value={settings.grain}
+                            min={0}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("grain", v)
+                            }
+                          />
+                          <Slider
+                            title="Fade"
+                            value={settings.fade}
+                            min={0}
+                            max={100}
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("fade", v)
+                            }
+                          />
+                          <Slider
+                            title="Blur"
+                            value={settings.blur}
+                            min={0}
+                            max={20}
+                            suffix=" px"
+                            onEditStart={saveHistory}
+                            onChange={(v) =>
+                              change("blur", v)
+                            }
+                          />
+                        </>
+                      )}
 
-                    <PanelTitle title="DETAIL" />
-
-                    <Slider
-                      title="Sharpening"
-                      value={settings.sharpness}
-                      min={0}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("sharpness", v)}
-                    />
-                    <Slider
-                      title="Noise Reduction"
-                      value={settings.noiseReduction}
-                      min={0}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("noiseReduction", v)}
-                    />
-
-                    <PanelTitle title="EFFECTS" />
-
-                    <Slider
-                      title="Vignette"
-                      value={settings.vignette}
-                      min={-100}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("vignette", v)}
-                    />
-                    <Slider
-                      title="Grain"
-                      value={settings.grain}
-                      min={0}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("grain", v)}
-                    />
-                    <Slider
-                      title="Fade"
-                      value={settings.fade}
-                      min={0}
-                      max={100}
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("fade", v)}
-                    />
-                    <Slider
-                      title="Blur"
-                      value={settings.blur}
-                      min={0}
-                      max={20}
-                      suffix=" px"
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("blur", v)}
-                    />
-
-                    <PanelTitle title="LAYER" />
-
-                    <Slider
-                      title="Opacity"
-                      value={settings.opacity}
-                      min={0}
-                      max={100}
-                      suffix="%"
-                      onEditStart={saveHistory}
-                      onChange={(v) => change("opacity", v)}
-                    />
+                      {mobileAdjustGroup === "layer" && (
+                        <Slider
+                          title="Opacity"
+                          value={settings.opacity}
+                          min={0}
+                          max={100}
+                          suffix="%"
+                          onEditStart={saveHistory}
+                          onChange={(v) =>
+                            change("opacity", v)
+                          }
+                        />
+                      )}
+                    </div>
                   </section>
                 )}
 
                 {mobilePanel === "layers" && (
                   <section>
-                    <div className="grid grid-cols-2 gap-2 border-b border-white/10 p-3 sm:grid-cols-4">
-                      <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-lg bg-indigo-600 px-2 py-2 text-center text-[9px] text-white active:bg-indigo-500">
-                        + Image
+                    <div className="sihag-mobile-layer-addbar grid grid-cols-4 gap-1.5 px-3 py-3">
+                      <label className="sihag-mobile-add-layer-button cursor-pointer">
+                        <span className="text-[15px] leading-none">+</span>
+                        <span>Image</span>
                         <input
                           hidden
                           type="file"
@@ -15767,27 +16331,30 @@ export default function Home() {
                         type="button"
                         disabled={layers.length === 0}
                         onClick={openMobileTextEditor}
-                        className="min-h-11 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2 py-2 text-[9px] text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="sihag-mobile-add-layer-button disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        + Text
+                        <span className="text-[15px] leading-none">+</span>
+                        <span>Text</span>
                       </button>
 
                       <button
                         type="button"
                         disabled={layers.length === 0}
                         onClick={() => addShapeLayer()}
-                        className="min-h-11 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2 py-2 text-[9px] text-indigo-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="sihag-mobile-add-layer-button disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        + Shape
+                        <span className="text-[15px] leading-none">+</span>
+                        <span>Shape</span>
                       </button>
 
                       <button
                         type="button"
                         disabled={layers.length === 0}
                         onClick={addAdjustmentLayer}
-                        className="min-h-11 rounded-lg border border-violet-500/30 bg-violet-500/10 px-1 py-2 text-[8px] text-violet-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="sihag-mobile-add-layer-button disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        + Adjust
+                        <span className="text-[15px] leading-none">+</span>
+                        <span>Adjust</span>
                       </button>
                     </div>
 
@@ -15883,9 +16450,12 @@ export default function Home() {
                         autoFocusText
                       />
                     ) : (
-                      <div className="flex min-h-28 flex-col items-center justify-center gap-3 text-center">
-                        <p className="text-xs text-gray-400">
-                          Select a text layer or add a new one.
+                      <div className="flex min-h-32 flex-col items-center justify-center gap-3 px-4 text-center">
+                        <div className="text-[12px] font-medium text-[#dfe3e9]">
+                          Create a text layer
+                        </div>
+                        <p className="max-w-[280px] text-[10px] leading-5 text-[#747d89]">
+                          Add text, then typography and transform controls will appear here.
                         </p>
                         <button
                           type="button"
@@ -15893,7 +16463,7 @@ export default function Home() {
                             addTextLayer();
                             setActiveTool("move");
                           }}
-                          className="min-h-11 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white active:bg-indigo-500"
+                          className="sihag-mobile-primary-button min-h-10 px-4"
                         >
                           Add Text
                         </button>
@@ -15903,37 +16473,117 @@ export default function Home() {
                 )}
 
                 {mobilePanel === "more" && (
-                  <section className="p-3">
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                      {tools
-                        .filter(
-                          (tool) =>
-                            ![
-                              "move",
-                              "crop",
-                              "paint",
-                              "text",
-                              "ai",
-                            ].includes(tool.id)
-                        )
-                        .map((tool) => (
+                  <section className="px-3 pb-5 pt-3">
+                    <div className="mb-2 px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#646c78]">
+                      Document
+                    </div>
+
+                    <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.018]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobilePanel(null);
+                          openImagePicker();
+                        }}
+                        className="sihag-mobile-more-row"
+                      >
+                        <span>Open Image</span>
+                        <span className="sihag-mobile-more-meta">IMAGE</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobilePanel(null);
+                          openProjectPicker();
+                        }}
+                        className="sihag-mobile-more-row"
+                      >
+                        <span>Open Project</span>
+                        <span className="sihag-mobile-more-meta">.SIHAG</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={layers.length === 0}
+                        onClick={() => {
+                          saveProject();
+                          setMobilePanel(null);
+                        }}
+                        className="sihag-mobile-more-row disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <span>Save Project</span>
+                        <span className="sihag-mobile-more-meta">SAVE</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={layers.length === 0}
+                        onClick={() => {
+                          setMobilePanel(null);
+                          void openExportDialog();
+                        }}
+                        className="sihag-mobile-more-row disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <span>Export</span>
+                        <span className="sihag-mobile-more-meta">OUTPUT</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobilePanel(null);
+                          setShortcutsOpen(true);
+                        }}
+                        className="sihag-mobile-more-row"
+                      >
+                        <span>Keyboard Shortcuts</span>
+                        <span className="sihag-mobile-more-meta">HELP</span>
+                      </button>
+                    </div>
+
+                    <div className="mb-2 mt-5 px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#646c78]">
+                      Preview
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.07] bg-white/[0.018] p-3">
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(
+                          [
+                            ["fast", "Fast", "800"],
+                            ["balanced", "Balanced", "1200"],
+                            ["quality", "Quality", "1600"],
+                          ] as const
+                        ).map(([mode, label, size]) => (
                           <button
-                            key={tool.id}
+                            key={mode}
                             type="button"
-                            onClick={() => {
-                              setActiveTool(tool.id);
-                              setMobilePanel(null);
-                              setMobileMenuOpen(false);
-                            }}
+                            onClick={() =>
+                              setPreviewQuality(mode)
+                            }
                             className={
-                              activeTool === tool.id
-                                ? "min-h-12 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-2 py-3 text-[10px] font-medium text-indigo-200"
-                                : "min-h-12 rounded-xl border border-white/10 bg-white/5 px-2 py-3 text-[10px] text-gray-300 active:bg-white/10"
+                              previewQuality === mode
+                                ? "sihag-mobile-quality-button sihag-mobile-quality-button-active"
+                                : "sihag-mobile-quality-button"
                             }
                           >
-                            {tool.name}
+                            <span>{label}</span>
+                            <span className="mt-0.5 text-[8px] text-[#6d7581]">
+                              {size}px
+                            </span>
                           </button>
                         ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={purgePreviewCache}
+                        className="mt-2.5 w-full rounded-lg border border-white/[0.07] bg-white/[0.025] px-3 py-2.5 text-[10px] text-[#aeb4bd] active:bg-white/[0.055]"
+                      >
+                        {previewCachePurged
+                          ? "Preview cache cleared"
+                          : "Clear preview cache"}
+                      </button>
                     </div>
                   </section>
                 )}
@@ -15944,7 +16594,7 @@ export default function Home() {
           {/* MOBILE CANVAS CONTROLS */}
 
           {layers.length > 0 && (
-            <div className="grid h-12 shrink-0 select-none grid-cols-5 overflow-hidden border-t border-white/10 bg-[#0f1116] lg:hidden">
+            <div className="sihag-mobile-canvas-controls grid shrink-0 select-none grid-cols-5 lg:hidden">
               <button
                 type="button"
                 onClick={() => {
@@ -15954,8 +16604,8 @@ export default function Home() {
                 }}
                 className={
                   activeTool === "hand"
-                    ? "flex min-h-11 touch-manipulation items-center justify-center bg-indigo-500/15 px-2 text-[10px] font-medium text-indigo-300"
-                    : "flex min-h-11 touch-manipulation items-center justify-center px-2 text-[10px] text-gray-300 active:bg-white/10"
+                    ? "sihag-mobile-canvas-button sihag-mobile-canvas-button-active"
+                    : "sihag-mobile-canvas-button"
                 }
                 title="Pan canvas"
               >
@@ -15965,21 +16615,21 @@ export default function Home() {
               <button
                 type="button"
                 onClick={zoomOut}
-                className="flex min-h-11 touch-manipulation items-center justify-center text-xl text-gray-200 transition active:bg-white/[0.08] active:text-cyan-200"
+                className="sihag-mobile-canvas-button text-lg"
                 title="Zoom out"
                 aria-label="Zoom out"
               >
                 −
               </button>
 
-              <div className="flex min-h-11 items-center justify-center text-[10px] font-medium text-gray-300">
+              <div className="flex min-h-10 items-center justify-center text-[10px] font-medium tabular-nums text-[#b7bdc7]">
                 {Math.round(zoom * 100)}%
               </div>
 
               <button
                 type="button"
                 onClick={fitToScreen}
-                className="flex min-h-11 touch-manipulation items-center justify-center px-2 text-[10px] text-gray-200 active:bg-white/10"
+                className="sihag-mobile-canvas-button"
                 title="Fit canvas"
               >
                 Fit
@@ -15988,7 +16638,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={zoomIn}
-                className="flex min-h-11 touch-manipulation items-center justify-center text-xl text-gray-200 transition active:bg-white/[0.08] active:text-cyan-200"
+                className="sihag-mobile-canvas-button text-lg"
                 title="Zoom in"
                 aria-label="Zoom in"
               >
@@ -15997,67 +16647,102 @@ export default function Home() {
             </div>
           )}
 
-          {/* MOBILE BOTTOM TOOLBAR */}
+          {/* MOBILE PRIMARY NAVIGATION */}
 
           <nav
-            className="sihag-mobile-dock grid shrink-0 select-none grid-cols-8 overflow-hidden border-t border-white/[0.07] bg-[#0f1218]/98 shadow-[0_-10px_28px_rgba(0,0,0,0.24)] backdrop-blur-xl lg:hidden"
+            className="sihag-mobile-dock grid shrink-0 select-none grid-cols-5 lg:hidden"
             style={{
-              height: "calc(56px + env(safe-area-inset-bottom))",
+              height: "calc(64px + env(safe-area-inset-bottom))",
               paddingBottom: "env(safe-area-inset-bottom)",
             }}
+            aria-label="Editor navigation"
           >
             {(
               [
-                { kind: "tool", id: "move", label: "Move", icon: "↔" },
-                { kind: "tool", id: "crop", label: "Crop", icon: "⌗" },
-                { kind: "panel", id: "adjust", label: "Adjust", icon: "☼" },
-                { kind: "panel", id: "brush", label: "Brush", icon: "✎" },
-                { kind: "panel", id: "text", label: "Text", icon: "T" },
-                { kind: "panel", id: "layers", label: "Layers", icon: "▱" },
-                { kind: "tool", id: "ai", label: "AI", icon: "✦" },
-                { kind: "panel", id: "more", label: "More", icon: "•••" },
+                {
+                  id: "tools",
+                  label: "Tools",
+                },
+                {
+                  id: "properties",
+                  label: "Properties",
+                },
+                {
+                  id: "adjust",
+                  label: "Adjust",
+                },
+                {
+                  id: "layers",
+                  label: "Layers",
+                },
+                {
+                  id: "more",
+                  label: "More",
+                },
               ] as const
             ).map((item) => {
-              const isActive =
-                item.kind === "tool"
-                  ? mobilePanel === null && activeTool === item.id
-                  : mobilePanel === item.id;
+              const isProperties =
+                item.id === "properties";
+
+              const isActive = isProperties
+                ? mobilePanel === "properties" ||
+                  mobilePanel === "text" ||
+                  mobilePanel === "brush"
+                : mobilePanel === item.id;
 
               return (
                 <button
-                  key={`${item.kind}-${item.id}`}
+                  key={item.id}
                   type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
 
-                    if (item.kind === "tool") {
-                      activateMobileTool(item.id);
-                    } else if (item.id === "text") {
-                      if (mobilePanel === "text") {
+                    if (item.id === "properties") {
+                      if (
+                        mobilePanel === "properties" ||
+                        mobilePanel === "text" ||
+                        mobilePanel === "brush"
+                      ) {
                         setMobilePanel(null);
-                      } else {
-                        openMobileTextEditor();
+                        return;
                       }
-                    } else if (item.id === "brush") {
-                      if (mobilePanel === "brush") {
-                        setMobilePanel(null);
-                      } else {
+
+                      if (activeTool === "paint") {
                         openMobileBrushEditor();
+                        return;
                       }
-                    } else {
-                      setMobilePanel((value) =>
-                        value === item.id ? null : item.id
-                      );
+
+                      if (
+                        selectedLayer?.layerKind === "text"
+                      ) {
+                        setActiveTool("move");
+                        setMobilePanel("text");
+                        return;
+                      }
+
+                      setMobilePanel("properties");
+                      return;
                     }
+
+                    setMobilePanel((value) =>
+                      value === item.id
+                        ? null
+                        : item.id
+                    );
                   }}
                   className={
                     isActive
-                      ? "relative flex min-w-0 touch-manipulation flex-col items-center justify-center gap-1 bg-cyan-400/[0.075] px-0.5 text-[8px] font-semibold text-cyan-200 before:absolute before:inset-x-2 before:top-0 before:h-0.5 before:rounded-full before:bg-cyan-300 sm:text-[10px]"
-                      : "flex min-w-0 touch-manipulation flex-col items-center justify-center gap-1 px-0.5 text-[8px] text-gray-500 transition active:bg-white/[0.07] active:text-white sm:text-[10px]"
+                      ? "sihag-mobile-nav-item sihag-mobile-nav-item-active"
+                      : "sihag-mobile-nav-item"
                   }
+                  aria-current={isActive ? "page" : undefined}
                 >
-                  <span className="text-[16px] leading-none sm:text-[18px]">{item.icon}</span>
-                  <span className="max-w-full truncate">{item.label}</span>
+                  <span className="sihag-mobile-nav-icon">
+                    {mobileDockIcon(item.id)}
+                  </span>
+                  <span className="sihag-mobile-nav-label">
+                    {item.label}
+                  </span>
                 </button>
               );
             })}
