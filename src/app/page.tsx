@@ -810,6 +810,20 @@ export default function Home() {
   >("properties");
 
   const [
+    desktopAdjustSection,
+    setDesktopAdjustSection,
+  ] = useState<
+    "basic" | "curves" | "hsl" | "grading" | "layer"
+  >("basic");
+
+  const [
+    desktopBasicAdjustGroup,
+    setDesktopBasicAdjustGroup,
+  ] = useState<
+    "light" | "color" | "presence" | "detail" | "effects" | "layer"
+  >("light");
+
+  const [
     topMenuOpen,
     setTopMenuOpen,
   ] = useState<
@@ -935,6 +949,18 @@ export default function Home() {
     layers.find(
       (layer) => layer.id === selectedLayerId
     ) ?? null;
+
+  useEffect(() => {
+    if (
+      selectedLayer?.layerKind !== "adjustment" &&
+      desktopAdjustSection !== "basic"
+    ) {
+      setDesktopAdjustSection("basic");
+    }
+  }, [
+    selectedLayer?.layerKind,
+    desktopAdjustSection,
+  ]);
 
   useEffect(() => {
     if (mobilePanel !== "text") {
@@ -16220,6 +16246,84 @@ export default function Home() {
                   : `${layers.length} ${layers.length === 1 ? "layer" : "layers"} • ${groups.length} ${groups.length === 1 ? "folder" : "folders"}`}
             </div>
           </div>
+
+          {desktopInspectorTab === "adjust" && (
+            <div className="sihag-adjust-workspace-bar border-b border-white/[0.08] px-3 pb-3">
+              <div className="sihag-adjust-workspace-tabs grid grid-cols-5 gap-1">
+                {([
+                  ["basic", "Basic"],
+                  ["curves", "Curves"],
+                  ["hsl", "HSL"],
+                  ["grading", "Grade"],
+                  ["layer", "Layer"],
+                ] as const).map(([id, label]) => {
+                  const requiresAdjustmentLayer =
+                    id !== "basic";
+
+                  const disabled =
+                    requiresAdjustmentLayer &&
+                    selectedLayer?.layerKind !== "adjustment";
+
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() =>
+                        setDesktopAdjustSection(id)
+                      }
+                      className={
+                        desktopAdjustSection === id
+                          ? "sihag-adjust-workspace-tab sihag-adjust-workspace-tab-active"
+                          : "sihag-adjust-workspace-tab"
+                      }
+                      title={
+                        disabled
+                          ? "Select or create an adjustment layer first"
+                          : `${label} adjustment workspace`
+                      }
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="sihag-adjust-workspace-status mt-2.5 flex items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+                    {desktopAdjustSection === "basic"
+                      ? "Direct image adjustments"
+                      : "Non-destructive adjustment layer"}
+                  </div>
+                  <div className="mt-0.5 truncate text-[10px] text-gray-400">
+                    {desktopAdjustSection === "basic"
+                      ? selectedLayer
+                        ? `Editing ${selectedLayer.name}`
+                        : "Open an image to begin"
+                      : selectedLayer?.layerKind === "adjustment"
+                        ? selectedLayer.name
+                        : "Advanced controls need an adjustment layer"}
+                  </div>
+                </div>
+
+                {selectedLayer?.layerKind !== "adjustment" && (
+                  <button
+                    type="button"
+                    disabled={layers.length === 0}
+                    onClick={() => {
+                      addAdjustmentLayer();
+                      setDesktopAdjustSection("layer");
+                    }}
+                    className="sihag-adjust-create-button shrink-0 rounded-lg border border-violet-400/20 bg-violet-400/[0.07] px-2.5 py-1.5 text-[9px] font-medium text-violet-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    + Adjustment
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {desktopInspectorTab === "layers" && (
             <>
           {/* LAYERS */}
@@ -17111,7 +17215,9 @@ export default function Home() {
           )}
           {desktopInspectorTab === "adjust" && (
             <>
-          <AdjustmentLayerPanel
+          {desktopAdjustSection === "layer" && (
+            <div className="sihag-adjust-advanced-panel">
+              <AdjustmentLayerPanel
             layer={selectedLayer}
             onApplyPreset={
               applyAdjustmentPreset
@@ -17196,9 +17302,12 @@ export default function Home() {
               }
             }}
           />
+            </div>
+          )}
 
-          {selectedLayer?.layerKind ===
-            "adjustment" && (
+          {desktopAdjustSection === "curves" &&
+            selectedLayer?.layerKind ===
+              "adjustment" && (
             <CurvesPanel
               masterPoints={
                 selectedLayer.toneCurve ??
@@ -17228,8 +17337,9 @@ export default function Home() {
             />
           )}
 
-          {selectedLayer?.layerKind ===
-            "adjustment" && (
+          {desktopAdjustSection === "hsl" &&
+            selectedLayer?.layerKind ===
+              "adjustment" && (
             <HslColorMixerPanel
               mixer={
                 selectedLayer.hslMixer ??
@@ -17250,8 +17360,9 @@ export default function Home() {
             />
           )}
 
-          {selectedLayer?.layerKind ===
-            "adjustment" && (
+          {desktopAdjustSection === "grading" &&
+            selectedLayer?.layerKind ===
+              "adjustment" && (
             <ColorGradingPanel
               grading={
                 selectedLayer.colorGrading ??
@@ -18511,342 +18622,383 @@ export default function Home() {
           </section>
             </>
           )}
-          {desktopInspectorTab === "adjust" && (
+          {desktopInspectorTab === "adjust" &&
+            desktopAdjustSection === "basic" && (
             <>
-          {/* ADJUSTMENTS */}
+          {/* BASIC ADJUSTMENTS */}
 
-          <section className="p-4">
+          <section className="sihag-basic-adjust-panel p-4">
 
-            <div className="flex items-center justify-between">
-
-              <h3 className="text-sm font-semibold">
-                Adjustments
-              </h3>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-white">
+                  Basic Adjustments
+                </h3>
+                <p className="mt-1 text-[9px] leading-4 text-gray-500">
+                  Work one correction group at a time for a cleaner editing flow.
+                </p>
+              </div>
 
               <button
+                type="button"
                 onClick={resetAll}
-                className="text-xs text-indigo-400"
+                className="sihag-adjust-reset-button shrink-0 rounded-lg border border-cyan-400/15 bg-cyan-400/[0.055] px-2.5 py-1.5 text-[9px] font-medium text-cyan-100 hover:bg-cyan-400/[0.09]"
               >
                 Reset All
               </button>
-
             </div>
 
-            <PanelTitle title="LIGHT" />
+            <div className="sihag-basic-adjust-tabs mt-4 grid grid-cols-3 gap-1.5">
+              {([
+                ["light", "Light"],
+                ["color", "Color"],
+                ["presence", "Presence"],
+                ["detail", "Detail"],
+                ["effects", "Effects"],
+                ["layer", "Layer"],
+              ] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() =>
+                    setDesktopBasicAdjustGroup(id)
+                  }
+                  className={
+                    desktopBasicAdjustGroup === id
+                      ? "sihag-basic-adjust-tab sihag-basic-adjust-tab-active"
+                      : "sihag-basic-adjust-tab"
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-            <Slider
-              title="Exposure"
-              value={settings.exposure}
-              min={-2}
-              max={2}
-              step={0.1}
-              suffix=" EV"
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "exposure",
-                  v
-                )
-              }
-            />
+            <div className="sihag-basic-adjust-body mt-4">
+              {desktopBasicAdjustGroup === "light" && (
+                <div className="sihag-adjust-group-card">
+                  <div className="sihag-adjust-group-heading">
+                    <div>
+                      <div className="sihag-adjust-group-kicker">LIGHT</div>
+                      <div className="sihag-adjust-group-description">
+                        Exposure and tonal range
+                      </div>
+                    </div>
+                    <span>7 controls</span>
+                  </div>
 
-            <Slider
-              title="Brightness"
-              value={settings.brightness}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "brightness",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Exposure"
+                    value={settings.exposure}
+                    min={-2}
+                    max={2}
+                    step={0.1}
+                    suffix=" EV"
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("exposure", v)
+                    }
+                  />
 
-            <Slider
-              title="Contrast"
-              value={settings.contrast}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "contrast",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Brightness"
+                    value={settings.brightness}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("brightness", v)
+                    }
+                  />
 
-            <Slider
-              title="Highlights"
-              value={settings.highlights}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "highlights",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Contrast"
+                    value={settings.contrast}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("contrast", v)
+                    }
+                  />
 
-            <Slider
-              title="Shadows"
-              value={settings.shadows}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "shadows",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Highlights"
+                    value={settings.highlights}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("highlights", v)
+                    }
+                  />
 
-            <Slider
-              title="Whites"
-              value={settings.whites}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "whites",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Shadows"
+                    value={settings.shadows}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("shadows", v)
+                    }
+                  />
 
-            <Slider
-              title="Blacks"
-              value={settings.blacks}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "blacks",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Whites"
+                    value={settings.whites}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("whites", v)
+                    }
+                  />
 
-            <PanelTitle title="COLOR" />
+                  <Slider
+                    title="Blacks"
+                    value={settings.blacks}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("blacks", v)
+                    }
+                  />
+                </div>
+              )}
 
-            <Slider
-              title="Temperature"
-              value={settings.temperature}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "temperature",
-                  v
-                )
-              }
-            />
+              {desktopBasicAdjustGroup === "color" && (
+                <div className="sihag-adjust-group-card">
+                  <div className="sihag-adjust-group-heading">
+                    <div>
+                      <div className="sihag-adjust-group-kicker">COLOR</div>
+                      <div className="sihag-adjust-group-description">
+                        White balance and color intensity
+                      </div>
+                    </div>
+                    <span>4 controls</span>
+                  </div>
 
-            <Slider
-              title="Tint"
-              value={settings.tint}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "tint",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Temperature"
+                    value={settings.temperature}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("temperature", v)
+                    }
+                  />
 
-            <Slider
-              title="Vibrance"
-              value={settings.vibrance}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "vibrance",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Tint"
+                    value={settings.tint}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("tint", v)
+                    }
+                  />
 
-            <Slider
-              title="Saturation"
-              value={settings.saturation}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "saturation",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Vibrance"
+                    value={settings.vibrance}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("vibrance", v)
+                    }
+                  />
 
-            <PanelTitle title="PRESENCE" />
+                  <Slider
+                    title="Saturation"
+                    value={settings.saturation}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("saturation", v)
+                    }
+                  />
+                </div>
+              )}
 
-            <Slider
-              title="Texture"
-              value={settings.texture}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "texture",
-                  v
-                )
-              }
-            />
+              {desktopBasicAdjustGroup === "presence" && (
+                <div className="sihag-adjust-group-card">
+                  <div className="sihag-adjust-group-heading">
+                    <div>
+                      <div className="sihag-adjust-group-kicker">PRESENCE</div>
+                      <div className="sihag-adjust-group-description">
+                        Local contrast and atmosphere
+                      </div>
+                    </div>
+                    <span>3 controls</span>
+                  </div>
 
-            <Slider
-              title="Clarity"
-              value={settings.clarity}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "clarity",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Texture"
+                    value={settings.texture}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("texture", v)
+                    }
+                  />
 
-            <Slider
-              title="Dehaze"
-              value={settings.dehaze}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "dehaze",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Clarity"
+                    value={settings.clarity}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("clarity", v)
+                    }
+                  />
 
-            <PanelTitle title="DETAIL" />
+                  <Slider
+                    title="Dehaze"
+                    value={settings.dehaze}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("dehaze", v)
+                    }
+                  />
+                </div>
+              )}
 
-            <Slider
-              title="Sharpening"
-              value={settings.sharpness}
-              min={0}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "sharpness",
-                  v
-                )
-              }
-            />
+              {desktopBasicAdjustGroup === "detail" && (
+                <div className="sihag-adjust-group-card">
+                  <div className="sihag-adjust-group-heading">
+                    <div>
+                      <div className="sihag-adjust-group-kicker">DETAIL</div>
+                      <div className="sihag-adjust-group-description">
+                        Crispness and noise cleanup
+                      </div>
+                    </div>
+                    <span>2 controls</span>
+                  </div>
 
-            <Slider
-              title="Noise Reduction"
-              value={
-                settings.noiseReduction
-              }
-              min={0}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "noiseReduction",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Sharpening"
+                    value={settings.sharpness}
+                    min={0}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("sharpness", v)
+                    }
+                  />
 
-            <PanelTitle title="EFFECTS" />
+                  <Slider
+                    title="Noise Reduction"
+                    value={settings.noiseReduction}
+                    min={0}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("noiseReduction", v)
+                    }
+                  />
+                </div>
+              )}
 
-            <Slider
-              title="Vignette"
-              value={settings.vignette}
-              min={-100}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "vignette",
-                  v
-                )
-              }
-            />
+              {desktopBasicAdjustGroup === "effects" && (
+                <div className="sihag-adjust-group-card">
+                  <div className="sihag-adjust-group-heading">
+                    <div>
+                      <div className="sihag-adjust-group-kicker">EFFECTS</div>
+                      <div className="sihag-adjust-group-description">
+                        Finishing effects and softness
+                      </div>
+                    </div>
+                    <span>4 controls</span>
+                  </div>
 
-            <Slider
-              title="Grain"
-              value={settings.grain}
-              min={0}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "grain",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Vignette"
+                    value={settings.vignette}
+                    min={-100}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("vignette", v)
+                    }
+                  />
 
-            <Slider
-              title="Fade"
-              value={settings.fade}
-              min={0}
-              max={100}
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "fade",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Grain"
+                    value={settings.grain}
+                    min={0}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("grain", v)
+                    }
+                  />
 
-            <Slider
-              title="Blur"
-              value={settings.blur}
-              min={0}
-              max={20}
-              suffix=" px"
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "blur",
-                  v
-                )
-              }
-            />
+                  <Slider
+                    title="Fade"
+                    value={settings.fade}
+                    min={0}
+                    max={100}
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("fade", v)
+                    }
+                  />
 
-            <PanelTitle title="LAYER" />
+                  <Slider
+                    title="Blur"
+                    value={settings.blur}
+                    min={0}
+                    max={20}
+                    suffix=" px"
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("blur", v)
+                    }
+                  />
+                </div>
+              )}
 
-            <Slider
-              title="Opacity"
-              value={settings.opacity}
-              min={0}
-              max={100}
-              suffix="%"
-              onEditStart={saveHistory}
-              onChange={(v) =>
-                change(
-                  "opacity",
-                  v
-                )
-              }
-            />
+              {desktopBasicAdjustGroup === "layer" && (
+                <div className="sihag-adjust-group-card">
+                  <div className="sihag-adjust-group-heading">
+                    <div>
+                      <div className="sihag-adjust-group-kicker">LAYER</div>
+                      <div className="sihag-adjust-group-description">
+                        Final strength for the current layer
+                      </div>
+                    </div>
+                    <span>1 control</span>
+                  </div>
+
+                  <Slider
+                    title="Opacity"
+                    value={settings.opacity}
+                    min={0}
+                    max={100}
+                    suffix="%"
+                    onEditStart={saveHistory}
+                    onChange={(v) =>
+                      change("opacity", v)
+                    }
+                  />
+                </div>
+              )}
+            </div>
 
           </section>
             </>
           )}
+
         </aside>
 
       </div>

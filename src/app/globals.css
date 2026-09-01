@@ -842,3 +842,176 @@ label:has(input:focus-visible) {
   outline: 2px solid rgba(77, 231, 255, 0.58);
   outline-offset: 1px;
 }
+
+/* ──────────────────────────────────────────────
+   SIHAG PROFESSIONAL REORGANIZATION — STAGE 3
+   Professional Adjust workspace. Organizes direct
+   corrections and advanced adjustment-layer tools
+   without changing editor-engine behavior.
+   ────────────────────────────────────────────── */
+
+.sihag-adjust-workspace-bar {
+  position: sticky;
+  top: 50px;
+  z-index: 24;
+  background:
+    linear-gradient(180deg, rgba(15, 19, 27, 0.985), rgba(12, 16, 23, 0.97));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.025),
+    0 12px 28px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+}
+
+.sihag-adjust-workspace-tab {
+  min-width: 0;
+  min-height: 31px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.018);
+  color: #687386;
+  font-size: 8.5px;
+  font-weight: 650;
+  letter-spacing: 0.012em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sihag-adjust-workspace-tab:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.075);
+  background: rgba(255, 255, 255, 0.045);
+  color: #d9e0eb;
+}
+
+.sihag-adjust-workspace-tab:disabled {
+  color: #3e4755;
+  opacity: 0.56;
+}
+
+.sihag-adjust-workspace-tab-active {
+  border-color: rgba(77, 231, 255, 0.18);
+  background:
+    linear-gradient(145deg, rgba(119, 104, 247, 0.15), rgba(77, 231, 255, 0.055));
+  color: #e8faff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.018),
+    0 5px 16px rgba(45, 56, 132, 0.12);
+}
+
+.sihag-adjust-workspace-tab:focus-visible,
+.sihag-basic-adjust-tab:focus-visible,
+.sihag-adjust-create-button:focus-visible,
+.sihag-adjust-reset-button:focus-visible {
+  outline: 2px solid rgba(77, 231, 255, 0.56);
+  outline-offset: 1px;
+}
+
+.sihag-adjust-workspace-status {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+.sihag-adjust-create-button:hover:not(:disabled) {
+  border-color: rgba(167, 139, 250, 0.32);
+  background: rgba(167, 139, 250, 0.11);
+}
+
+.sihag-basic-adjust-panel {
+  min-height: 320px;
+}
+
+.sihag-basic-adjust-tabs {
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 11px;
+  background: rgba(4, 7, 12, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.014);
+}
+
+.sihag-basic-adjust-tab {
+  min-height: 31px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #667184;
+  font-size: 8.5px;
+  font-weight: 620;
+}
+
+.sihag-basic-adjust-tab:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.035);
+  color: #cfd7e3;
+}
+
+.sihag-basic-adjust-tab-active {
+  border-color: rgba(119, 104, 247, 0.22);
+  background: rgba(119, 104, 247, 0.12);
+  color: #e7e4ff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.sihag-basic-adjust-body {
+  min-height: 238px;
+}
+
+.sihag-adjust-group-card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 13px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.023), rgba(255, 255, 255, 0.009));
+  padding: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.018),
+    0 12px 26px rgba(0, 0, 0, 0.08);
+}
+
+.sihag-adjust-group-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.sihag-adjust-group-heading > span {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 3px 7px;
+  color: #596579;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.sihag-adjust-group-kicker {
+  color: #8a95a7;
+  font-size: 9px;
+  font-weight: 720;
+  letter-spacing: 0.16em;
+}
+
+.sihag-adjust-group-description {
+  margin-top: 3px;
+  color: #515d70;
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+.sihag-adjust-advanced-panel {
+  min-height: 260px;
+}
+
+.sihag-adjust-reset-button:hover:not(:disabled) {
+  border-color: rgba(77, 231, 255, 0.26);
+  background: rgba(77, 231, 255, 0.09);
+}
+
+@media (max-width: 1279px) {
+  .sihag-adjust-workspace-tab {
+    font-size: 8px;
+  }
+}
+
