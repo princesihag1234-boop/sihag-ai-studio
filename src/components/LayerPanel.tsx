@@ -234,6 +234,14 @@ export default function LayerPanel({
   ] =
     useState(false);
 
+  const [
+    openActionMenu,
+    setOpenActionMenu,
+  ] = useState<{
+    kind: "folder" | "layer";
+    id: string;
+  } | null>(null);
+
   const inputRef =
     useRef<HTMLInputElement | null>(
       null
@@ -701,7 +709,7 @@ export default function LayerPanel({
                   }
                   className={
                     [
-                      "sihag-folder-row relative flex items-center gap-2 rounded-xl border px-2.5 py-2.5 transition-all duration-150",
+                      "sihag-folder-row relative flex flex-wrap items-center gap-2 rounded-xl border px-2.5 py-2.5 transition-all duration-150",
                       dragOverGroupId ===
                       group.id
                         ? "border-cyan-400/60 bg-cyan-400/[0.10] shadow-[0_0_0_1px_rgba(34,211,238,0.10)]"
@@ -733,46 +741,31 @@ export default function LayerPanel({
                         group.id
                       )
                     }
-                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] text-[10px] text-gray-400 transition hover:border-white/[0.12] hover:bg-white/[0.07]"
+                    className="sihag-folder-collapse flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-[10px] text-gray-400 transition hover:border-white/[0.08] hover:bg-white/[0.055]"
                   >
                     {group.collapsed
                       ? "▶"
                       : "▼"}
                   </button>
 
-                  <span className="text-sm">
+                  <span className="sihag-folder-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.055] bg-black/10 text-sm">
                     {group.collapsed
                       ? "📁"
                       : "📂"}
                   </span>
 
                   <div className="min-w-0 flex-1">
-
-                    <div className="truncate text-[10px] font-medium text-gray-300">
+                    <div className="truncate text-[11px] font-semibold text-gray-200">
                       {group.name}
                     </div>
-
-                    <div className="mt-0.5 text-[9px] text-gray-600">
+                    <div className="mt-0.5 truncate text-[9px] text-gray-600">
                       {count}
                       {count === 1
                         ? " layer"
                         : " layers"}
-                      {" • "}
-                      {group.collapsed
-                        ? "Collapsed"
-                        : "Expanded"}
-                      {!group.visible && (
-                        <>
-                          {" • Hidden"}
-                        </>
-                      )}
-                      {group.locked && (
-                        <>
-                          {" • Locked"}
-                        </>
-                      )}
+                      {!group.visible && " • Hidden"}
+                      {group.locked && " • Locked"}
                     </div>
-
                   </div>
 
                   <button
@@ -788,12 +781,12 @@ export default function LayerPanel({
                     }
                     className={
                       group.visible
-                        ? "flex h-6 w-6 items-center justify-center rounded bg-white/5 text-[11px] text-gray-300 hover:bg-white/10"
-                        : "flex h-6 w-6 items-center justify-center rounded bg-red-500/10 text-[11px] text-red-300 hover:bg-red-500/20"
+                        ? "sihag-layer-quick-action text-gray-300"
+                        : "sihag-layer-quick-action bg-red-500/10 text-red-300"
                     }
                   >
                     {group.visible
-                      ? "◉"
+                      ? "👁"
                       : "○"}
                   </button>
 
@@ -810,8 +803,8 @@ export default function LayerPanel({
                     }
                     className={
                       group.locked
-                        ? "flex h-6 w-6 items-center justify-center rounded bg-amber-500/15 text-[11px] text-amber-300 hover:bg-amber-500/25"
-                        : "flex h-6 w-6 items-center justify-center rounded bg-white/5 text-[11px] text-gray-400 hover:bg-white/10"
+                        ? "sihag-layer-quick-action bg-amber-500/10 text-amber-300"
+                        : "sihag-layer-quick-action text-gray-500"
                     }
                   >
                     {group.locked
@@ -819,161 +812,130 @@ export default function LayerPanel({
                       : "🔓"}
                   </button>
 
-                  <div className="grid grid-cols-3 gap-0.5 rounded-lg border border-white/[0.07] bg-black/15 p-1">
+                  <button
+                    type="button"
+                    title="Folder actions"
+                    aria-label={`Actions for ${group.name}`}
+                    aria-expanded={
+                      openActionMenu?.kind === "folder" &&
+                      openActionMenu.id === group.id
+                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpenActionMenu((current) =>
+                        current?.kind === "folder" && current.id === group.id
+                          ? null
+                          : { kind: "folder", id: group.id }
+                      );
+                    }}
+                    className="sihag-overflow-trigger shrink-0"
+                  >
+                    •••
+                  </button>
 
-                    <span />
-
-                    <button
-                      title="Move folder up 10 px"
-                      disabled={
-                        count === 0 ||
-                        group.locked
-                      }
-                      onClick={() =>
-                        onMoveGroup(
-                          group.id,
-                          0,
-                          -10
-                        )
-                      }
-                      className="flex h-5 w-5 items-center justify-center rounded text-[9px] text-gray-400 hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-25"
-                    >
-                      ↑
-                    </button>
-
-                    <span />
-
-                    <button
-                      title="Move folder left 10 px"
-                      disabled={
-                        count === 0 ||
-                        group.locked
-                      }
-                      onClick={() =>
-                        onMoveGroup(
-                          group.id,
-                          -10,
-                          0
-                        )
-                      }
-                      className="flex h-5 w-5 items-center justify-center rounded text-[9px] text-gray-400 hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-25"
-                    >
-                      ←
-                    </button>
-
+                  {openActionMenu?.kind === "folder" &&
+                    openActionMenu.id === group.id && (
                     <div
-                      title="Move all folder layers together"
-                      className="flex h-5 w-5 items-center justify-center text-[8px] text-gray-600"
+                      className="sihag-inline-overflow-panel sihag-folder-inline-actions"
+                      onClick={(event) => event.stopPropagation()}
                     >
-                      +
+                      <div className="sihag-overflow-menu-title">
+                        Folder Actions
+                      </div>
+
+                      <div className="sihag-folder-move-label">
+                        Move folder layers
+                      </div>
+                      <div className="sihag-folder-move-grid">
+                        <span />
+                        <button
+                          title="Move folder up 10 px"
+                          disabled={count === 0 || group.locked}
+                          onClick={() => onMoveGroup(group.id, 0, -10)}
+                        >
+                          ↑
+                        </button>
+                        <span />
+                        <button
+                          title="Move folder left 10 px"
+                          disabled={count === 0 || group.locked}
+                          onClick={() => onMoveGroup(group.id, -10, 0)}
+                        >
+                          ←
+                        </button>
+                        <div className="sihag-folder-move-center">10</div>
+                        <button
+                          title="Move folder right 10 px"
+                          disabled={count === 0 || group.locked}
+                          onClick={() => onMoveGroup(group.id, 10, 0)}
+                        >
+                          →
+                        </button>
+                        <span />
+                        <button
+                          title="Move folder down 10 px"
+                          disabled={count === 0 || group.locked}
+                          onClick={() => onMoveGroup(group.id, 0, 10)}
+                        >
+                          ↓
+                        </button>
+                        <span />
+                      </div>
+
+                      <div className="sihag-overflow-divider" />
+
+                      <button
+                        className="sihag-overflow-action"
+                        disabled={count === 0}
+                        onClick={() => {
+                          onBringGroupToFront(group.id);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Bring to Front</span><span>⇈</span>
+                      </button>
+                      <button
+                        className="sihag-overflow-action"
+                        disabled={count === 0}
+                        onClick={() => {
+                          onSendGroupToBack(group.id);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Send to Back</span><span>⇊</span>
+                      </button>
+                      <button
+                        className="sihag-overflow-action"
+                        onClick={() => {
+                          onDuplicateGroup(group.id);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Duplicate Folder</span><span>⧉</span>
+                      </button>
+                      <button
+                        className="sihag-overflow-action"
+                        onClick={() => {
+                          renameGroupPrompt(group);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Rename Folder</span><span>✎</span>
+                      </button>
+
+                      <div className="sihag-overflow-divider" />
+
+                      <button
+                        className="sihag-overflow-action sihag-overflow-action-danger"
+                        onClick={() => {
+                          onDeleteGroup(group.id);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Delete Folder</span><span>×</span>
+                      </button>
                     </div>
-
-                    <button
-                      title="Move folder right 10 px"
-                      disabled={
-                        count === 0 ||
-                        group.locked
-                      }
-                      onClick={() =>
-                        onMoveGroup(
-                          group.id,
-                          10,
-                          0
-                        )
-                      }
-                      className="flex h-5 w-5 items-center justify-center rounded text-[9px] text-gray-400 hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-25"
-                    >
-                      →
-                    </button>
-
-                    <span />
-
-                    <button
-                      title="Move folder down 10 px"
-                      disabled={
-                        count === 0 ||
-                        group.locked
-                      }
-                      onClick={() =>
-                        onMoveGroup(
-                          group.id,
-                          0,
-                          10
-                        )
-                      }
-                      className="flex h-5 w-5 items-center justify-center rounded text-[9px] text-gray-400 hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-25"
-                    >
-                      ↓
-                    </button>
-
-                    <span />
-
-                  </div>
-
-                  <button
-                    title="Bring entire folder to front"
-                    disabled={
-                      count === 0
-                    }
-                    onClick={() =>
-                      onBringGroupToFront(
-                        group.id
-                      )
-                    }
-                    className="flex h-6 w-6 items-center justify-center rounded bg-white/5 text-[11px] text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    ⇈
-                  </button>
-
-                  <button
-                    title="Send entire folder to back"
-                    disabled={
-                      count === 0
-                    }
-                    onClick={() =>
-                      onSendGroupToBack(
-                        group.id
-                      )
-                    }
-                    className="flex h-6 w-6 items-center justify-center rounded bg-white/5 text-[11px] text-gray-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    ⇊
-                  </button>
-
-                  <button
-                    title="Duplicate folder and all layers"
-                    onClick={() =>
-                      onDuplicateGroup(
-                        group.id
-                      )
-                    }
-                    className="flex h-6 w-6 items-center justify-center rounded bg-white/5 text-[11px] text-gray-300 hover:bg-white/10"
-                  >
-                    ⧉
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      renameGroupPrompt(
-                        group
-                      )
-                    }
-                    className="rounded bg-white/5 px-2 py-1 text-[9px] text-gray-400 hover:bg-white/10"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    title="Delete folder; keep layers"
-                    onClick={() =>
-                      onDeleteGroup(
-                        group.id
-                      )
-                    }
-                    className="rounded bg-red-500/10 px-2 py-1 text-[9px] text-red-300 hover:bg-red-500/20"
-                  >
-                    ×
-                  </button>
+                  )}
 
                 </div>
               );
@@ -994,7 +956,7 @@ export default function LayerPanel({
 
       {groups.length > 0 && (
         <div className="mx-3 mb-2 text-[9px] leading-4 text-gray-600">
-          Folder controls: arrows move all layers 10 px • ◉ visibility • 🔓 lock • ⇈ front • ⇊ back • ⧉ duplicate
+          Visibility and lock stay one click away. Use ••• for move, order, duplicate, rename and delete.
         </div>
       )}
 
@@ -1105,7 +1067,7 @@ export default function LayerPanel({
                         ? "ml-4"
                         : "",
                       selected
-                        ? "border-cyan-400/45 bg-cyan-400/[0.085] shadow-[0_8px_22px_rgba(0,0,0,0.18)] ring-1 ring-cyan-300/10"
+                        ? "sihag-layer-row-selected border-cyan-400/45 bg-cyan-400/[0.085] shadow-[0_8px_22px_rgba(0,0,0,0.18)] ring-1 ring-cyan-300/10"
                         : multiSelected
                           ? "border-violet-400/30 bg-violet-400/[0.07]"
                           : "border-transparent hover:border-white/[0.065] hover:bg-white/[0.035]",
@@ -1347,7 +1309,86 @@ export default function LayerPanel({
                         : "🔓"}
                     </button>
 
+                    <button
+                      type="button"
+                      title="Layer actions"
+                      aria-label={`Actions for ${layer.name}`}
+                      aria-expanded={
+                        openActionMenu?.kind === "layer" &&
+                        openActionMenu.id === layer.id
+                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenActionMenu((current) =>
+                          current?.kind === "layer" && current.id === layer.id
+                            ? null
+                            : { kind: "layer", id: layer.id }
+                        );
+                      }}
+                      className="sihag-overflow-trigger shrink-0"
+                    >
+                      •••
+                    </button>
+
                   </div>
+
+                  {openActionMenu?.kind === "layer" &&
+                    openActionMenu.id === layer.id && (
+                    <div
+                      className="sihag-inline-overflow-panel sihag-layer-inline-actions"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="sihag-overflow-menu-title">
+                        Layer Actions
+                      </div>
+                      <button
+                        className="sihag-overflow-action"
+                        onClick={() => {
+                          beginRename(layer);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Rename</span><span>✎</span>
+                      </button>
+                      <button
+                        className="sihag-overflow-action"
+                        onClick={() => {
+                          onMoveUp(layer.id);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Move Up</span><span>↑</span>
+                      </button>
+                      <button
+                        className="sihag-overflow-action"
+                        onClick={() => {
+                          onMoveDown(layer.id);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Move Down</span><span>↓</span>
+                      </button>
+                      <button
+                        className="sihag-overflow-action"
+                        onClick={() => {
+                          onDuplicate(layer.id);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Duplicate</span><span>⧉</span>
+                      </button>
+                      <div className="sihag-overflow-divider" />
+                      <button
+                        className="sihag-overflow-action sihag-overflow-action-danger"
+                        onClick={() => {
+                          onDelete(layer.id);
+                          setOpenActionMenu(null);
+                        }}
+                      >
+                        <span>Delete Layer</span><span>×</span>
+                      </button>
+                    </div>
+                  )}
 
                   {selected && (
                     <>
@@ -1667,51 +1708,6 @@ export default function LayerPanel({
                           </>
                         )}
                       </div>
-
-                      <div className="mt-2.5 grid grid-cols-4 gap-1.5">
-
-                      <ActionButton
-                        title="↑"
-                        label="Move layer up"
-                        onClick={() =>
-                          onMoveUp(
-                            layer.id
-                          )
-                        }
-                      />
-
-                      <ActionButton
-                        title="↓"
-                        label="Move layer down"
-                        onClick={() =>
-                          onMoveDown(
-                            layer.id
-                          )
-                        }
-                      />
-
-                      <ActionButton
-                        title="Copy"
-                        label="Duplicate layer"
-                        onClick={() =>
-                          onDuplicate(
-                            layer.id
-                          )
-                        }
-                      />
-
-                      <ActionButton
-                        title="Delete"
-                        label="Delete layer"
-                        danger
-                        onClick={() =>
-                          onDelete(
-                            layer.id
-                          )
-                        }
-                      />
-
-                      </div>
                     </>
                   )}
 
@@ -1725,41 +1721,10 @@ export default function LayerPanel({
 
       {layers.length > 0 && (
         <div className="border-t border-white/[0.07] bg-black/[0.08] px-4 py-2.5 text-[9px] tracking-[0.02em] text-gray-600">
-          Drag/Reorder • Drop into Folder • Rename • Blend • Opacity • Mask
+          Drag to reorder • Double-click to rename • ••• for layer actions • Blend • Opacity • Mask
         </div>
       )}
 
     </section>
-  );
-}
-
-function ActionButton({
-  title,
-  label,
-  danger = false,
-  onClick,
-}: {
-  title: string;
-  label: string;
-  danger?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      title={label}
-      onClick={(
-        event
-      ) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      className={
-        danger
-          ? "rounded-lg border border-red-400/15 bg-red-400/[0.055] px-2 py-1.5 text-[10px] text-red-200 transition hover:bg-red-400/[0.11]"
-          : "rounded-lg border border-white/[0.065] bg-white/[0.03] px-2 py-1.5 text-[10px] text-gray-300 transition hover:border-white/[0.12] hover:bg-white/[0.065]"
-      }
-    >
-      {title}
-    </button>
   );
 }
