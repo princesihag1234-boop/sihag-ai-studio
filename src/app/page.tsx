@@ -12141,22 +12141,28 @@ export default function Home() {
       type="button"
       onClick={undo}
       disabled={history.length === 0}
-      className="flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg text-gray-200 active:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+      className="sihag-mobile-history-button flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/5 text-gray-200 active:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
       title="Undo"
       aria-label="Undo"
     >
-      ↶
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden="true">
+        <path d="M9 7 5 11l4 4" />
+        <path d="M5.5 11H14a5 5 0 1 1 0 10h-2" />
+      </svg>
     </button>
 
     <button
       type="button"
       onClick={redo}
       disabled={future.length === 0}
-      className="flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg text-gray-200 active:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+      className="sihag-mobile-history-button flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/5 text-gray-200 active:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
       title="Redo"
       aria-label="Redo"
     >
-      ↷
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden="true">
+        <path d="m15 7 4 4-4 4" />
+        <path d="M18.5 11H10a5 5 0 1 0 0 10h2" />
+      </svg>
     </button>
 
     <button
@@ -12179,16 +12185,20 @@ export default function Home() {
           (value) => !value
         );
       }}
-      className="sihag-mobile-icon-button flex h-10 w-10 touch-manipulation items-center justify-center text-xl text-gray-200"
+      className="sihag-mobile-icon-button flex h-10 w-10 touch-manipulation items-center justify-center text-gray-200"
       aria-label="Open menu"
       title="Menu"
     >
-      ☰
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="h-[19px] w-[19px]" aria-hidden="true">
+        <path d="M5 7h14" />
+        <path d="M5 12h14" />
+        <path d="M5 17h14" />
+      </svg>
     </button>
   </div>
 
   {mobileMenuOpen && (
-    <div className="absolute right-2 top-full z-[220] w-56 max-w-[calc(100vw-16px)] overflow-hidden rounded-xl border border-white/10 bg-[#151821]/98 p-1.5 shadow-2xl backdrop-blur-xl sm:right-3 sm:w-64">
+    <div className="sihag-mobile-overflow-menu absolute right-2 top-full z-[220] w-56 max-w-[calc(100vw-16px)] overflow-hidden rounded-xl border border-white/10 bg-[#151821]/98 p-1.5 shadow-2xl backdrop-blur-xl sm:right-3 sm:w-64">
       <button
         type="button"
         className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-xs text-gray-300 active:bg-white/10"
@@ -12297,7 +12307,7 @@ export default function Home() {
 
             {topMenuOpen ===
               "file" && (
-              <div className="absolute left-0 top-7 z-[150] w-56 overflow-hidden rounded-xl border border-white/10 bg-[#151821]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+              <div className="sihag-menu-popover absolute left-0 top-7 z-[150] w-56 overflow-hidden rounded-xl border border-white/10 bg-[#151821]/98 p-1.5 shadow-2xl backdrop-blur-xl">
 
                 <button
                   type="button"
