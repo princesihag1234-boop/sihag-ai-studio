@@ -734,6 +734,11 @@ export default function Home() {
       null
     );
 
+  const imageInputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
   const [image, setImage] =
     useState<HTMLImageElement | null>(null);
 
@@ -9015,21 +9020,87 @@ export default function Home() {
     }
   }
 
+  function openImagePicker() {
+    const input =
+      imageInputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    /*
+      Clear the previous value first so mobile browsers
+      also fire change when the same image is chosen again.
+    */
+    input.value = "";
+    input.click();
+  }
+
   function openImage(
     event: ChangeEvent<HTMLInputElement>
   ) {
+    const input =
+      event.currentTarget;
+
     const file =
-      event.target.files?.[0];
+      input.files?.[0];
 
-    if (!file) return;
+    /*
+      Keep the File object, but clear the control immediately.
+      This makes repeated selections reliable on mobile Safari,
+      Chrome and Android file pickers.
+    */
+    input.value = "";
 
-    if (!file.type.startsWith("image/")) {
-      alert("Please choose an image file.");
+    if (!file) {
+      return;
+    }
+
+    const imageExtension =
+      /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i;
+
+    const hasImageMime =
+      file.type.startsWith("image/");
+
+    const hasImageExtension =
+      imageExtension.test(
+        file.name
+      );
+
+    /*
+      Some mobile file providers leave file.type blank.
+      In that case, allow a normal image filename through and
+      let the browser decoder make the final decision.
+    */
+    if (
+      file.type &&
+      !hasImageMime &&
+      !hasImageExtension
+    ) {
+      alert(
+        "Please choose an image file."
+      );
+      return;
+    }
+
+    if (
+      !file.type &&
+      !hasImageExtension
+    ) {
+      alert(
+        "Please choose a supported image file."
+      );
       return;
     }
 
     const reader =
       new FileReader();
+
+    reader.onerror = () => {
+      alert(
+        "This image could not be read. Please try another image."
+      );
+    };
 
     reader.onload = () => {
       const result =
@@ -9039,6 +9110,9 @@ export default function Home() {
         typeof result !==
         "string"
       ) {
+        alert(
+          "This image could not be opened."
+        );
         return;
       }
 
@@ -9078,11 +9152,14 @@ export default function Home() {
         setLayers([firstLayer]);
         setGroups([]);
         setSelectedLayerId(firstLayer.id);
+        setSelectedLayerIds([firstLayer.id]);
         setSelection(null);
         setSelectionInverted(false);
         setSelectionFeather(0);
         setSelectionShape("rectangle");
         setSelectionPath(null);
+        setSelectionRegions([]);
+        setSelectionMode("new");
         setSelectionAspect("free");
 
         setSettings({
@@ -9106,11 +9183,23 @@ export default function Home() {
         });
 
         setCropAspect("free");
-
         setActiveTool("move");
+
+        /*
+          A successful open should always return the phone to
+          the canvas instead of leaving a sheet/menu over it.
+        */
+        setMobileMenuOpen(false);
+        setMobilePanel(null);
 
         setHistory([]);
         setFuture([]);
+      };
+
+      img.onerror = () => {
+        alert(
+          "Your browser could not decode this image. Try JPG, PNG or WebP."
+        );
       };
 
       img.src = result;
@@ -11962,25 +12051,20 @@ export default function Home() {
 
   {mobileMenuOpen && (
     <div className="absolute right-2 top-full z-[220] w-56 max-w-[calc(100vw-16px)] overflow-hidden rounded-xl border border-white/10 bg-[#151821]/98 p-1.5 shadow-2xl backdrop-blur-xl sm:right-3 sm:w-64">
-      <label
-        className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-3 text-xs text-gray-300 active:bg-white/10"
-        onClick={() =>
-          setMobileMenuOpen(false)
-        }
+      <button
+        type="button"
+        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-xs text-gray-300 active:bg-white/10"
+        onClick={() => {
+          setMobileMenuOpen(false);
+          openImagePicker();
+        }}
       >
         <span>Open Image</span>
 
         <span className="text-[9px] text-gray-600">
           IMAGE
         </span>
-
-        <input
-          hidden
-          type="file"
-          accept="image/*"
-          onChange={openImage}
-        />
-      </label>
+      </button>
 
       <button
         type="button"
@@ -12077,13 +12161,15 @@ export default function Home() {
               "file" && (
               <div className="absolute left-0 top-7 z-[150] w-56 overflow-hidden rounded-xl border border-white/10 bg-[#151821]/98 p-1.5 shadow-2xl backdrop-blur-xl">
 
-                <label
-                  className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white"
-                  onClick={() =>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10 hover:text-white"
+                  onClick={() => {
                     setTopMenuOpen(
                       null
-                    )
-                  }
+                    );
+                    openImagePicker();
+                  }}
                 >
                   <span>
                     Open Image
@@ -12092,16 +12178,7 @@ export default function Home() {
                   <span className="text-[9px] text-gray-600">
                     IMAGE
                   </span>
-
-                  <input
-                    hidden
-                    type="file"
-                    accept="image/*"
-                    onChange={
-                      openImage
-                    }
-                  />
-                </label>
+                </button>
 
                 <button
                   onClick={() => {
@@ -13910,18 +13987,21 @@ export default function Home() {
             onChange={openProject}
           />
 
-          <label className="sihag-header-button sihag-open-image-button cursor-pointer">
+          <input
+            ref={imageInputRef}
+            hidden
+            type="file"
+            accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.avif,.heic,.heif"
+            onChange={openImage}
+          />
 
+          <button
+            type="button"
+            onClick={openImagePicker}
+            className="sihag-header-button sihag-open-image-button cursor-pointer"
+          >
             Open Image
-
-            <input
-              hidden
-              type="file"
-              accept="image/*"
-              onChange={openImage}
-            />
-
-          </label>
+          </button>
 
           <button
             onClick={
@@ -15350,18 +15430,13 @@ export default function Home() {
                     Professional browser image editor
                   </p>
 
-                  <label className="mt-5 inline-block min-h-11 cursor-pointer touch-manipulation rounded-xl border border-cyan-300/20 bg-cyan-500/90 px-6 py-3 text-sm font-semibold text-[#061114] shadow-[0_10px_24px_rgba(0,0,0,0.20)] active:scale-[0.98] sm:mt-6">
-
+                  <button
+                    type="button"
+                    onClick={openImagePicker}
+                    className="mt-5 inline-block min-h-11 cursor-pointer touch-manipulation rounded-xl border border-cyan-300/20 bg-cyan-500/90 px-6 py-3 text-sm font-semibold text-[#061114] shadow-[0_10px_24px_rgba(0,0,0,0.20)] active:scale-[0.98] sm:mt-6"
+                  >
                     Open Image
-
-                    <input
-                      hidden
-                      type="file"
-                      accept="image/*"
-                      onChange={openImage}
-                    />
-
-                  </label>
+                  </button>
 
                 </div>
 
@@ -16128,7 +16203,7 @@ export default function Home() {
           <div className="sihag-inspector-context px-4 py-3">
             <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-gray-500">
               {desktopInspectorTab === "properties"
-                ? "Contextual workspace"
+                ? `${activeTool.replaceAll("-", " ")} options`
                 : desktopInspectorTab === "adjust"
                   ? "Image & adjustment controls"
                   : "Document structure"}
@@ -16136,8 +16211,8 @@ export default function Home() {
             <div className="mt-1 truncate text-[11px] text-gray-300">
               {desktopInspectorTab === "properties"
                 ? selectedLayer
-                  ? `${selectedLayer.name} • ${activeTool}`
-                  : `No layer selected • ${activeTool}`
+                  ? `${selectedLayer.name} • tool-specific controls`
+                  : "Tool-specific controls"
                 : desktopInspectorTab === "adjust"
                   ? selectedLayer?.layerKind === "adjustment"
                     ? selectedLayer.name
@@ -16205,7 +16280,8 @@ export default function Home() {
           </div>
             </>
           )}
-          {desktopInspectorTab === "properties" && (
+          {desktopInspectorTab === "properties" &&
+            (activeTool === "hand" || activeTool === "zoom") && (
             <>
           <section className="border-b border-white/10 p-4">
 
@@ -16607,9 +16683,14 @@ export default function Home() {
 
           </section>
 
-          <AiToolsPanel />
             </>
           )}
+
+          {desktopInspectorTab === "properties" &&
+            activeTool === "ai" && (
+              <AiToolsPanel />
+            )}
+
           {desktopInspectorTab === "layers" && (
             <>
           <section className="border-b border-white/10 p-4">
@@ -16735,7 +16816,8 @@ export default function Home() {
           </section>
             </>
           )}
-          {desktopInspectorTab === "properties" && (
+          {desktopInspectorTab === "properties" &&
+            activeTool === "move" && (
             <>
           <section className="border-b border-white/10 p-4">
 
@@ -17014,7 +17096,8 @@ export default function Home() {
 
           </>
           )}
-          {desktopInspectorTab === "properties" && (
+          {desktopInspectorTab === "properties" &&
+            activeTool === "move" && (
             <>
           {selectedLayer?.layerKind !==
             "adjustment" && (
@@ -17189,6 +17272,11 @@ export default function Home() {
             />
           )}
 
+            </>
+          )}
+
+          {desktopInspectorTab === "properties" && (
+            <>
           {activeTool === "text" && (
             <TextLayerPanel
               layer={selectedLayer}
@@ -17214,9 +17302,9 @@ export default function Home() {
               onChangeStart={saveHistory}
             />
           )}
-
             </>
           )}
+
           {desktopInspectorTab === "properties" && (
             <>
           {activeTool === "brush" && (
