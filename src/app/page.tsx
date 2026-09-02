@@ -828,6 +828,18 @@ export default function Home() {
     "properties" | "adjust" | "layers"
   >("properties");
 
+  /* PHOTOSHOP-STYLE WORKSPACE PANEL VISIBILITY */
+
+  const [
+    workspacePanelsHidden,
+    setWorkspacePanelsHidden,
+  ] = useState(false);
+
+  const [
+    workspaceInspectorHidden,
+    setWorkspaceInspectorHidden,
+  ] = useState(false);
+
   const [
     desktopAdjustSection,
     setDesktopAdjustSection,
@@ -10478,6 +10490,44 @@ export default function Home() {
       }
 
       /*
+        Photoshop-style workspace panel visibility.
+
+        Tab hides/shows the side panels. Shift+Tab keeps
+        the Tools rail visible while toggling the Inspector.
+        This mirrors Photoshop's core panel-visibility muscle
+        memory while fitting SIHAG's web workspace structure.
+      */
+
+      if (
+        event.key === "Tab" &&
+        !commandKey &&
+        !event.altKey &&
+        !shortcutsOpen &&
+        !exportDialogOpen &&
+        !topMenuOpen
+      ) {
+        event.preventDefault();
+
+        if (event.shiftKey) {
+          if (workspacePanelsHidden) {
+            setWorkspacePanelsHidden(false);
+            setWorkspaceInspectorHidden(true);
+          } else {
+            setWorkspaceInspectorHidden(
+              (value) => !value
+            );
+          }
+        } else if (workspacePanelsHidden) {
+          setWorkspacePanelsHidden(false);
+          setWorkspaceInspectorHidden(false);
+        } else {
+          setWorkspacePanelsHidden(true);
+        }
+
+        return;
+      }
+
+      /*
         Photoshop-style temporary selection modes.
         Shift = Add, Alt/Option = Subtract,
         Shift+Alt/Option = Intersect.
@@ -11761,6 +11811,8 @@ export default function Home() {
     topMenuOpen,
     shortcutsOpen,
     exportDialogOpen,
+    workspacePanelsHidden,
+    workspaceInspectorHidden,
     exporting,
     selectedLayerId,
     selectedLayerIds,
@@ -15813,6 +15865,8 @@ export default function Home() {
                       ["Ctrl / Cmd + R", "Toggle Rulers"],
                       ["Ctrl / Cmd + '", "Toggle Grid"],
                       ["Ctrl / Cmd + ;", "Toggle Guides"],
+                      ["Tab", "Hide / Show Workspace Panels"],
+                      ["Shift + Tab", "Hide / Show Inspector (keep Tools)"],
                       ["F5", "Brush Properties"],
                       ["F7", "Layers Panel"],
                     ],
@@ -16752,7 +16806,13 @@ export default function Home() {
 
         {/* TOOLS */}
 
-        <aside className="sihag-tool-rail hidden shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-[#111318] lg:flex">
+        <aside
+          className={
+            workspacePanelsHidden
+              ? "hidden"
+              : "sihag-tool-rail hidden shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-[#111318] lg:flex"
+          }
+        >
 
           <div className="sihag-tool-rail-label">TOOLS</div>
 
@@ -18442,7 +18502,13 @@ export default function Home() {
         </section>
 
         {/* RIGHT PANEL */}
-<aside className="sihag-inspector hidden w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#111318] lg:block">
+<aside
+  className={
+    workspacePanelsHidden || workspaceInspectorHidden
+      ? "hidden"
+      : "sihag-inspector hidden w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#111318] lg:block"
+  }
+>
         
 
           <div className="sihag-inspector-tabs sticky top-0 z-30 grid grid-cols-3 border-b border-white/[0.08] bg-[#0f131b]/96 p-2 backdrop-blur-xl">
