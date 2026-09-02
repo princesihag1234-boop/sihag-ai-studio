@@ -9703,7 +9703,9 @@ export default function Home() {
     raster layer creation. On Windows/Chrome, modifier-heavy
     New Layer combinations can be intercepted before the page
     receives them, so SIHAG uses the reliable plain N key as
-    its browser-safe New Blank Raster Layer shortcut.
+    its browser-safe New Blank Raster Layer shortcut. Stage 8
+    adds Photoshop-style Curves access plus mask inversion only
+    where SIHAG has the matching real editor capability.
   */
 
   function getShortcutSelectionIds() {
@@ -10539,6 +10541,35 @@ export default function Home() {
     }
   }
 
+  function openCurvesWorkspaceShortcut() {
+    if (layers.length === 0) {
+      return;
+    }
+
+    setWorkspacePanelsHidden(false);
+    setWorkspaceInspectorHidden(false);
+    setDesktopInspectorTab(
+      "adjust"
+    );
+
+    /*
+      SIHAG's Curves workspace is non-destructive and lives on
+      adjustment layers. If the current layer is not already an
+      adjustment layer, create one first, then open Curves.
+    */
+
+    if (
+      selectedLayer?.layerKind !==
+      "adjustment"
+    ) {
+      addAdjustmentLayer();
+    }
+
+    setDesktopAdjustSection(
+      "curves"
+    );
+  }
+
   useEffect(() => {
     function handleEditorKeyDown(
       event:
@@ -10929,6 +10960,28 @@ export default function Home() {
       ) {
         event.preventDefault();
         void openExportDialog();
+        return;
+      }
+
+      /*
+        Photoshop-style Curves.
+
+        Ctrl/Cmd+M is not reserved by Chrome and maps cleanly
+        to SIHAG's real Curves adjustment workspace.
+      */
+
+      if (
+        commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        key === "m"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          openCurvesWorkspaceShortcut();
+        }
+
         return;
       }
 
@@ -11423,6 +11476,35 @@ export default function Home() {
         setDesktopInspectorTab(
           "properties"
         );
+        return;
+      }
+
+      /*
+        Photoshop-style mask inversion.
+
+        Photoshop uses Ctrl/Cmd+I to invert the active pixels or
+        mask. SIHAG does not expose destructive pixel inversion,
+        so this shortcut is enabled only when the selected layer
+        already has a real layer mask.
+      */
+
+      if (
+        selectedLayerId &&
+        selectedLayer?.maskSrc &&
+        !selectedLayer.locked &&
+        commandKey &&
+        !event.shiftKey &&
+        !event.altKey &&
+        key === "i"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          invertLayerMask(
+            selectedLayerId
+          );
+        }
+
         return;
       }
 
@@ -16077,6 +16159,7 @@ export default function Home() {
                       ["Ctrl / Cmd + S", "Save SIHAG Project"],
                       ["N", "New Blank Raster Layer (browser-safe)"],
                       ["Ctrl / Cmd + Alt + Shift + W", "Export"],
+                      ["Ctrl / Cmd + M", "Open Curves (creates adjustment layer if needed)"],
                       ["Ctrl / Cmd + Z", "Undo"],
                       ["Ctrl / Cmd + Shift + Z", "Redo"],
                       ["Ctrl / Cmd + Y", "Redo (Windows alias)"],
@@ -16139,6 +16222,7 @@ export default function Home() {
                       ["Ctrl / Cmd + G", "Group Selected Layers"],
                       ["Ctrl / Cmd + Shift + G", "Ungroup Selected Layers"],
                       ["Ctrl / Cmd + Alt + G", "Toggle Adjustment Clipping"],
+                      ["Ctrl / Cmd + I", "Invert Selected Layer Mask (when present)"],
                       ["Ctrl / Cmd + ,", "Show / Hide Selected Layer(s)"],
                       ["Ctrl / Cmd + /", "Lock / Unlock Selected Layer(s)"],
                       ["Ctrl / Cmd + ]", "Move Layer Forward"],
