@@ -9690,6 +9690,8 @@ export default function Home() {
     The goal is Photoshop-style muscle memory where SIHAG
     already has the matching command. Stage 2 follows the
     Photoshop desktop layer-order and merge key mappings.
+    Stage 5 adds Photoshop-style number-key opacity / flow
+    behavior without inventing controls SIHAG does not have.
     Browser-reserved
     shortcuts can still be intercepted differently by
     individual browsers or operating systems.
@@ -10309,6 +10311,41 @@ export default function Home() {
         );
         break;
     }
+  }
+
+  function setSelectedLayerOpacityShortcut(
+    value: number
+  ) {
+    if (
+      !selectedLayerId ||
+      !selectedLayer ||
+      selectedLayer.locked
+    ) {
+      return;
+    }
+
+    const safeValue =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          value
+        )
+      );
+
+    if (
+      selectedLayer.opacity ===
+      safeValue
+    ) {
+      return;
+    }
+
+    saveHistory();
+
+    changeLayerOpacity(
+      selectedLayerId,
+      safeValue
+    );
   }
 
   function setActiveBrushStrength(
@@ -11515,24 +11552,65 @@ export default function Home() {
       if (
         !commandKey &&
         !event.altKey &&
-        isBrushFamilyTool(
-          activeTool
-        ) &&
         /^[0-9]$/.test(
           event.key
         )
       ) {
-        event.preventDefault();
-
-        setActiveBrushStrength(
+        const shortcutValue =
           event.key === "0"
             ? 100
             : Number(
                 event.key
-              ) * 10
-        );
+              ) * 10;
 
-        return;
+        /*
+          Photoshop-style number-key behavior:
+          - painting/editing tools: number = opacity/strength
+          - Paint + Shift+number = flow
+          - non-brush tools: number = selected layer opacity
+
+          SIHAG only exposes a separate Flow control for the
+          Paint tool, so Shift+number is intentionally limited
+          to Paint instead of advertising a fake command for
+          tools that do not have Flow.
+        */
+
+        if (
+          activeTool === "paint" &&
+          event.shiftKey
+        ) {
+          event.preventDefault();
+          setPaintBrushFlow(
+            shortcutValue
+          );
+          return;
+        }
+
+        if (
+          isBrushFamilyTool(
+            activeTool
+          ) &&
+          !event.shiftKey
+        ) {
+          event.preventDefault();
+          setActiveBrushStrength(
+            shortcutValue
+          );
+          return;
+        }
+
+        if (
+          !event.shiftKey &&
+          selectedLayerId &&
+          selectedLayer &&
+          !selectedLayer.locked
+        ) {
+          event.preventDefault();
+          setSelectedLayerOpacityShortcut(
+            shortcutValue
+          );
+          return;
+        }
       }
 
       if (
@@ -15836,6 +15914,8 @@ export default function Home() {
                       ["Alt / Option + .", "Select Top Layer"],
                       ["Alt / Option + ,", "Select Bottom Layer"],
                       ["Ctrl / Cmd + Alt + A", "Select All Layers"],
+                      ["1…9", "Selected Layer Opacity 10–90% (non-brush tool)"],
+                      ["0", "Selected Layer Opacity 100% (non-brush tool)"],
                       ["Delete / Backspace", "Delete Selected Layer"],
                       ["Arrow", "Move Layer 1 px"],
                       ["Shift + Arrow", "Move Layer 10 px"],
@@ -15848,8 +15928,10 @@ export default function Home() {
                       ["]", "Increase Brush Size"],
                       ["Shift + [", "Decrease Brush Hardness"],
                       ["Shift + ]", "Increase Brush Hardness"],
-                      ["1…9", "Set Strength / Opacity 10–90%"],
-                      ["0", "Set Strength / Opacity 100%"],
+                      ["1…9", "Set Brush Opacity / Strength 10–90%"],
+                      ["0", "Set Brush Opacity / Strength 100%"],
+                      ["Shift + 1…9", "Set Paint Flow 10–90%"],
+                      ["Shift + 0", "Set Paint Flow 100%"],
                       ["X", "Swap Mask Hide / Reveal"],
                       ["\\", "Toggle Mask Overlay"],
                     ],
