@@ -1139,6 +1139,23 @@ export default function Home() {
     | "16:9"
   >("free");
 
+  const [
+    lastSelectionSnapshot,
+    setLastSelectionSnapshot,
+  ] = useState<{
+    selection: SelectionRect;
+    inverted: boolean;
+    shape: SelectionShape;
+    path: SelectionPoint[] | null;
+    regions: SelectionRegion[];
+    mode: SelectionCombineMode;
+  } | null>(null);
+
+  const temporarySelectionModeRef =
+    useRef<SelectionCombineMode | null>(
+      null
+    );
+
   function cloneSelectionRegion(
     region:
       SelectionRegion
@@ -2027,6 +2044,90 @@ export default function Home() {
             })
           )
         : null
+    );
+  }
+
+  function rememberSelectionForReselect() {
+    if (!selection) {
+      return;
+    }
+
+    setLastSelectionSnapshot({
+      selection: {
+        ...selection,
+      },
+      inverted:
+        selectionInverted,
+      shape:
+        selectionShape,
+      path:
+        selectionPath
+          ? selectionPath.map(
+              (point) => ({
+                ...point,
+              })
+            )
+          : null,
+      regions:
+        getSelectionRegionsWithFallback().map(
+          cloneSelectionRegion
+        ),
+      mode:
+        selectionMode,
+    });
+  }
+
+  function deselectSelectionShortcut() {
+    if (!selection) {
+      return;
+    }
+
+    rememberSelectionForReselect();
+    clearSelectionState();
+  }
+
+  function reselectLastSelectionShortcut() {
+    if (!lastSelectionSnapshot) {
+      return;
+    }
+
+    setSelection({
+      ...lastSelectionSnapshot.selection,
+    });
+
+    setSelectionInverted(
+      lastSelectionSnapshot.inverted
+    );
+
+    setSelectionShape(
+      lastSelectionSnapshot.shape
+    );
+
+    setSelectionPath(
+      lastSelectionSnapshot.path
+        ? lastSelectionSnapshot.path.map(
+            (point) => ({
+              ...point,
+            })
+          )
+        : null
+    );
+
+    setSelectionRegions(
+      lastSelectionSnapshot.regions.map(
+        cloneSelectionRegion
+      )
+    );
+
+    setSelectionMode(
+      lastSelectionSnapshot.mode
+    );
+
+    setActiveTool(
+      lastSelectionSnapshot.shape ===
+        "lasso"
+        ? "lasso"
+        : "select"
     );
   }
 
@@ -10364,7 +10465,7 @@ export default function Home() {
         event.preventDefault();
 
         if (selection) {
-          clearSelectionState();
+          deselectSelectionShortcut();
         } else {
           deselectLayer();
         }
@@ -10374,6 +10475,51 @@ export default function Home() {
 
       if (isTyping) {
         return;
+      }
+
+      /*
+        Photoshop-style temporary selection modes.
+        Shift = Add, Alt/Option = Subtract,
+        Shift+Alt/Option = Intersect.
+      */
+
+      const selectionFamilyActive =
+        [
+          "select",
+          "lasso",
+          "polygonal-lasso",
+          "magic-wand",
+          "quick-select",
+        ].includes(activeTool);
+
+      if (
+        selectionFamilyActive &&
+        !commandKey &&
+        (
+          event.key === "Shift" ||
+          event.key === "Alt"
+        )
+      ) {
+        if (
+          temporarySelectionModeRef.current ===
+          null
+        ) {
+          temporarySelectionModeRef.current =
+            selectionMode;
+        }
+
+        setSelectionMode(
+          event.shiftKey &&
+            event.altKey
+            ? "intersect"
+            : event.altKey
+              ? "subtract"
+              : "add"
+        );
+
+        if (event.key === "Alt") {
+          event.preventDefault();
+        }
       }
 
       /*
@@ -10950,6 +11096,34 @@ export default function Home() {
       }
 
       /*
+        Free Transform entry point.
+
+        Photoshop uses Ctrl/Cmd+T, but desktop browsers
+        reserve that combination for opening a new tab
+        before a normal web page can handle it. SIHAG
+        therefore uses the browser-safe Ctrl/Cmd+Alt/Option+T
+        mapping while preserving the same transform action.
+      */
+
+      if (
+        selectedLayer &&
+        selectedLayer.layerKind !==
+          "adjustment" &&
+        !selectedLayer.locked &&
+        commandKey &&
+        !event.shiftKey &&
+        event.altKey &&
+        key === "t"
+      ) {
+        event.preventDefault();
+        setActiveTool("move");
+        setDesktopInspectorTab(
+          "properties"
+        );
+        return;
+      }
+
+      /*
         Selection.
       */
 
@@ -11014,12 +11188,28 @@ export default function Home() {
       }
 
       if (
+        !commandKey &&
+        event.shiftKey &&
+        !event.altKey &&
+        key === "d"
+      ) {
+        if (lastSelectionSnapshot) {
+          event.preventDefault();
+          reselectLastSelectionShortcut();
+        }
+
+        return;
+      }
+
+      if (
         commandKey &&
+        !event.shiftKey &&
+        !event.altKey &&
         key === "d"
       ) {
         if (selection) {
           event.preventDefault();
-          clearSelectionState();
+          deselectSelectionShortcut();
         }
 
         return;
@@ -11496,6 +11686,36 @@ export default function Home() {
         globalThis.KeyboardEvent
     ) {
       if (
+        (
+          event.key === "Shift" ||
+          event.key === "Alt"
+        ) &&
+        temporarySelectionModeRef.current !==
+          null
+      ) {
+        if (
+          event.shiftKey ||
+          event.altKey
+        ) {
+          setSelectionMode(
+            event.shiftKey &&
+              event.altKey
+              ? "intersect"
+              : event.altKey
+                ? "subtract"
+                : "add"
+          );
+        } else {
+          setSelectionMode(
+            temporarySelectionModeRef.current
+          );
+
+          temporarySelectionModeRef.current =
+            null;
+        }
+      }
+
+      if (
         event.code !== "Space" ||
         temporaryHandToolRef.current ===
           null
@@ -11553,6 +11773,8 @@ export default function Home() {
     selection,
     selectionInverted,
     selectionFeather,
+    selectionMode,
+    lastSelectionSnapshot,
     fileName,
     crop,
     cropAspect,
@@ -14483,7 +14705,7 @@ export default function Home() {
                   </span>
 
                   <span className="text-[9px] text-gray-600">
-                    P
+                    Shift+L
                   </span>
                 </button>
 
@@ -15527,7 +15749,11 @@ export default function Home() {
                     rows: [
                       ["Ctrl / Cmd + A", "Select All"],
                       ["Ctrl / Cmd + D", "Deselect"],
+                      ["Shift + D", "Reselect"],
                       ["Ctrl / Cmd + Shift + I", "Invert Selection"],
+                      ["Shift (while selecting)", "Temporarily Add to Selection"],
+                      ["Alt / Option (while selecting)", "Temporarily Subtract from Selection"],
+                      ["Shift + Alt / Option", "Temporarily Intersect Selection"],
                       ["Shift + F7", "Invert Selection"],
                       ["Arrow", "Nudge Selection"],
                       ["Shift + Arrow", "Nudge Selection Faster"],
@@ -15539,6 +15765,7 @@ export default function Home() {
                     title: "Layers",
                     rows: [
                       ["Ctrl / Cmd + J", "Duplicate Layer"],
+                      ["Ctrl / Cmd + Alt / Option + T", "Free Transform (browser-safe)"],
                       ["Ctrl / Cmd + E", "Merge Down"],
                       ["Ctrl / Cmd + Shift + E", "Merge Visible"],
                       ["Ctrl / Cmd + G", "Group Selected Layers"],
@@ -20425,7 +20652,7 @@ export default function Home() {
                   <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-[10px] leading-5 text-gray-400">
                     {selectionShape === "lasso"
                       ? activeTool === "polygonal-lasso"
-                        ? "Polygonal Lasso: P activates it. Double-click or Enter closes the shape, Backspace removes the last point, Ctrl+Shift+I inverts, and Ctrl+D deselects."
+                        ? "Polygonal Lasso: Shift+L activates it. Double-click or Enter closes the shape, Backspace removes the last point, Ctrl+Shift+I inverts, and Ctrl+D deselects."
                         : "Lasso: drag freely around an area. L redraws the selection, Ctrl+Shift+I inverts it, and Ctrl+D deselects."
                       : "Arrow keys move the selection by 0.1%. Hold Shift for 1%. Ctrl+A selects all, Ctrl+Shift+I inverts, and Ctrl+D deselects."}
                   </div>
