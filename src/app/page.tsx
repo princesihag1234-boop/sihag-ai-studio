@@ -739,6 +739,11 @@ export default function Home() {
       null
     );
 
+  const temporaryHandToolRef =
+    useRef<Tool | null>(
+      null
+    );
+
   const [image, setImage] =
     useState<HTMLImageElement | null>(null);
 
@@ -784,6 +789,11 @@ export default function Home() {
     shortcutsOpen,
     setShortcutsOpen,
   ] = useState(false);
+
+  const [
+    shortcutSearch,
+    setShortcutSearch,
+  ] = useState("");
 
   const [
     mobileMenuOpen,
@@ -9562,40 +9572,620 @@ export default function Home() {
   ]);
 
   /*
-    KEYBOARD EDITOR CONTROLS
+    PROFESSIONAL KEYBOARD SHORTCUT CORE
 
-    Ctrl/Cmd + Z        = Undo
-    Ctrl/Cmd + Y        = Redo
-    Ctrl/Cmd + Shift+Z  = Redo
-
-    Ctrl/Cmd + A        = Select All
-    Ctrl/Cmd + Shift+I  = Invert Selection
-    Ctrl/Cmd + D        = Deselect when a selection exists
-    Ctrl/Cmd + D        = Duplicate layer when no selection exists
-
-    V = Move
-    M = Select / Marquee
-    B = Brush
-    H = Hand
-    C = Crop
-    T = Text
-    U = Shape
-
-    Arrow               = move 1 px
-    Shift + Arrow       = move 10 px
-    Delete              = delete selected layer
-
-    Shortcuts are ignored while typing
-    inside an input, textarea, select,
-    or editable element.
+    The goal is Photoshop-style muscle memory where SIHAG
+    already has the matching command. Browser-reserved
+    shortcuts can still be intercepted differently by
+    individual browsers or operating systems.
   */
+
+  function getShortcutSelectionIds() {
+    if (
+      selectedLayerIds.length >
+        0
+    ) {
+      return selectedLayerIds;
+    }
+
+    return selectedLayerId
+      ? [selectedLayerId]
+      : [];
+  }
+
+  function groupSelectedLayersShortcut() {
+    const ids =
+      getShortcutSelectionIds();
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    saveHistory();
+
+    const group: LayerGroup = {
+      id:
+        createGroupId(),
+      name:
+        `Group ${
+          groups.length + 1
+        }`,
+      collapsed:
+        false,
+      visible:
+        true,
+      locked:
+        false,
+    };
+
+    setGroups(
+      (items) => [
+        ...items,
+        group,
+      ]
+    );
+
+    setLayers(
+      (items) =>
+        items.map(
+          (layer) =>
+            selectedIds.has(
+              layer.id
+            )
+              ? {
+                  ...layer,
+                  groupId:
+                    group.id,
+                }
+              : layer
+        )
+    );
+  }
+
+  function ungroupSelectedLayersShortcut() {
+    const ids =
+      getShortcutSelectionIds();
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    const hasGroupedLayer =
+      layers.some(
+        (layer) =>
+          selectedIds.has(
+            layer.id
+          ) &&
+          !!layer.groupId
+      );
+
+    if (!hasGroupedLayer) {
+      return;
+    }
+
+    const groupsStillUsed =
+      new Set(
+        layers
+          .filter(
+            (layer) =>
+              !selectedIds.has(
+                layer.id
+              ) &&
+              !!layer.groupId
+          )
+          .map(
+            (layer) =>
+              layer.groupId as string
+          )
+      );
+
+    saveHistory();
+
+    setLayers(
+      (items) =>
+        items.map(
+          (layer) =>
+            selectedIds.has(
+              layer.id
+            )
+              ? {
+                  ...layer,
+                  groupId:
+                    null,
+                }
+              : layer
+        )
+    );
+
+    setGroups(
+      (items) =>
+        items.filter(
+          (group) =>
+            groupsStillUsed.has(
+              group.id
+            )
+        )
+    );
+  }
+
+  function selectShortcutLayer(
+    layer:
+      ImageLayer | undefined
+  ) {
+    if (!layer) {
+      return;
+    }
+
+    setSelectedLayerId(
+      layer.id
+    );
+
+    setSelectedLayerIds([
+      layer.id,
+    ]);
+
+    showLayerInEditor(
+      layer,
+      false
+    );
+  }
+
+  function selectAdjacentLayerShortcut(
+    direction:
+      "up" | "down"
+  ) {
+    if (layers.length === 0) {
+      return;
+    }
+
+    const displayOrder =
+      [...layers].reverse();
+
+    const currentIndex =
+      selectedLayerId
+        ? displayOrder.findIndex(
+            (layer) =>
+              layer.id ===
+              selectedLayerId
+          )
+        : -1;
+
+    const nextIndex =
+      currentIndex < 0
+        ? 0
+        : Math.max(
+            0,
+            Math.min(
+              displayOrder.length -
+                1,
+              currentIndex +
+                (
+                  direction === "up"
+                    ? -1
+                    : 1
+                )
+            )
+          );
+
+    selectShortcutLayer(
+      displayOrder[nextIndex]
+    );
+  }
+
+  function selectEdgeLayerShortcut(
+    edge:
+      "top" | "bottom"
+  ) {
+    if (layers.length === 0) {
+      return;
+    }
+
+    const displayOrder =
+      [...layers].reverse();
+
+    selectShortcutLayer(
+      edge === "top"
+        ? displayOrder[0]
+        : displayOrder[
+            displayOrder.length -
+              1
+          ]
+    );
+  }
+
+  function moveSelectedLayersToEdgeShortcut(
+    edge:
+      "front" | "back"
+  ) {
+    const ids =
+      getShortcutSelectionIds();
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    const movable =
+      layers.filter(
+        (layer) =>
+          selectedIds.has(
+            layer.id
+          )
+      );
+
+    if (movable.length === 0) {
+      return;
+    }
+
+    saveHistory();
+
+    setLayers(
+      (items) => {
+        const selected =
+          items.filter(
+            (layer) =>
+              selectedIds.has(
+                layer.id
+              )
+          );
+
+        const rest =
+          items.filter(
+            (layer) =>
+              !selectedIds.has(
+                layer.id
+              )
+          );
+
+        return edge ===
+          "front"
+          ? [
+              ...rest,
+              ...selected,
+            ]
+          : [
+              ...selected,
+              ...rest,
+            ];
+      }
+    );
+  }
+
+  function toggleSelectedLayersVisibleShortcut() {
+    const ids =
+      getShortcutSelectionIds();
+
+    if (
+      ids.length === 0 ||
+      !selectedLayer
+    ) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    const nextVisible =
+      !selectedLayer.visible;
+
+    saveHistory();
+
+    setLayers(
+      (items) =>
+        items.map(
+          (layer) =>
+            selectedIds.has(
+              layer.id
+            )
+              ? {
+                  ...layer,
+                  visible:
+                    nextVisible,
+                }
+              : layer
+        )
+    );
+  }
+
+  function toggleSelectedLayersLockShortcut() {
+    const ids =
+      getShortcutSelectionIds();
+
+    if (
+      ids.length === 0 ||
+      !selectedLayer
+    ) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    const nextLocked =
+      !selectedLayer.locked;
+
+    saveHistory();
+
+    setLayers(
+      (items) =>
+        items.map(
+          (layer) =>
+            selectedIds.has(
+              layer.id
+            )
+              ? {
+                  ...layer,
+                  locked:
+                    nextLocked,
+                }
+              : layer
+        )
+    );
+  }
+
+  function isBrushFamilyTool(
+    tool: Tool
+  ) {
+    return [
+      "brush",
+      "paint",
+      "heal",
+      "clone",
+      "eraser",
+      "dodge-burn",
+      "blur-sharpen",
+      "quick-select",
+    ].includes(tool);
+  }
+
+  function adjustActiveBrushSize(
+    delta: number
+  ) {
+    const clamp = (
+      value: number,
+      minimum = 1,
+      maximum = 500
+    ) =>
+      Math.max(
+        minimum,
+        Math.min(
+          maximum,
+          value
+        )
+      );
+
+    switch (activeTool) {
+      case "brush":
+        setMaskBrushSize(
+          (value) =>
+            clamp(
+              value + delta,
+              5,
+              300
+            )
+        );
+        break;
+
+      case "paint":
+        setPaintBrushSize(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "heal":
+        setHealBrushSize(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "clone":
+        setCloneBrushSize(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "eraser":
+        setEraserBrushSize(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "dodge-burn":
+        setDodgeBurnBrushSize(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "blur-sharpen":
+        setBlurSharpenBrushSize(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "quick-select":
+        setQuickSelectionBrushSize(
+          (value) =>
+            clamp(
+              value + delta,
+              5,
+              300
+            )
+        );
+        break;
+    }
+  }
+
+  function adjustActiveBrushHardness(
+    delta: number
+  ) {
+    const clamp = (
+      value: number
+    ) =>
+      Math.max(
+        0,
+        Math.min(
+          100,
+          value
+        )
+      );
+
+    switch (activeTool) {
+      case "brush":
+        setMaskBrushHardness(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "paint":
+        setPaintBrushHardness(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "heal":
+        setHealBrushHardness(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "clone":
+        setCloneBrushHardness(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "eraser":
+        setEraserBrushHardness(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "dodge-burn":
+        setDodgeBurnBrushHardness(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+
+      case "blur-sharpen":
+        setBlurSharpenBrushHardness(
+          (value) =>
+            clamp(
+              value + delta
+            )
+        );
+        break;
+    }
+  }
+
+  function setActiveBrushStrength(
+    value: number
+  ) {
+    const safeValue =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          value
+        )
+      );
+
+    switch (activeTool) {
+      case "brush":
+        setMaskBrushOpacity(
+          safeValue
+        );
+        break;
+
+      case "paint":
+        setPaintBrushOpacity(
+          safeValue
+        );
+        break;
+
+      case "heal":
+        setHealBrushOpacity(
+          safeValue
+        );
+        break;
+
+      case "clone":
+        setCloneBrushOpacity(
+          safeValue
+        );
+        break;
+
+      case "eraser":
+        setEraserBrushOpacity(
+          safeValue
+        );
+        break;
+
+      case "dodge-burn":
+        setDodgeBurnExposure(
+          safeValue
+        );
+        break;
+
+      case "blur-sharpen":
+        setBlurSharpenStrength(
+          safeValue
+        );
+        break;
+    }
+  }
 
   useEffect(() => {
     function handleEditorKeyDown(
-      event: globalThis.KeyboardEvent
+      event:
+        globalThis.KeyboardEvent
     ) {
       const target =
-        event.target as HTMLElement | null;
+        event.target as
+          HTMLElement | null;
 
       const tagName =
         target?.tagName;
@@ -9603,13 +10193,50 @@ export default function Home() {
       const isTyping =
         target?.isContentEditable ||
         tagName === "INPUT" ||
-        tagName === "TEXTAREA" ||
+        tagName ===
+          "TEXTAREA" ||
         tagName === "SELECT";
 
+      const commandKey =
+        event.ctrlKey ||
+        event.metaKey;
+
+      const key =
+        event.key.toLowerCase();
+
       /*
-        Escape closes top menus first, then the
-        shortcut reference, then falls through to
-        normal editor deselection behavior.
+        Temporary Hand tool.
+        Photoshop uses Space from almost any tool.
+      */
+
+      if (
+        event.code === "Space" &&
+        !isTyping &&
+        !commandKey &&
+        !event.altKey &&
+        !shortcutsOpen &&
+        !exportDialogOpen &&
+        layers.length > 0
+      ) {
+        event.preventDefault();
+
+        if (
+          temporaryHandToolRef.current ===
+          null
+        ) {
+          temporaryHandToolRef.current =
+            activeTool;
+
+          setActiveTool(
+            "hand"
+          );
+        }
+
+        return;
+      }
+
+      /*
+        Escape closes transient UI first.
       */
 
       if (
@@ -9617,52 +10244,50 @@ export default function Home() {
         topMenuOpen
       ) {
         event.preventDefault();
-
-        setTopMenuOpen(
-          null
-        );
-
+        setTopMenuOpen(null);
         return;
       }
-
-      /*
-        Escape closes the shortcut reference first.
-      */
 
       if (
         event.key === "Escape" &&
         shortcutsOpen
       ) {
         event.preventDefault();
+        setShortcutsOpen(false);
+        return;
+      }
 
-        setShortcutsOpen(
-          false
-        );
+      if (
+        event.key === "Escape" &&
+        exportDialogOpen
+      ) {
+        event.preventDefault();
+
+        if (!exporting) {
+          setExportDialogOpen(
+            false
+          );
+        }
 
         return;
       }
 
-      /*
-        Escape always clears the current
-        layer selection, even if a tool is
-        active. It does not delete anything.
-      */
+      if (
+        event.key === "Escape" &&
+        activeTool === "crop"
+      ) {
+        event.preventDefault();
+        cancelCrop();
+        return;
+      }
 
-      if (event.key === "Escape") {
+      if (
+        event.key === "Escape"
+      ) {
         event.preventDefault();
 
         if (selection) {
-          setSelection(
-            null
-          );
-
-          setSelectionInverted(
-            false
-          );
-
-          setSelectionPath(
-            null
-          );
+          clearSelectionState();
         } else {
           deselectLayer();
         }
@@ -9674,46 +10299,66 @@ export default function Home() {
         return;
       }
 
+      /*
+        Shortcut manager.
+      */
+
       if (
         event.key === "F1" ||
         (
-          event.key === "?" &&
-          !event.ctrlKey &&
-          !event.metaKey &&
+          key === "?" &&
+          !commandKey &&
           !event.altKey
+        ) ||
+        (
+          commandKey &&
+          event.altKey &&
+          event.shiftKey &&
+          key === "k"
+        )
+      ) {
+        event.preventDefault();
+        setShortcutSearch("");
+        setShortcutsOpen(true);
+        return;
+      }
+
+      /*
+        Crop confirmation.
+      */
+
+      if (
+        activeTool === "crop" &&
+        (
+          event.key === "Enter" ||
+          event.key === "Return"
         )
       ) {
         event.preventDefault();
 
-        setShortcutsOpen(
-          true
-        );
+        if (!event.repeat) {
+          applyCrop();
+        }
 
         return;
       }
 
-      const commandKey =
-        event.ctrlKey ||
-        event.metaKey;
-
       /*
-        UNDO / REDO
+        Undo / redo.
       */
 
       if (
         commandKey &&
-        event.key.toLowerCase() === "z"
+        key === "z"
       ) {
         event.preventDefault();
 
-        if (event.repeat) {
-          return;
-        }
-
-        if (event.shiftKey) {
-          redo();
-        } else {
-          undo();
+        if (!event.repeat) {
+          if (event.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
         }
 
         return;
@@ -9721,7 +10366,7 @@ export default function Home() {
 
       if (
         commandKey &&
-        event.key.toLowerCase() === "y"
+        key === "y"
       ) {
         event.preventDefault();
 
@@ -9733,47 +10378,445 @@ export default function Home() {
       }
 
       /*
-        PROJECT SHORTCUTS
+        File / project.
+        Ctrl/Cmd+O follows Photoshop and opens an image.
+        Ctrl/Cmd+Alt+O is SIHAG's project-open shortcut.
       */
 
       if (
         commandKey &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "e"
+        event.altKey &&
+        key === "o"
       ) {
         event.preventDefault();
-
-        void openExportDialog();
+        openProjectPicker();
         return;
       }
 
       if (
         commandKey &&
-        event.key.toLowerCase() === "s"
+        !event.altKey &&
+        key === "o"
       ) {
         event.preventDefault();
+        openImagePicker();
+        return;
+      }
 
+      if (
+        commandKey &&
+        key === "s"
+      ) {
+        event.preventDefault();
         saveProject();
         return;
       }
 
       if (
         commandKey &&
-        event.key.toLowerCase() === "o"
+        event.altKey &&
+        event.shiftKey &&
+        key === "w"
       ) {
         event.preventDefault();
-
-        openProjectPicker();
+        void openExportDialog();
         return;
       }
 
       /*
-        SELECTION SHORTCUTS
+        View / zoom.
       */
 
       if (
         commandKey &&
-        event.key.toLowerCase() === "a"
+        !event.altKey &&
+        (
+          event.key === "+" ||
+          event.key === "="
+        )
+      ) {
+        event.preventDefault();
+        zoomIn();
+        return;
+      }
+
+      if (
+        commandKey &&
+        !event.altKey &&
+        event.key === "-"
+      ) {
+        event.preventDefault();
+        zoomOut();
+        return;
+      }
+
+      if (
+        commandKey &&
+        !event.altKey &&
+        key === "0"
+      ) {
+        event.preventDefault();
+        fitToScreen();
+        return;
+      }
+
+      if (
+        commandKey &&
+        !event.altKey &&
+        key === "1"
+      ) {
+        event.preventDefault();
+        setZoomPreset(100);
+        return;
+      }
+
+      if (
+        commandKey &&
+        !event.altKey &&
+        key === "2"
+      ) {
+        event.preventDefault();
+        setZoomPreset(200);
+        return;
+      }
+
+      if (
+        commandKey &&
+        key === "r"
+      ) {
+        event.preventDefault();
+
+        setShowRulers(
+          (value) =>
+            !value
+        );
+
+        return;
+      }
+
+      if (
+        commandKey &&
+        event.key === "'"
+      ) {
+        event.preventDefault();
+
+        setShowGrid(
+          (value) =>
+            !value
+        );
+
+        return;
+      }
+
+      if (
+        commandKey &&
+        event.key === ";"
+      ) {
+        event.preventDefault();
+
+        setShowGuides(
+          (value) =>
+            !value
+        );
+
+        return;
+      }
+
+      /*
+        Panels.
+      */
+
+      if (
+        event.key === "F7"
+      ) {
+        event.preventDefault();
+
+        setDesktopInspectorTab(
+          "layers"
+        );
+
+        setMobilePanel(
+          (value) =>
+            value === "layers"
+              ? null
+              : "layers"
+        );
+
+        return;
+      }
+
+      if (
+        event.key === "F5"
+      ) {
+        event.preventDefault();
+
+        setActiveTool(
+          "paint"
+        );
+
+        setDesktopInspectorTab(
+          "properties"
+        );
+
+        setMobilePanel(
+          (value) =>
+            value === "brush"
+              ? null
+              : "brush"
+        );
+
+        return;
+      }
+
+      /*
+        Layer selection and organization.
+      */
+
+      if (
+        commandKey &&
+        event.altKey &&
+        key === "a"
+      ) {
+        event.preventDefault();
+
+        const allIds =
+          layers.map(
+            (layer) =>
+              layer.id
+          );
+
+        setSelectedLayerIds(
+          allIds
+        );
+
+        const topLayer =
+          layers[
+            layers.length - 1
+          ];
+
+        if (topLayer) {
+          setSelectedLayerId(
+            topLayer.id
+          );
+
+          showLayerInEditor(
+            topLayer,
+            false
+          );
+        }
+
+        return;
+      }
+
+      if (
+        !commandKey &&
+        event.altKey &&
+        event.key === "."
+      ) {
+        event.preventDefault();
+        selectEdgeLayerShortcut("top");
+        return;
+      }
+
+      if (
+        !commandKey &&
+        event.altKey &&
+        event.key === ","
+      ) {
+        event.preventDefault();
+        selectEdgeLayerShortcut("bottom");
+        return;
+      }
+
+      if (
+        !commandKey &&
+        event.altKey &&
+        event.code === "BracketRight"
+      ) {
+        event.preventDefault();
+        selectAdjacentLayerShortcut("up");
+        return;
+      }
+
+      if (
+        !commandKey &&
+        event.altKey &&
+        event.code === "BracketLeft"
+      ) {
+        event.preventDefault();
+        selectAdjacentLayerShortcut("down");
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        key === "j"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          duplicateLayer(
+            selectedLayerId
+          );
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        !event.shiftKey &&
+        !event.altKey &&
+        key === "g"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          groupSelectedLayersShortcut();
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        event.shiftKey &&
+        !event.altKey &&
+        key === "g"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          ungroupSelectedLayersShortcut();
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        selectedLayer?.layerKind ===
+          "adjustment" &&
+        commandKey &&
+        event.altKey &&
+        key === "g"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          toggleSelectedAdjustmentClip();
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        event.key === ","
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          toggleSelectedLayersVisibleShortcut();
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        event.key === "/"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          toggleSelectedLayersLockShortcut();
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        event.altKey &&
+        event.code === "BracketRight"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          moveSelectedLayersToEdgeShortcut(
+            "front"
+          );
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        event.altKey &&
+        event.code === "BracketLeft"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          moveSelectedLayersToEdgeShortcut(
+            "back"
+          );
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        !event.altKey &&
+        event.code === "BracketRight"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          moveLayerUp(
+            selectedLayerId
+          );
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        !event.altKey &&
+        event.code === "BracketLeft"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          moveLayerDown(
+            selectedLayerId
+          );
+        }
+
+        return;
+      }
+
+      /*
+        Selection.
+      */
+
+      if (
+        commandKey &&
+        !event.altKey &&
+        key === "a"
       ) {
         event.preventDefault();
 
@@ -9804,9 +10847,15 @@ export default function Home() {
       }
 
       if (
-        commandKey &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "i"
+        (
+          commandKey &&
+          event.shiftKey &&
+          key === "i"
+        ) ||
+        (
+          event.shiftKey &&
+          event.key === "F7"
+        )
       ) {
         if (selection) {
           event.preventDefault();
@@ -9824,39 +10873,27 @@ export default function Home() {
         return;
       }
 
-      /*
-        Ctrl/Cmd + D follows Photoshop-style
-        deselect behavior when a marquee exists.
-        When there is no selection, we preserve
-        the editor's existing duplicate shortcut.
-      */
-
       if (
         commandKey &&
-        event.key.toLowerCase() === "d" &&
-        selection
+        key === "d"
       ) {
-        event.preventDefault();
-
-        clearSelectionState();
+        if (selection) {
+          event.preventDefault();
+          clearSelectionState();
+        }
 
         return;
       }
 
       /*
-        TOOL SHORTCUTS
-
-        Do not trigger these when Ctrl/Cmd or
-        Alt is held because those combinations
-        may belong to browser/OS shortcuts.
+        Tool families.
       */
 
       if (
         !commandKey &&
         !event.altKey &&
         event.shiftKey &&
-        event.key.toLowerCase() ===
-          "m"
+        key === "m"
       ) {
         event.preventDefault();
 
@@ -9881,57 +10918,61 @@ export default function Home() {
 
       if (
         !commandKey &&
+        !event.altKey &&
+        event.shiftKey &&
+        key === "l"
+      ) {
+        event.preventDefault();
+
+        setSelectionShape(
+          "lasso"
+        );
+
+        setSelectionPath(
+          null
+        );
+
+        setActiveTool(
+          (current) =>
+            current ===
+              "lasso"
+              ? "polygonal-lasso"
+              : "lasso"
+        );
+
+        return;
+      }
+
+      if (
+        !commandKey &&
         !event.altKey
       ) {
-        switch (
-          event.key.toLowerCase()
-        ) {
+        switch (key) {
           case "v":
             event.preventDefault();
-
-            setActiveTool(
-              "move"
-            );
-
+            setActiveTool("move");
             return;
 
           case "m":
             event.preventDefault();
-
-            setActiveTool(
-              "select"
-            );
-
+            setActiveTool("select");
             return;
 
           case "l":
             event.preventDefault();
-
-            setActiveTool(
-              "lasso"
-            );
-
-            return;
-
-          case "p":
-            event.preventDefault();
-
-            setActiveTool(
-              "polygonal-lasso"
-            );
-
+            setSelectionShape("lasso");
+            setSelectionPath(null);
+            setActiveTool("lasso");
             return;
 
           case "w":
             event.preventDefault();
 
-            if (
-              event.shiftKey
-            ) {
+            if (event.shiftKey) {
               setActiveTool(
                 (current) =>
                   current ===
-                  "magic-wand"
+                    "magic-wand"
                     ? "quick-select"
                     : "magic-wand"
               );
@@ -9947,52 +10988,39 @@ export default function Home() {
             event.preventDefault();
 
             setActiveTool(
-              "brush"
+              event.shiftKey
+                ? "brush"
+                : "paint"
             );
 
             return;
 
           case "j":
             event.preventDefault();
-
-            setActiveTool(
-              "heal"
-            );
-
+            setActiveTool("heal");
             return;
 
           case "s":
             event.preventDefault();
-
-            setActiveTool(
-              "clone"
-            );
-
+            setActiveTool("clone");
             return;
 
           case "e":
             event.preventDefault();
-
-            setActiveTool(
-              "eraser"
-            );
-
+            setActiveTool("eraser");
             return;
 
           case "o":
             event.preventDefault();
-
             setActiveTool(
               "dodge-burn"
             );
 
-            if (
-              event.shiftKey
-            ) {
+            if (event.shiftKey) {
               setDodgeBurnMode(
                 (value) =>
                   value ===
-                  "dodge"
+                    "dodge"
                     ? "burn"
                     : "dodge"
               );
@@ -10002,18 +11030,15 @@ export default function Home() {
 
           case "r":
             event.preventDefault();
-
             setActiveTool(
               "blur-sharpen"
             );
 
-            if (
-              event.shiftKey
-            ) {
+            if (event.shiftKey) {
               setBlurSharpenMode(
                 (value) =>
                   value ===
-                  "blur"
+                    "blur"
                     ? "sharpen"
                     : value ===
                       "sharpen"
@@ -10024,59 +11049,148 @@ export default function Home() {
 
             return;
 
-          case "k":
+          case "g":
             event.preventDefault();
+            setActiveTool(
+              "gradient"
+            );
+            return;
 
+          case "k":
+            /*
+              Legacy SIHAG alias.
+              B is the Photoshop-style Paint shortcut.
+            */
+            event.preventDefault();
             setActiveTool(
               "paint"
             );
-
             return;
 
           case "h":
             event.preventDefault();
-
-            setActiveTool(
-              "hand"
-            );
-
+            setActiveTool("hand");
             return;
 
           case "c":
             event.preventDefault();
-
-            setActiveTool(
-              "crop"
-            );
-
+            setActiveTool("crop");
             return;
 
           case "t":
             event.preventDefault();
-
-            setActiveTool(
-              "text"
-            );
-
+            setActiveTool("text");
             return;
 
           case "u":
             event.preventDefault();
+            setActiveTool("shape");
+            return;
 
-            setActiveTool(
-              "shape"
-            );
-
+          case "z":
+            event.preventDefault();
+            setActiveTool("zoom");
             return;
         }
       }
 
       /*
-        SELECTION KEYBOARD NUDGE
+        Brush family controls.
+      */
 
-        While Select is active:
-        Arrow         = move by 0.1%
-        Shift + Arrow = move by 1%
+      if (
+        !commandKey &&
+        !event.altKey &&
+        isBrushFamilyTool(
+          activeTool
+        ) &&
+        (
+          event.code ===
+            "BracketLeft" ||
+          event.code ===
+            "BracketRight"
+        )
+      ) {
+        event.preventDefault();
+
+        const direction =
+          event.code ===
+          "BracketLeft"
+            ? -1
+            : 1;
+
+        if (event.shiftKey) {
+          adjustActiveBrushHardness(
+            direction * 10
+          );
+        } else {
+          adjustActiveBrushSize(
+            direction * 10
+          );
+        }
+
+        return;
+      }
+
+      if (
+        !commandKey &&
+        !event.altKey &&
+        isBrushFamilyTool(
+          activeTool
+        ) &&
+        /^[0-9]$/.test(
+          event.key
+        )
+      ) {
+        event.preventDefault();
+
+        setActiveBrushStrength(
+          event.key === "0"
+            ? 100
+            : Number(
+                event.key
+              ) * 10
+        );
+
+        return;
+      }
+
+      if (
+        activeTool === "brush" &&
+        !commandKey &&
+        !event.altKey &&
+        key === "x"
+      ) {
+        event.preventDefault();
+
+        setMaskBrushMode(
+          (mode) =>
+            mode === "hide"
+              ? "reveal"
+              : "hide"
+        );
+
+        return;
+      }
+
+      if (
+        activeTool === "brush" &&
+        !commandKey &&
+        !event.altKey &&
+        event.key === "\\"
+      ) {
+        event.preventDefault();
+
+        setMaskOverlayEnabled(
+          (value) =>
+            !value
+        );
+
+        return;
+      }
+
+      /*
+        Selection and layer movement.
       */
 
       if (
@@ -10096,38 +11210,25 @@ export default function Home() {
 
         switch (event.key) {
           case "ArrowLeft":
-            nextX -=
-              amount;
+            nextX -= amount;
             break;
-
           case "ArrowRight":
-            nextX +=
-              amount;
+            nextX += amount;
             break;
-
           case "ArrowUp":
-            nextY -=
-              amount;
+            nextY -= amount;
             break;
-
           case "ArrowDown":
-            nextY +=
-              amount;
+            nextY += amount;
             break;
-
           default:
-            nextX =
-              selection.x;
-
-            nextY =
-              selection.y;
+            nextX = selection.x;
+            nextY = selection.y;
         }
 
         if (
-          nextX !==
-            selection.x ||
-          nextY !==
-            selection.y
+          nextX !== selection.x ||
+          nextY !== selection.y
         ) {
           event.preventDefault();
 
@@ -10143,78 +11244,6 @@ export default function Home() {
         }
       }
 
-      /*
-        MASK BRUSH SHORTCUTS
-
-        [ = smaller brush
-        ] = larger brush
-        X = swap Hide / Restore
-      */
-
-      if (
-        activeTool === "brush"
-      ) {
-        if (
-          event.key === "["
-        ) {
-          event.preventDefault();
-
-          setMaskBrushSize(
-            (value) =>
-              Math.max(
-                5,
-                value - 10
-              )
-          );
-
-          return;
-        }
-
-        if (
-          event.key === "]"
-        ) {
-          event.preventDefault();
-
-          setMaskBrushSize(
-            (value) =>
-              Math.min(
-                300,
-                value + 10
-              )
-          );
-
-          return;
-        }
-
-        if (
-          event.key.toLowerCase() === "x"
-        ) {
-          event.preventDefault();
-
-          setMaskBrushMode(
-            (mode) =>
-              mode === "hide"
-                ? "reveal"
-                : "hide"
-          );
-
-          return;
-        }
-
-        if (
-          event.key === "\\"
-        ) {
-          event.preventDefault();
-
-          setMaskOverlayEnabled(
-            (value) =>
-              !value
-          );
-
-          return;
-        }
-      }
-
       if (
         !selectedLayerId ||
         !selectedLayer
@@ -10222,31 +11251,10 @@ export default function Home() {
         return;
       }
 
-      /*
-        DUPLICATE
-      */
-
       if (
-        commandKey &&
-        event.key.toLowerCase() === "d"
-      ) {
-        event.preventDefault();
-
-        if (!event.repeat) {
-          duplicateLayer(
-            selectedLayerId
-          );
-        }
-
-        return;
-      }
-
-      /*
-        DELETE
-      */
-
-      if (
-        event.key === "Delete"
+        event.key === "Delete" ||
+        event.key ===
+          "Backspace"
       ) {
         event.preventDefault();
 
@@ -10258,13 +11266,6 @@ export default function Home() {
 
         return;
       }
-
-      /*
-        NUDGE POSITION
-
-        Each key press gets its own
-        undo checkpoint.
-      */
 
       const step =
         event.shiftKey
@@ -10281,19 +11282,15 @@ export default function Home() {
         case "ArrowLeft":
           nextX -= step;
           break;
-
         case "ArrowRight":
           nextX += step;
           break;
-
         case "ArrowUp":
           nextY -= step;
           break;
-
         case "ArrowDown":
           nextY += step;
           break;
-
         default:
           return;
       }
@@ -10354,9 +11351,39 @@ export default function Home() {
       }
     }
 
+    function handleEditorKeyUp(
+      event:
+        globalThis.KeyboardEvent
+    ) {
+      if (
+        event.code !== "Space" ||
+        temporaryHandToolRef.current ===
+          null
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const previousTool =
+        temporaryHandToolRef.current;
+
+      temporaryHandToolRef.current =
+        null;
+
+      setActiveTool(
+        previousTool
+      );
+    }
+
     window.addEventListener(
       "keydown",
       handleEditorKeyDown
+    );
+
+    window.addEventListener(
+      "keyup",
+      handleEditorKeyUp
     );
 
     return () => {
@@ -10364,10 +11391,17 @@ export default function Home() {
         "keydown",
         handleEditorKeyDown
       );
+
+      window.removeEventListener(
+        "keyup",
+        handleEditorKeyUp
+      );
     };
   }, [
     topMenuOpen,
     shortcutsOpen,
+    exportDialogOpen,
+    exporting,
     selectedLayerId,
     selectedLayerIds,
     selectedLayer,
@@ -12324,7 +13358,7 @@ export default function Home() {
                   </span>
 
                   <span className="text-[9px] text-gray-600">
-                    IMAGE
+                    Ctrl+O
                   </span>
                 </button>
 
@@ -12343,7 +13377,7 @@ export default function Home() {
                   </span>
 
                   <span className="text-[9px] text-gray-600">
-                    Ctrl+O
+                    Ctrl+Alt+O
                   </span>
                 </button>
 
@@ -12391,7 +13425,7 @@ export default function Home() {
                   </span>
 
                   <span className="text-[9px] text-gray-600">
-                    Ctrl+Shift+E
+                    Ctrl+Alt+Shift+W
                   </span>
                 </button>
 
@@ -14101,7 +15135,7 @@ export default function Home() {
               );
             }}
             className="sihag-header-button hidden xl:inline-flex"
-            title="Keyboard shortcuts (? or F1)"
+            title="Keyboard shortcuts (? / F1 / Ctrl+Alt+Shift+K)"
           >
             Shortcuts
           </button>
@@ -14112,7 +15146,7 @@ export default function Home() {
               layers.length === 0
             }
             className="sihag-header-button sihag-header-button-compact disabled:cursor-not-allowed disabled:opacity-30"
-            title="Save project (Ctrl+S)"
+            title="Save project (Ctrl/Cmd+S)"
           >
             Save Project
           </button>
@@ -14122,7 +15156,7 @@ export default function Home() {
               openProjectPicker
             }
             className="sihag-header-button"
-            title="Open project (Ctrl+O)"
+            title="Open project (Ctrl/Cmd+Alt+O)"
           >
             Open Project
           </button>
@@ -14159,7 +15193,7 @@ export default function Home() {
               layers.length === 0
             }
             className="sihag-export-button disabled:opacity-40"
-            title="Export image (Ctrl+Shift+E)"
+            title="Export image (Ctrl/Cmd+Alt+Shift+W)"
           >
             Export
           </button>
@@ -14213,7 +15247,7 @@ export default function Home() {
 
       {shortcutsOpen && (
         <div
-          className="fixed inset-0 z-[330] flex items-end justify-center bg-black/65 p-0 backdrop-blur-sm lg:items-center lg:p-3"
+          className="fixed inset-0 z-[330] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm lg:items-center lg:p-4"
           onPointerDown={(event) => {
             if (
               event.target ===
@@ -14225,144 +15259,284 @@ export default function Home() {
             }
           }}
         >
-          <div className="flex max-h-[calc(100dvh-64px)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11131a] shadow-2xl lg:max-h-[86vh] lg:rounded-2xl">
+          <div className="sihag-shortcut-dialog flex max-h-[calc(100dvh-24px)] w-full max-w-6xl flex-col overflow-hidden rounded-t-[22px] border border-white/[0.09] bg-[#0f1218] shadow-[0_30px_100px_rgba(0,0,0,0.72)] lg:max-h-[88vh] lg:rounded-[18px]">
 
-            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3 lg:px-5 lg:py-4">
-
-              <div>
-                <div className="text-sm font-semibold text-white">
-                  Keyboard Shortcuts
+            <div className="sihag-shortcut-header flex shrink-0 items-center justify-between gap-4 border-b border-white/[0.07] px-4 py-4 lg:px-5">
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6f7886]">
+                  SIHAG WORKSPACE
                 </div>
 
-                <div className="mt-1 text-[10px] text-gray-500">
-                  SIHAG AI STUDIO • Press ? or F1 anytime
+                <div className="mt-1 flex items-center gap-2">
+                  <h2 className="truncate text-[17px] font-semibold tracking-[-0.02em] text-white">
+                    Keyboard Shortcuts
+                  </h2>
+
+                  <span className="hidden rounded-md border border-cyan-300/15 bg-cyan-300/[0.055] px-2 py-0.5 text-[8px] font-semibold tracking-[0.08em] text-cyan-200 sm:inline-flex">
+                    PRO
+                  </span>
+                </div>
+
+                <div className="mt-1 text-[10px] text-[#737d8a]">
+                  Photoshop-style muscle memory • only working SIHAG commands are listed
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() =>
                   setShortcutsOpen(
                     false
                   )
                 }
-                className="flex min-h-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-300 hover:bg-white/10"
+                className="sihag-shortcut-close"
               >
-                <span className="lg:hidden">Close</span>
-                <span className="hidden lg:inline">Esc • Close</span>
+                <span className="hidden sm:inline">
+                  Esc
+                </span>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                >
+                  <path d="m7 7 10 10M17 7 7 17" />
+                </svg>
               </button>
-
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(16px+env(safe-area-inset-bottom))] lg:p-5">
+            <div className="shrink-0 border-b border-white/[0.055] bg-black/[0.12] px-4 py-3 lg:px-5">
+              <div className="relative">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5f6875]"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="6.5" />
+                  <path d="m16 16 4 4" />
+                </svg>
 
-              <div className="grid gap-3 md:grid-cols-2 lg:gap-4 xl:grid-cols-3">
+                <input
+                  type="search"
+                  value={shortcutSearch}
+                  onChange={(event) =>
+                    setShortcutSearch(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Search command or shortcut…"
+                  className="sihag-shortcut-search h-10 w-full rounded-[10px] border border-white/[0.07] bg-[#0a0d12] pl-10 pr-3 text-[11px] text-[#e4e8ee] outline-none placeholder:text-[#59616d] focus:border-cyan-300/25"
+                />
+              </div>
+            </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-[calc(16px+env(safe-area-inset-bottom))] sm:p-4 lg:p-5">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {[
                   {
-                    title: "Project",
+                    title: "File & Project",
                     rows: [
-                      ["Ctrl + S", "Save project"],
-                      ["Ctrl + O", "Open project"],
-                      ["Ctrl + Shift + E", "Export"],
-                      ["Ctrl + Z", "Undo"],
-                      ["Ctrl + Y", "Redo"],
-                      ["Ctrl + Shift + Z", "Redo"],
+                      ["Ctrl / Cmd + O", "Open Image"],
+                      ["Ctrl / Cmd + Alt + O", "Open SIHAG Project"],
+                      ["Ctrl / Cmd + S", "Save SIHAG Project"],
+                      ["Ctrl / Cmd + Alt + Shift + W", "Export"],
+                      ["Ctrl / Cmd + Z", "Undo"],
+                      ["Ctrl / Cmd + Shift + Z", "Redo"],
+                      ["Ctrl / Cmd + Y", "Redo (Windows alias)"],
                     ],
                   },
                   {
-                    title: "Core Tools",
+                    title: "Tools",
                     rows: [
                       ["V", "Move"],
                       ["H", "Hand / Pan"],
+                      ["Space (hold)", "Temporary Hand"],
                       ["C", "Crop"],
-                      ["T", "Text"],
-                      ["U", "Shape"],
-                      ["K", "Raster Paint"],
-                    ],
-                  },
-                  {
-                    title: "Selection",
-                    rows: [
-                      ["M", "Marquee"],
-                      ["Shift + M", "Rectangle / Ellipse"],
-                      ["L", "Freehand Lasso"],
-                      ["P", "Polygonal Lasso"],
+                      ["Enter", "Apply Crop"],
+                      ["Esc", "Cancel Crop / Deselect"],
+                      ["M", "Rectangular Marquee"],
+                      ["Shift + M", "Cycle Marquee"],
+                      ["L", "Lasso"],
+                      ["Shift + L", "Cycle Lasso / Polygonal Lasso"],
                       ["W", "Magic Wand"],
-                      ["Shift + W", "Wand / Quick Select"],
-                      ["Ctrl + A", "Select all"],
-                      ["Ctrl + Shift + I", "Invert selection"],
-                      ["Ctrl + D", "Deselect"],
-                    ],
-                  },
-                  {
-                    title: "Retouch",
-                    rows: [
-                      ["J", "Spot Heal"],
+                      ["Shift + W", "Cycle Wand / Quick Select"],
+                      ["B", "Paint Brush"],
+                      ["Shift + B", "Mask Brush"],
+                      ["J", "Heal"],
                       ["S", "Clone Stamp"],
                       ["E", "Eraser"],
                       ["O", "Dodge / Burn"],
                       ["Shift + O", "Toggle Dodge / Burn"],
                       ["R", "Blur / Sharpen / Smudge"],
                       ["Shift + R", "Cycle Blur / Sharpen / Smudge"],
+                      ["G", "Gradient"],
+                      ["T", "Text"],
+                      ["U", "Shape"],
+                      ["Z", "Zoom Tool"],
                     ],
                   },
                   {
-                    title: "Mask Brush",
+                    title: "Selection",
                     rows: [
-                      ["B", "Mask Brush"],
-                      ["[", "Smaller brush"],
-                      ["]", "Larger brush"],
-                      ["X", "Hide / Restore"],
-                      ["\\", "Red mask overlay"],
+                      ["Ctrl / Cmd + A", "Select All"],
+                      ["Ctrl / Cmd + D", "Deselect"],
+                      ["Ctrl / Cmd + Shift + I", "Invert Selection"],
+                      ["Shift + F7", "Invert Selection"],
+                      ["Arrow", "Nudge Selection"],
+                      ["Shift + Arrow", "Nudge Selection Faster"],
+                      ["Ctrl/Cmd + Click", "Toggle Layer Multi-select"],
+                      ["Shift + Click", "Select Layer Range"],
                     ],
                   },
                   {
-                    title: "Layers & Movement",
+                    title: "Layers",
                     rows: [
-                      ["Ctrl + D", "Duplicate layer if no selection"],
-                      ["Delete", "Delete selected layer"],
-                      ["Arrow", "Move 1 px"],
-                      ["Shift + Arrow", "Move 10 px"],
-                      ["Ctrl/Cmd + Click", "Toggle layer multi-select"],
-                      ["Shift + Click", "Select layer range"],
+                      ["Ctrl / Cmd + J", "Duplicate Layer"],
+                      ["Ctrl / Cmd + G", "Group Selected Layers"],
+                      ["Ctrl / Cmd + Shift + G", "Ungroup Selected Layers"],
+                      ["Ctrl / Cmd + Alt + G", "Toggle Adjustment Clipping"],
+                      ["Ctrl / Cmd + ,", "Show / Hide Selected Layer(s)"],
+                      ["Ctrl / Cmd + /", "Lock / Unlock Selected Layer(s)"],
+                      ["Ctrl / Cmd + ]", "Move Layer Forward"],
+                      ["Ctrl / Cmd + [", "Move Layer Backward"],
+                      ["Ctrl / Cmd + Alt + ]", "Bring Layer(s) to Front"],
+                      ["Ctrl / Cmd + Alt + [", "Send Layer(s) to Back"],
+                      ["Alt / Option + ]", "Select Layer Above"],
+                      ["Alt / Option + [", "Select Layer Below"],
+                      ["Alt / Option + .", "Select Top Layer"],
+                      ["Alt / Option + ,", "Select Bottom Layer"],
+                      ["Ctrl / Cmd + Alt + A", "Select All Layers"],
+                      ["Delete / Backspace", "Delete Selected Layer"],
+                      ["Arrow", "Move Layer 1 px"],
+                      ["Shift + Arrow", "Move Layer 10 px"],
                     ],
                   },
-                ].map((section) => (
-                  <div
-                    key={section.title}
-                    className="rounded-xl border border-white/10 bg-white/[0.025] p-3 lg:p-4"
-                  >
-                    <div className="mb-3 text-[10px] font-semibold tracking-[0.14em] text-indigo-300">
-                      {section.title.toUpperCase()}
-                    </div>
+                  {
+                    title: "Brush & Retouch",
+                    rows: [
+                      ["[", "Decrease Brush Size"],
+                      ["]", "Increase Brush Size"],
+                      ["Shift + [", "Decrease Brush Hardness"],
+                      ["Shift + ]", "Increase Brush Hardness"],
+                      ["1…9", "Set Strength / Opacity 10–90%"],
+                      ["0", "Set Strength / Opacity 100%"],
+                      ["X", "Swap Mask Hide / Reveal"],
+                      ["\\", "Toggle Mask Overlay"],
+                    ],
+                  },
+                  {
+                    title: "View",
+                    rows: [
+                      ["Ctrl / Cmd + +", "Zoom In"],
+                      ["Ctrl / Cmd + -", "Zoom Out"],
+                      ["Ctrl / Cmd + 0", "Fit to Screen"],
+                      ["Ctrl / Cmd + 1", "Zoom 100%"],
+                      ["Ctrl / Cmd + 2", "Zoom 200%"],
+                      ["Ctrl / Cmd + R", "Toggle Rulers"],
+                      ["Ctrl / Cmd + '", "Toggle Grid"],
+                      ["Ctrl / Cmd + ;", "Toggle Guides"],
+                      ["F5", "Brush Properties"],
+                      ["F7", "Layers Panel"],
+                    ],
+                  },
+                  {
+                    title: "Shortcut Manager",
+                    rows: [
+                      ["?", "Open Shortcuts"],
+                      ["F1", "Open Shortcuts"],
+                      ["Ctrl / Cmd + Alt + Shift + K", "Open Shortcut Manager"],
+                      ["Esc", "Close Shortcut Manager"],
+                    ],
+                  },
+                ].map(
+                  (section) => {
+                    const query =
+                      shortcutSearch
+                        .trim()
+                        .toLowerCase();
 
-                    <div className="space-y-2">
-                      {section.rows.map((row) => (
-                        <div
-                          key={`${section.title}-${row[0]}`}
-                          className="flex items-center justify-between gap-3"
-                        >
-                          <kbd className="shrink-0 rounded-md border border-white/10 bg-black/35 px-2 py-1 font-mono text-[9px] text-gray-300">
-                            {row[0]}
-                          </kbd>
+                    const rows =
+                      section.rows.filter(
+                        ([shortcut, command]) =>
+                          !query ||
+                          section.title
+                            .toLowerCase()
+                            .includes(query) ||
+                          shortcut
+                            .toLowerCase()
+                            .includes(query) ||
+                          command
+                            .toLowerCase()
+                            .includes(query)
+                      );
 
-                          <span className="text-right text-[9px] text-gray-500">
-                            {row[1]}
+                    if (
+                      rows.length === 0
+                    ) {
+                      return null;
+                    }
+
+                    return (
+                      <section
+                        key={
+                          section.title
+                        }
+                        className="sihag-shortcut-section"
+                      >
+                        <div className="sihag-shortcut-section-header">
+                          <span>
+                            {section.title}
+                          </span>
+
+                          <span className="sihag-shortcut-count">
+                            {rows.length}
                           </span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
 
+                        <div className="divide-y divide-white/[0.045]">
+                          {rows.map(
+                            ([
+                              shortcut,
+                              command,
+                            ]) => (
+                              <div
+                                key={`${section.title}-${shortcut}-${command}`}
+                                className="sihag-shortcut-row"
+                              >
+                                <span className="min-w-0 flex-1 truncate text-[10px] text-[#9aa3af]">
+                                  {command}
+                                </span>
+
+                                <kbd className="sihag-shortcut-key">
+                                  {shortcut}
+                                </kbd>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </section>
+                    );
+                  }
+                )}
               </div>
 
-              <div className="mt-4 rounded-xl border border-indigo-500/15 bg-indigo-500/[0.04] p-4 text-[9px] leading-4 text-gray-500">
-                Shortcuts are ignored while typing inside text fields. Esc closes this window first, then returns to the editor's normal deselect behavior.
-              </div>
+              <div className="mt-4 flex flex-col gap-2 rounded-xl border border-white/[0.055] bg-white/[0.018] px-4 py-3 text-[9px] leading-4 text-[#69727e] sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Shortcuts are ignored while typing in fields. Browser or OS reserved combinations can override web-app shortcuts.
+                </span>
 
+                <span className="shrink-0 font-medium text-[#8b94a1]">
+                  Photoshop-style • SIHAG-native
+                </span>
+              </div>
             </div>
-
           </div>
         </div>
       )}
