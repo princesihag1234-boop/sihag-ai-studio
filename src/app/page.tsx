@@ -10819,7 +10819,12 @@ export default function Home() {
       */
 
       if (
-        event.key === "F1" ||
+        (
+          event.key === "F1" &&
+          !commandKey &&
+          !event.altKey &&
+          !event.shiftKey
+        ) ||
         (
           key === "?" &&
           !commandKey &&
@@ -10864,6 +10869,7 @@ export default function Home() {
 
       if (
         commandKey &&
+        !event.altKey &&
         key === "z"
       ) {
         event.preventDefault();
@@ -10881,6 +10887,8 @@ export default function Home() {
 
       if (
         commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
         key === "y"
       ) {
         event.preventDefault();
@@ -10926,6 +10934,7 @@ export default function Home() {
       if (
         commandKey &&
         event.altKey &&
+        !event.shiftKey &&
         key === "o"
       ) {
         event.preventDefault();
@@ -10936,6 +10945,7 @@ export default function Home() {
       if (
         commandKey &&
         !event.altKey &&
+        !event.shiftKey &&
         key === "o"
       ) {
         event.preventDefault();
@@ -10945,6 +10955,8 @@ export default function Home() {
 
       if (
         commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
         key === "s"
       ) {
         event.preventDefault();
@@ -11044,6 +11056,8 @@ export default function Home() {
 
       if (
         commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
         key === "r"
       ) {
         event.preventDefault();
@@ -11058,6 +11072,7 @@ export default function Home() {
 
       if (
         commandKey &&
+        !event.altKey &&
         event.key === "'"
       ) {
         event.preventDefault();
@@ -11072,6 +11087,7 @@ export default function Home() {
 
       if (
         commandKey &&
+        !event.altKey &&
         !event.shiftKey &&
         event.code === "Semicolon"
       ) {
@@ -11106,7 +11122,10 @@ export default function Home() {
       */
 
       if (
-        event.key === "F7"
+        event.key === "F7" &&
+        !commandKey &&
+        !event.altKey &&
+        !event.shiftKey
       ) {
         event.preventDefault();
 
@@ -11125,7 +11144,10 @@ export default function Home() {
       }
 
       if (
-        event.key === "F5"
+        event.key === "F5" &&
+        !commandKey &&
+        !event.altKey &&
+        !event.shiftKey
       ) {
         event.preventDefault();
 
@@ -11154,6 +11176,7 @@ export default function Home() {
       if (
         commandKey &&
         event.altKey &&
+        !event.shiftKey &&
         key === "a"
       ) {
         event.preventDefault();
@@ -11254,6 +11277,8 @@ export default function Home() {
       if (
         selectedLayerId &&
         commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
         key === "j"
       ) {
         event.preventDefault();
@@ -11305,6 +11330,7 @@ export default function Home() {
           "adjustment" &&
         commandKey &&
         event.altKey &&
+        !event.shiftKey &&
         key === "g"
       ) {
         event.preventDefault();
@@ -11319,6 +11345,8 @@ export default function Home() {
       if (
         selectedLayerId &&
         commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
         event.key === ","
       ) {
         event.preventDefault();
@@ -11333,6 +11361,8 @@ export default function Home() {
       if (
         selectedLayerId &&
         commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
         event.key === "/"
       ) {
         event.preventDefault();
@@ -11515,6 +11545,7 @@ export default function Home() {
       if (
         commandKey &&
         !event.altKey &&
+        !event.shiftKey &&
         key === "a"
       ) {
         event.preventDefault();
@@ -11549,6 +11580,7 @@ export default function Home() {
         (
           commandKey &&
           event.shiftKey &&
+          !event.altKey &&
           key === "i"
         ) ||
         (
@@ -11915,6 +11947,7 @@ export default function Home() {
         activeTool === "brush" &&
         !commandKey &&
         !event.altKey &&
+        !event.shiftKey &&
         key === "x"
       ) {
         event.preventDefault();
@@ -11951,7 +11984,9 @@ export default function Home() {
 
       if (
         activeTool === "select" &&
-        selection
+        selection &&
+        !commandKey &&
+        !event.altKey
       ) {
         const amount =
           event.shiftKey
@@ -12008,9 +12043,14 @@ export default function Home() {
       }
 
       if (
-        event.key === "Delete" ||
-        event.key ===
-          "Backspace"
+        !commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        (
+          event.key === "Delete" ||
+          event.key ===
+            "Backspace"
+        )
       ) {
         event.preventDefault();
 
@@ -12020,6 +12060,13 @@ export default function Home() {
           );
         }
 
+        return;
+      }
+
+      if (
+        commandKey ||
+        event.altKey
+      ) {
         return;
       }
 
@@ -13840,25 +13887,25 @@ export default function Home() {
     { id: "crop", name: "Crop", icon: "⌗", shortcut: "C", group: "navigate" },
 
     { id: "select", name: "Select", icon: "▣", shortcut: "M", group: "select" },
-    { id: "lasso", name: "Lasso", icon: "⌁", group: "select" },
-    { id: "polygonal-lasso", name: "Polygon", icon: "◇", group: "select" },
-    { id: "magic-wand", name: "Magic Wand", icon: "✦", group: "select" },
-    { id: "quick-select", name: "Quick Select", icon: "◌", group: "select" },
+    { id: "lasso", name: "Lasso", icon: "⌁", shortcut: "L", group: "select" },
+    { id: "polygonal-lasso", name: "Polygon", icon: "◇", shortcut: "Shift+L", group: "select" },
+    { id: "magic-wand", name: "Magic Wand", icon: "✦", shortcut: "W", group: "select" },
+    { id: "quick-select", name: "Quick Select", icon: "◌", shortcut: "Shift+W", group: "select" },
 
-    { id: "brush", name: "Mask Brush", icon: "◐", shortcut: "B", group: "retouch" },
-    { id: "paint", name: "Paint", icon: "✎", group: "retouch" },
-    { id: "heal", name: "Heal", icon: "✚", group: "retouch" },
-    { id: "clone", name: "Clone", icon: "⧉", group: "retouch" },
-    { id: "eraser", name: "Eraser", icon: "⌫", group: "retouch" },
-    { id: "dodge-burn", name: "Dodge/Burn", icon: "◒", group: "retouch" },
-    { id: "blur-sharpen", name: "Blur/Sharp/Smudge", icon: "◉", group: "retouch" },
+    { id: "brush", name: "Mask Brush", icon: "◐", shortcut: "Shift+B", group: "retouch" },
+    { id: "paint", name: "Paint", icon: "✎", shortcut: "B", group: "retouch" },
+    { id: "heal", name: "Heal", icon: "✚", shortcut: "J", group: "retouch" },
+    { id: "clone", name: "Clone", icon: "⧉", shortcut: "S", group: "retouch" },
+    { id: "eraser", name: "Eraser", icon: "⌫", shortcut: "E", group: "retouch" },
+    { id: "dodge-burn", name: "Dodge/Burn", icon: "◒", shortcut: "O", group: "retouch" },
+    { id: "blur-sharpen", name: "Blur/Sharp/Smudge", icon: "◉", shortcut: "R", group: "retouch" },
 
     { id: "text", name: "Text", icon: "T", shortcut: "T", group: "create" },
     { id: "shape", name: "Shape", icon: "□", shortcut: "U", group: "create" },
-    { id: "gradient", name: "Gradient", icon: "◩", group: "create" },
+    { id: "gradient", name: "Gradient", icon: "◩", shortcut: "G", group: "create" },
     { id: "ai", name: "AI", icon: "✧", group: "create" },
 
-    { id: "zoom", name: "Zoom", icon: "⌕", group: "view" },
+    { id: "zoom", name: "Zoom", icon: "⌕", shortcut: "Z", group: "view" },
   ];
 
   function mobileDockIcon(
@@ -17173,7 +17220,7 @@ export default function Home() {
             >
 
               <div className="hidden text-[10px] text-gray-500 lg:block">
-                Ctrl + Alt + Shift + W
+                Ctrl / Cmd + Alt + Shift + W
               </div>
 
               <button
@@ -20706,7 +20753,7 @@ export default function Home() {
                     </div>
 
                     <div className="mt-2 text-[9px] text-gray-600">
-                      Shortcuts: M Marquee • L Lasso • P Polygon • W Wand • Shift+W Quick
+                      Shortcuts: M Marquee • L Lasso • Shift+L Polygon • W Wand • Shift+W Quick
                     </div>
 
                   </div>
