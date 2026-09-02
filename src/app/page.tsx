@@ -9699,9 +9699,11 @@ export default function Home() {
     behavior without inventing controls SIHAG does not have.
     Stage 6 adds temporary paint/erase switching plus a
     Smart Guides-style snapping toggle using SIHAG's real
-    alignment system. Browser-reserved
-    shortcuts can still be intercepted differently by
-    individual browsers or operating systems.
+    alignment system. Stage 7 adds Photoshop-web-style blank
+    raster layer creation. On Windows/Chrome, modifier-heavy
+    New Layer combinations can be intercepted before the page
+    receives them, so SIHAG uses the reliable plain N key as
+    its browser-safe New Blank Raster Layer shortcut.
   */
 
   function getShortcutSelectionIds() {
@@ -9715,6 +9717,131 @@ export default function Home() {
     return selectedLayerId
       ? [selectedLayerId]
       : [];
+  }
+
+  async function createBlankRasterLayerShortcut() {
+    const sourceLayer =
+      layers.find(
+        (layer) =>
+          layer.layerKind ===
+            "image" &&
+          !!layer.src
+      ) ??
+      layers.find(
+        (layer) =>
+          layer.layerKind !==
+            "adjustment" &&
+          !!layer.src
+      );
+
+    if (!sourceLayer?.src) {
+      return;
+    }
+
+    const sourceImage =
+      await new Promise<HTMLImageElement>(
+        (resolve, reject) => {
+          const nextImage =
+            new Image();
+
+          nextImage.onload = () =>
+            resolve(nextImage);
+
+          nextImage.onerror = () =>
+            reject(
+              new Error(
+                "Unable to determine document size"
+              )
+            );
+
+          nextImage.src =
+            sourceLayer.src;
+        }
+      ).catch(() => null);
+
+    if (!sourceImage) {
+      return;
+    }
+
+    const canvas =
+      document.createElement(
+        "canvas"
+      );
+
+    canvas.width =
+      Math.max(
+        1,
+        sourceImage.naturalWidth ||
+          sourceImage.width
+      );
+
+    canvas.height =
+      Math.max(
+        1,
+        sourceImage.naturalHeight ||
+          sourceImage.height
+      );
+
+    const blankLayer =
+      createBakedRasterLayer(
+        canvas.toDataURL(
+          "image/png"
+        ),
+        `Layer ${
+          layers.length + 1
+        }`,
+        selectedLayer?.groupId ??
+          null
+      );
+
+    saveHistory();
+
+    setLayers((items) => {
+      if (!selectedLayerId) {
+        return [
+          ...items,
+          blankLayer,
+        ];
+      }
+
+      const selectedIndex =
+        items.findIndex(
+          (layer) =>
+            layer.id ===
+            selectedLayerId
+        );
+
+      if (selectedIndex < 0) {
+        return [
+          ...items,
+          blankLayer,
+        ];
+      }
+
+      return [
+        ...items.slice(
+          0,
+          selectedIndex + 1
+        ),
+        blankLayer,
+        ...items.slice(
+          selectedIndex + 1
+        ),
+      ];
+    });
+
+    setSelectedLayerId(
+      blankLayer.id
+    );
+
+    setSelectedLayerIds([
+      blankLayer.id,
+    ]);
+
+    showLayerInEditor(
+      blankLayer,
+      false
+    );
   }
 
   function groupSelectedLayersShortcut() {
@@ -10739,6 +10866,31 @@ export default function Home() {
         Ctrl/Cmd+O follows Photoshop and opens an image.
         Ctrl/Cmd+Alt+O is SIHAG's project-open shortcut.
       */
+
+      /*
+        New blank raster layer.
+
+        Photoshop desktop uses Ctrl/Cmd+Shift+N, but Chrome
+        reserves that combination for a new Incognito window.
+        Ctrl+Alt+Shift+N can also be swallowed by Windows/input
+        layouts, so SIHAG uses plain N as the reliable browser-
+        safe shortcut for creating a blank raster layer.
+      */
+
+      if (
+        !commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        key === "n"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          void createBlankRasterLayerShortcut();
+        }
+
+        return;
+      }
 
       if (
         commandKey &&
@@ -15923,6 +16075,7 @@ export default function Home() {
                       ["Ctrl / Cmd + O", "Open Image"],
                       ["Ctrl / Cmd + Alt + O", "Open SIHAG Project"],
                       ["Ctrl / Cmd + S", "Save SIHAG Project"],
+                      ["N", "New Blank Raster Layer (browser-safe)"],
                       ["Ctrl / Cmd + Alt + Shift + W", "Export"],
                       ["Ctrl / Cmd + Z", "Undo"],
                       ["Ctrl / Cmd + Shift + Z", "Redo"],
