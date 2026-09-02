@@ -9575,7 +9575,9 @@ export default function Home() {
     PROFESSIONAL KEYBOARD SHORTCUT CORE
 
     The goal is Photoshop-style muscle memory where SIHAG
-    already has the matching command. Browser-reserved
+    already has the matching command. Stage 2 follows the
+    Photoshop desktop layer-order and merge key mappings.
+    Browser-reserved
     shortcuts can still be intercepted differently by
     individual browsers or operating systems.
   */
@@ -9775,6 +9777,81 @@ export default function Home() {
 
     selectShortcutLayer(
       displayOrder[nextIndex]
+    );
+  }
+
+  function extendAdjacentLayerSelectionShortcut(
+    direction:
+      "up" | "down"
+  ) {
+    if (layers.length === 0) {
+      return;
+    }
+
+    const displayOrder =
+      [...layers].reverse();
+
+    const currentIndex =
+      selectedLayerId
+        ? displayOrder.findIndex(
+            (layer) =>
+              layer.id ===
+              selectedLayerId
+          )
+        : -1;
+
+    const nextIndex =
+      currentIndex < 0
+        ? 0
+        : Math.max(
+            0,
+            Math.min(
+              displayOrder.length -
+                1,
+              currentIndex +
+                (
+                  direction === "up"
+                    ? -1
+                    : 1
+                )
+            )
+          );
+
+    const nextLayer =
+      displayOrder[nextIndex];
+
+    if (!nextLayer) {
+      return;
+    }
+
+    setSelectedLayerIds(
+      (current) => {
+        const selected =
+          new Set(
+            current.length > 0
+              ? current
+              : selectedLayerId
+                ? [selectedLayerId]
+                : []
+          );
+
+        selected.add(
+          nextLayer.id
+        );
+
+        return Array.from(
+          selected
+        );
+      }
+    );
+
+    setSelectedLayerId(
+      nextLayer.id
+    );
+
+    showLayerInEditor(
+      nextLayer,
+      false
     );
   }
 
@@ -10631,6 +10708,29 @@ export default function Home() {
       if (
         !commandKey &&
         event.altKey &&
+        event.shiftKey &&
+        event.code === "BracketRight"
+      ) {
+        event.preventDefault();
+        extendAdjacentLayerSelectionShortcut("up");
+        return;
+      }
+
+      if (
+        !commandKey &&
+        event.altKey &&
+        event.shiftKey &&
+        event.code === "BracketLeft"
+      ) {
+        event.preventDefault();
+        extendAdjacentLayerSelectionShortcut("down");
+        return;
+      }
+
+      if (
+        !commandKey &&
+        event.altKey &&
+        !event.shiftKey &&
         event.code === "BracketRight"
       ) {
         event.preventDefault();
@@ -10641,6 +10741,7 @@ export default function Home() {
       if (
         !commandKey &&
         event.altKey &&
+        !event.shiftKey &&
         event.code === "BracketLeft"
       ) {
         event.preventDefault();
@@ -10744,7 +10845,8 @@ export default function Home() {
       if (
         selectedLayerId &&
         commandKey &&
-        event.altKey &&
+        event.shiftKey &&
+        !event.altKey &&
         event.code === "BracketRight"
       ) {
         event.preventDefault();
@@ -10761,7 +10863,8 @@ export default function Home() {
       if (
         selectedLayerId &&
         commandKey &&
-        event.altKey &&
+        event.shiftKey &&
+        !event.altKey &&
         event.code === "BracketLeft"
       ) {
         event.preventDefault();
@@ -10778,6 +10881,7 @@ export default function Home() {
       if (
         selectedLayerId &&
         commandKey &&
+        !event.shiftKey &&
         !event.altKey &&
         event.code === "BracketRight"
       ) {
@@ -10795,6 +10899,7 @@ export default function Home() {
       if (
         selectedLayerId &&
         commandKey &&
+        !event.shiftKey &&
         !event.altKey &&
         event.code === "BracketLeft"
       ) {
@@ -10804,6 +10909,41 @@ export default function Home() {
           moveLayerDown(
             selectedLayerId
           );
+        }
+
+        return;
+      }
+
+      /*
+        Photoshop layer merge commands.
+      */
+
+      if (
+        commandKey &&
+        event.shiftKey &&
+        !event.altKey &&
+        key === "e"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          void mergeVisibleLayers();
+        }
+
+        return;
+      }
+
+      if (
+        selectedLayerId &&
+        commandKey &&
+        !event.shiftKey &&
+        !event.altKey &&
+        key === "e"
+      ) {
+        event.preventDefault();
+
+        if (!event.repeat) {
+          void mergeSelectedLayerDown();
         }
 
         return;
@@ -13554,7 +13694,7 @@ export default function Home() {
                   </span>
 
                   <span className="text-[9px] text-gray-600">
-                    Ctrl+D
+                    Ctrl+J
                   </span>
                 </button>
 
@@ -13928,7 +14068,7 @@ export default function Home() {
                   </span>
 
                   <span className="text-[9px] text-gray-600">
-                    Ctrl+D
+                    Ctrl+J
                   </span>
                 </button>
 
@@ -14015,7 +14155,7 @@ export default function Home() {
                   </span>
 
                   <span className="text-[9px] text-gray-600">
-                    ↓
+                    Ctrl+E
                   </span>
                 </button>
 
@@ -14040,7 +14180,7 @@ export default function Home() {
                   </span>
 
                   <span className="text-[9px] text-gray-600">
-                    VISIBLE
+                    Ctrl+Shift+E
                   </span>
                 </button>
 
@@ -15399,6 +15539,8 @@ export default function Home() {
                     title: "Layers",
                     rows: [
                       ["Ctrl / Cmd + J", "Duplicate Layer"],
+                      ["Ctrl / Cmd + E", "Merge Down"],
+                      ["Ctrl / Cmd + Shift + E", "Merge Visible"],
                       ["Ctrl / Cmd + G", "Group Selected Layers"],
                       ["Ctrl / Cmd + Shift + G", "Ungroup Selected Layers"],
                       ["Ctrl / Cmd + Alt + G", "Toggle Adjustment Clipping"],
@@ -15406,10 +15548,12 @@ export default function Home() {
                       ["Ctrl / Cmd + /", "Lock / Unlock Selected Layer(s)"],
                       ["Ctrl / Cmd + ]", "Move Layer Forward"],
                       ["Ctrl / Cmd + [", "Move Layer Backward"],
-                      ["Ctrl / Cmd + Alt + ]", "Bring Layer(s) to Front"],
-                      ["Ctrl / Cmd + Alt + [", "Send Layer(s) to Back"],
+                      ["Ctrl / Cmd + Shift + ]", "Bring Layer(s) to Front"],
+                      ["Ctrl / Cmd + Shift + [", "Send Layer(s) to Back"],
                       ["Alt / Option + ]", "Select Layer Above"],
                       ["Alt / Option + [", "Select Layer Below"],
+                      ["Shift + Alt / Option + ]", "Add Layer Above to Selection"],
+                      ["Shift + Alt / Option + [", "Add Layer Below to Selection"],
                       ["Alt / Option + .", "Select Top Layer"],
                       ["Alt / Option + ,", "Select Bottom Layer"],
                       ["Ctrl / Cmd + Alt + A", "Select All Layers"],
@@ -16342,7 +16486,7 @@ export default function Home() {
             >
 
               <div className="hidden text-[10px] text-gray-500 lg:block">
-                Ctrl + Shift + E
+                Ctrl + Alt + Shift + W
               </div>
 
               <button
