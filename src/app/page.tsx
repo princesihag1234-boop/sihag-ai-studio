@@ -744,6 +744,11 @@ export default function Home() {
       null
     );
 
+  const temporaryPaintModeRef =
+    useRef<"paint" | "erase" | null>(
+      null
+    );
+
   const [image, setImage] =
     useState<HTMLImageElement | null>(null);
 
@@ -9692,7 +9697,9 @@ export default function Home() {
     Photoshop desktop layer-order and merge key mappings.
     Stage 5 adds Photoshop-style number-key opacity / flow
     behavior without inventing controls SIHAG does not have.
-    Browser-reserved
+    Stage 6 adds temporary paint/erase switching plus a
+    Smart Guides-style snapping toggle using SIHAG's real
+    alignment system. Browser-reserved
     shortcuts can still be intercepted differently by
     individual browsers or operating systems.
   */
@@ -10463,6 +10470,46 @@ export default function Home() {
       }
 
       /*
+        Temporary Paint / Erase mode.
+
+        Photoshop uses the grave-accent key as a hold
+        modifier to temporarily switch between painting and
+        erasing with the same brush. SIHAG's Paint tool
+        already has native paint/erase modes, so we mirror
+        that behavior without switching tools or changing
+        brush settings.
+      */
+
+      if (
+        event.code === "Backquote" &&
+        !isTyping &&
+        !commandKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !shortcutsOpen &&
+        !exportDialogOpen &&
+        activeTool === "paint"
+      ) {
+        event.preventDefault();
+
+        if (
+          temporaryPaintModeRef.current ===
+          null
+        ) {
+          temporaryPaintModeRef.current =
+            paintBrushMode;
+
+          setPaintBrushMode(
+            paintBrushMode === "erase"
+              ? "paint"
+              : "erase"
+          );
+        }
+
+        return;
+      }
+
+      /*
         Escape closes transient UI first.
       */
 
@@ -10820,11 +10867,28 @@ export default function Home() {
 
       if (
         commandKey &&
-        event.key === ";"
+        !event.shiftKey &&
+        event.code === "Semicolon"
       ) {
         event.preventDefault();
 
         setShowGuides(
+          (value) =>
+            !value
+        );
+
+        return;
+      }
+
+      if (
+        commandKey &&
+        event.shiftKey &&
+        !event.altKey &&
+        event.code === "Semicolon"
+      ) {
+        event.preventDefault();
+
+        setSnapEnabled(
           (value) =>
             !value
         );
@@ -11814,6 +11878,26 @@ export default function Home() {
         globalThis.KeyboardEvent
     ) {
       if (
+        event.code === "Backquote" &&
+        temporaryPaintModeRef.current !==
+          null
+      ) {
+        event.preventDefault();
+
+        const previousMode =
+          temporaryPaintModeRef.current;
+
+        temporaryPaintModeRef.current =
+          null;
+
+        setPaintBrushMode(
+          previousMode
+        );
+
+        return;
+      }
+
+      if (
         (
           event.key === "Shift" ||
           event.key === "Alt"
@@ -11913,6 +11997,7 @@ export default function Home() {
     maskBrushOpacity,
     maskBrushMode,
     maskOverlayEnabled,
+    paintBrushMode,
     zoom,
     pan,
   ]);
@@ -15932,6 +16017,7 @@ export default function Home() {
                       ["0", "Set Brush Opacity / Strength 100%"],
                       ["Shift + 1…9", "Set Paint Flow 10–90%"],
                       ["Shift + 0", "Set Paint Flow 100%"],
+                      ["` (hold)", "Temporary Paint / Erase Toggle"],
                       ["X", "Swap Mask Hide / Reveal"],
                       ["\\", "Toggle Mask Overlay"],
                     ],
@@ -15947,6 +16033,7 @@ export default function Home() {
                       ["Ctrl / Cmd + R", "Toggle Rulers"],
                       ["Ctrl / Cmd + '", "Toggle Grid"],
                       ["Ctrl / Cmd + ;", "Toggle Guides"],
+                      ["Ctrl / Cmd + Shift + ;", "Toggle Smart Guides / Snapping"],
                       ["Tab", "Hide / Show Workspace Panels"],
                       ["Shift + Tab", "Hide / Show Inspector (keep Tools)"],
                       ["F5", "Brush Properties"],
