@@ -703,6 +703,26 @@ export default function LayerCanvas({
   const lastMaskEmitRef =
     useRef(0);
 
+  /*
+    Preserve the exact mask that existed before the current
+    stroke. Escape can therefore cancel a mask stroke without
+    leaving partially-painted pixels behind.
+  */
+  const maskStrokeOriginalSrcRef =
+    useRef<string | null>(null);
+
+  /*
+    Photoshop-style Shift-click line continuation. The end of
+    the last committed mask stroke becomes the start of the next
+    Shift-click stroke on the same layer.
+  */
+  const lastCommittedMaskPointRef =
+    useRef<{
+      layerId: string;
+      x: number;
+      y: number;
+    } | null>(null);
+
   const healCanvasRef =
     useRef<HTMLCanvasElement | null>(
       null
@@ -7868,8 +7888,21 @@ export default function LayerCanvas({
     maskStrokeLayerIdRef.current =
       selectedLayer.id;
 
+    maskStrokeOriginalSrcRef.current =
+      selectedLayer.maskSrc;
+
+    const previousCommittedPoint =
+      lastCommittedMaskPointRef.current;
+
     lastMaskPointRef.current =
-      null;
+      event.shiftKey &&
+      previousCommittedPoint?.layerId ===
+        selectedLayer.id
+        ? {
+            x: previousCommittedPoint.x,
+            y: previousCommittedPoint.y,
+          }
+        : null;
 
     lastMaskEmitRef.current =
       0;
@@ -7935,11 +7968,29 @@ export default function LayerCanvas({
       true
     );
 
+    const committedPoint =
+      lastMaskPointRef.current;
+
+    if (
+      committedPoint &&
+      maskStrokeLayerIdRef.current
+    ) {
+      lastCommittedMaskPointRef.current = {
+        layerId:
+          maskStrokeLayerIdRef.current,
+        x: committedPoint.x,
+        y: committedPoint.y,
+      };
+    }
+
     setPaintingMask(
       false
     );
 
     maskCanvasRef.current =
+      null;
+
+    maskStrokeOriginalSrcRef.current =
       null;
 
     lastMaskPointRef.current =
@@ -7948,6 +7999,66 @@ export default function LayerCanvas({
     maskStrokeLayerIdRef.current =
       "";
   }
+
+  /*
+    Escape cancels an in-progress mask stroke and restores the
+    exact PNG that existed before the stroke began. This keeps
+    mask painting safely reversible even before Undo/Redo is used.
+  */
+  useEffect(() => {
+    if (!paintingMask) {
+      return;
+    }
+
+    function cancelMaskStroke(
+      event: KeyboardEvent
+    ) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      const layerId =
+        maskStrokeLayerIdRef.current;
+
+      const originalMask =
+        maskStrokeOriginalSrcRef.current;
+
+      if (!layerId || !originalMask) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      onMaskChange(
+        layerId,
+        originalMask
+      );
+
+      setPaintingMask(false);
+      maskCanvasRef.current = null;
+      maskStrokeOriginalSrcRef.current = null;
+      lastMaskPointRef.current = null;
+      maskStrokeLayerIdRef.current = "";
+    }
+
+    window.addEventListener(
+      "keydown",
+      cancelMaskStroke,
+      true
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        cancelMaskStroke,
+        true
+      );
+    };
+  }, [
+    paintingMask,
+    onMaskChange,
+  ]);
 
   /*
     SPOT HEAL TOOL
@@ -15752,7 +15863,7 @@ export default function LayerCanvas({
           selectedLayer.maskSrc &&
           (selectedLayer.maskEnabled ?? true) && (
           <div
-            className="pointer-events-none absolute rounded-full border border-white shadow-[0_0_0_1px_rgba(0,0,0,0.75)]"
+            className="pointer-events-none absolute flex items-center justify-center rounded-full border border-white shadow-[0_0_0_1px_rgba(0,0,0,0.82),0_0_8px_rgba(255,255,255,0.10)]"
             style={{
               left:
                 brushCursor.x -
@@ -15768,7 +15879,18 @@ export default function LayerCanvas({
               height:
                 brushCursor.size,
             }}
-          />
+          >
+            <div
+              className="absolute rounded-full border border-white/45"
+              style={{
+                width: `${Math.max(4, maskBrushHardness)}%`,
+                height: `${Math.max(4, maskBrushHardness)}%`,
+              }}
+            />
+
+            <div className="absolute left-1/2 top-1/2 h-px w-2 -translate-x-1/2 -translate-y-1/2 bg-white/80 shadow-[0_0_1px_black]" />
+            <div className="absolute left-1/2 top-1/2 h-2 w-px -translate-x-1/2 -translate-y-1/2 bg-white/80 shadow-[0_0_1px_black]" />
+          </div>
         )}
 
         {activeTool === "heal" &&
@@ -16209,8 +16331,8 @@ export default function LayerCanvas({
                       ? "Enable the layer mask before painting"
                       : paintingMask
                         ? maskBrushMode === "hide"
-                          ? "Painting mask — hiding layer"
-                          : "Painting mask — restoring layer"
+                          ? "Painting mask — hiding layer • Esc: cancel"
+                          : "Painting mask — restoring layer • Esc: cancel"
                         : selection
                           ? selectionInverted
                             ? maskBrushMode === "hide"
@@ -16220,8 +16342,8 @@ export default function LayerCanvas({
                               ? "Mask Brush: hide inside selection only"
                               : "Mask Brush: restore inside selection only"
                           : maskBrushMode === "hide"
-                            ? "Mask Brush: paint to hide"
-                            : "Mask Brush: paint to restore"
+                            ? "Mask Brush: paint to hide • Shift-click: straight line"
+                            : "Mask Brush: paint to restore • Shift-click: straight line"
                   : activeTool === "heal"
                     ? healing
                       ? "Spot Healing • automatic nearby texture sample"

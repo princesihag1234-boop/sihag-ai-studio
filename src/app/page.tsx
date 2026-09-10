@@ -3595,6 +3595,15 @@ export default function Home() {
               : layer
         )
     );
+
+    /*
+      A newly-created selection mask becomes the active editing
+      target immediately so the user can refine it with the mask
+      brush without an extra tool-selection step.
+    */
+    setActiveTool(
+      "brush"
+    );
   }
 
   /* MASK BRUSH */
@@ -5121,6 +5130,14 @@ export default function Home() {
                 : layer
           )
       );
+
+      if (
+        id === selectedLayerId
+      ) {
+        setActiveTool(
+          "brush"
+        );
+      }
     };
 
     image.src =
@@ -5247,6 +5264,23 @@ export default function Home() {
               : layer
         )
     );
+
+    if (
+      id === selectedLayerId
+    ) {
+      setMaskOverlayEnabled(
+        false
+      );
+
+      if (
+        activeTool ===
+        "brush"
+      ) {
+        setActiveTool(
+          "move"
+        );
+      }
+    }
   }
 
   function changeLayerBlendMode(
@@ -18776,6 +18810,7 @@ export default function Home() {
                     {activeTool === "brush" && (
                       <MaskBrushPanel
                         layer={selectedLayer}
+                        hasSelection={!!selection}
                         brushSize={maskBrushSize}
                         brushHardness={maskBrushHardness}
                         brushOpacity={maskBrushOpacity}
@@ -18790,6 +18825,55 @@ export default function Home() {
                           )
                         }
                         onModeChange={setMaskBrushMode}
+                        onAddMask={() => {
+                          if (selectedLayer) {
+                            addLayerMask(selectedLayer.id);
+                          }
+                        }}
+                        onCreateMaskFromSelection={createMaskFromSelection}
+                        onToggleMask={() => {
+                          if (selectedLayer) {
+                            toggleLayerMask(selectedLayer.id);
+                          }
+                        }}
+                        onInvertMask={() => {
+                          if (selectedLayer) {
+                            invertLayerMask(selectedLayer.id);
+                          }
+                        }}
+                        onRemoveMask={() => {
+                          if (selectedLayer) {
+                            removeLayerMask(selectedLayer.id);
+                          }
+                        }}
+                        onRevealAllMask={() => {
+                          if (selectedLayer) {
+                            revealAllLayerMask(selectedLayer.id);
+                          }
+                        }}
+                        onHideAllMask={() => {
+                          if (selectedLayer) {
+                            hideAllLayerMask(selectedLayer.id);
+                          }
+                        }}
+                        onMaskDensityStart={saveHistory}
+                        onMaskDensityChange={(value) => {
+                          if (selectedLayer) {
+                            changeLayerMaskDensity(
+                              selectedLayer.id,
+                              value
+                            );
+                          }
+                        }}
+                        onMaskFeatherStart={saveHistory}
+                        onMaskFeatherChange={(value) => {
+                          if (selectedLayer) {
+                            changeLayerMaskFeather(
+                              selectedLayer.id,
+                              value
+                            );
+                          }
+                        }}
                       />
                     )}
 
@@ -19243,6 +19327,15 @@ export default function Home() {
                       groups={groups}
                       selectedLayerId={selectedLayerId}
                       selectedLayerIds={selectedLayerIds}
+                      maskEditingLayerId={
+                        activeTool === "brush"
+                          ? selectedLayerId
+                          : null
+                      }
+                      onEditMask={(id) => {
+                        selectLayer(id);
+                        setActiveTool("brush");
+                      }}
                       onCreateGroup={createLayerGroup}
                       onSelectGroup={selectLayerGroup}
                       onGroupSelection={groupSelectedLayersShortcut}
@@ -20748,6 +20841,15 @@ export default function Home() {
             groups={groups}
             selectedLayerId={selectedLayerId}
             selectedLayerIds={selectedLayerIds}
+            maskEditingLayerId={
+              activeTool === "brush"
+                ? selectedLayerId
+                : null
+            }
+            onEditMask={(id) => {
+              selectLayer(id);
+              setActiveTool("brush");
+            }}
             onCreateGroup={createLayerGroup}
             onSelectGroup={selectLayerGroup}
             onGroupSelection={groupSelectedLayersShortcut}
@@ -21013,6 +21115,7 @@ export default function Home() {
           {activeTool === "brush" && (
             <MaskBrushPanel
               layer={selectedLayer}
+              hasSelection={!!selection}
               brushSize={maskBrushSize}
               brushHardness={maskBrushHardness}
               brushOpacity={maskBrushOpacity}
@@ -21028,6 +21131,67 @@ export default function Home() {
                 )
               }
               onModeChange={setMaskBrushMode}
+              onAddMask={() => {
+                if (selectedLayer) {
+                  addLayerMask(
+                    selectedLayer.id
+                  );
+                }
+              }}
+              onCreateMaskFromSelection={createMaskFromSelection}
+              onToggleMask={() => {
+                if (selectedLayer) {
+                  toggleLayerMask(
+                    selectedLayer.id
+                  );
+                }
+              }}
+              onInvertMask={() => {
+                if (selectedLayer) {
+                  invertLayerMask(
+                    selectedLayer.id
+                  );
+                }
+              }}
+              onRemoveMask={() => {
+                if (selectedLayer) {
+                  removeLayerMask(
+                    selectedLayer.id
+                  );
+                }
+              }}
+              onRevealAllMask={() => {
+                if (selectedLayer) {
+                  revealAllLayerMask(
+                    selectedLayer.id
+                  );
+                }
+              }}
+              onHideAllMask={() => {
+                if (selectedLayer) {
+                  hideAllLayerMask(
+                    selectedLayer.id
+                  );
+                }
+              }}
+              onMaskDensityStart={saveHistory}
+              onMaskDensityChange={(value) => {
+                if (selectedLayer) {
+                  changeLayerMaskDensity(
+                    selectedLayer.id,
+                    value
+                  );
+                }
+              }}
+              onMaskFeatherStart={saveHistory}
+              onMaskFeatherChange={(value) => {
+                if (selectedLayer) {
+                  changeLayerMaskFeather(
+                    selectedLayer.id,
+                    value
+                  );
+                }
+              }}
             />
           )}
 

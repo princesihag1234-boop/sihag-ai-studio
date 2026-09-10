@@ -22,6 +22,12 @@ type LayerPanelProps = {
 
   selectedLayerIds: string[];
 
+  maskEditingLayerId: string | null;
+
+  onEditMask: (
+    id: string
+  ) => void;
+
   onCreateGroup: () => void;
 
   onSelectGroup: (
@@ -167,6 +173,8 @@ export default function LayerPanel({
   groups,
   selectedLayerId,
   selectedLayerIds,
+  maskEditingLayerId,
+  onEditMask,
   onCreateGroup,
   onSelectGroup,
   onGroupSelection,
@@ -1461,25 +1469,38 @@ export default function LayerPanel({
                       </div>
 
                       {layer.maskSrc && (
-                        <div
+                        <button
+                          type="button"
                           title={
-                            layer.maskEnabled ?? true
-                              ? "Layer mask enabled"
-                              : "Layer mask disabled"
+                            maskEditingLayerId === layer.id
+                              ? "Editing layer mask"
+                              : "Edit layer mask"
                           }
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onEditMask(layer.id);
+                          }}
                           className={
-                            (layer.maskEnabled ?? true)
-                              ? "h-11 w-8 overflow-hidden rounded-lg border-2 border-cyan-300/80 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)]"
-                              : "h-11 w-8 overflow-hidden rounded-lg border border-white/20 bg-white opacity-40"
+                            maskEditingLayerId === layer.id
+                              ? "relative h-11 w-8 overflow-hidden rounded-lg border-2 border-indigo-300 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.35),0_0_10px_rgba(129,140,248,0.35)]"
+                              : (layer.maskEnabled ?? true)
+                                ? "relative h-11 w-8 overflow-hidden rounded-lg border border-white/25 bg-white transition hover:border-indigo-300/80"
+                                : "relative h-11 w-8 overflow-hidden rounded-lg border border-white/15 bg-white opacity-40 transition hover:opacity-70"
                           }
                         >
                           <img
                             src={layer.maskSrc}
-                            alt=""
+                            alt="Layer mask"
                             draggable={false}
                             className="h-full w-full object-cover"
                           />
-                        </div>
+
+                          {maskEditingLayerId === layer.id && (
+                            <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-indigo-500/90 py-0.5 text-center text-[7px] font-bold tracking-wide text-white">
+                              MASK
+                            </span>
+                          )}
+                        </button>
                       )}
                     </div>
 
