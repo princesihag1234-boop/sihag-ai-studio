@@ -881,6 +881,21 @@ export default function LayerCanvas({
       layerRotation: 0,
     });
 
+  /*
+    Snapshot of the layer transform at the start of an
+    on-canvas gesture. Escape restores this exact state,
+    matching the cancel behavior users expect from a
+    professional transform workflow.
+  */
+  const transformGestureStart =
+    useRef<{
+      layerId: string;
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+    } | null>(null);
+
   const selectedLayer =
     layers.find(
       (layer) =>
@@ -12219,6 +12234,26 @@ export default function LayerCanvas({
   }
 
   /*
+    MOVE / TRANSFORM GESTURE HELPERS
+  */
+
+  function rememberTransformGesture(
+    layer: ImageLayer
+  ) {
+    transformGestureStart.current = {
+      layerId: layer.id,
+      x: layer.x,
+      y: layer.y,
+      scale: layer.scale,
+      rotation: layer.rotation,
+    };
+  }
+
+  function clearTransformGesture() {
+    transformGestureStart.current = null;
+  }
+
+  /*
     MOVE SELECTED LAYER
   */
 
@@ -12269,6 +12304,10 @@ export default function LayerCanvas({
     }
 
     event.preventDefault();
+
+    rememberTransformGesture(
+      hitLayer
+    );
 
     onTransformStart();
 
@@ -12360,6 +12399,27 @@ export default function LayerCanvas({
       layerDragStart.current
         .layerY +
       deltaY;
+
+    /*
+      Hold Shift while moving to constrain the gesture to
+      the dominant axis from its starting point. This keeps
+      precise horizontal and vertical moves fast without
+      changing the stored coordinate model.
+    */
+    if (event.shiftKey) {
+      if (
+        Math.abs(deltaX) >=
+        Math.abs(deltaY)
+      ) {
+        nextY =
+          layerDragStart.current
+            .layerY;
+      } else {
+        nextX =
+          layerDragStart.current
+            .layerX;
+      }
+    }
 
     /*
       SMART GUIDE SNAP THRESHOLD
@@ -12875,6 +12935,8 @@ export default function LayerCanvas({
   }
 
   function endLayerDrag() {
+    clearTransformGesture();
+
     setDraggingLayer(
       false
     );
@@ -12918,6 +12980,10 @@ export default function LayerCanvas({
 
     event.preventDefault();
     event.stopPropagation();
+
+    rememberTransformGesture(
+      selectedLayer
+    );
 
     onTransformStart();
 
@@ -13014,21 +13080,21 @@ export default function LayerCanvas({
       );
 
     /*
-      Hold Shift while resizing to snap
-      scale to clean 50% increments:
-      0.5x, 1.0x, 1.5x, 2.0x, etc.
+      Hold Shift while resizing to snap to practical 10%
+      scale increments. The previous 50% steps were too
+      coarse for precision work.
     */
 
     if (event.shiftKey) {
       nextScale =
         Math.round(
-          nextScale / 0.5
-        ) * 0.5;
+          nextScale / 0.1
+        ) * 0.1;
 
       nextScale =
         clamp(
           nextScale,
-          0.5,
+          0.05,
           5
         );
     }
@@ -13067,6 +13133,10 @@ export default function LayerCanvas({
 
     event.preventDefault();
     event.stopPropagation();
+
+    rememberTransformGesture(
+      selectedLayer
+    );
 
     onTransformStart();
 
@@ -13188,6 +13258,75 @@ export default function LayerCanvas({
       }
     );
   }
+
+  /*
+    Escape cancels only an active canvas transform gesture.
+    It does not interfere with the editor's normal Escape
+    behavior when no move/resize/rotate gesture is running.
+  */
+  useEffect(() => {
+    if (
+      !draggingLayer &&
+      !resizingLayer &&
+      !rotatingLayer
+    ) {
+      return;
+    }
+
+    function cancelActiveTransform(
+      event: KeyboardEvent
+    ) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      const start =
+        transformGestureStart.current;
+
+      if (!start) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      onMoveLayer(
+        start.layerId,
+        {
+          x: start.x,
+          y: start.y,
+          scale: start.scale,
+          rotation: start.rotation,
+        }
+      );
+
+      setDraggingLayer(false);
+      setResizingLayer(false);
+      setRotatingLayer(false);
+      setSmartGuideX(null);
+      setSmartGuideY(null);
+      clearTransformGesture();
+    }
+
+    window.addEventListener(
+      "keydown",
+      cancelActiveTransform,
+      true
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        cancelActiveTransform,
+        true
+      );
+    };
+  }, [
+    draggingLayer,
+    resizingLayer,
+    rotatingLayer,
+    onMoveLayer,
+  ]);
 
   const canTransform =
     activeTool === "move" &&
@@ -14906,7 +15045,7 @@ export default function LayerCanvas({
                       endLayerDrag
                     }
                     className="pointer-events-auto absolute bottom-7 left-1/2 h-5 w-5 -translate-x-1/2 cursor-grab rounded-full border-2 border-indigo-600 bg-white shadow active:cursor-grabbing"
-                    title="Drag to rotate"
+                    title="Drag to rotate • Shift snaps to 15° • Esc cancels"
                   />
                 </div>
 
@@ -14972,10 +15111,12 @@ export default function LayerCanvas({
               ? "Selected layer is locked"
               : activeTool === "move"
                 ? rotatingLayer
-                  ? `Rotation ${Math.round(selectedLayer.rotation)}°${" — hold Shift to snap"}`
+                  ? `Rotation ${selectedLayer.rotation.toFixed(1)}° — Shift: 15° snap • Esc: cancel`
                   : resizingLayer
-                    ? `Scale ${selectedLayer.scale.toFixed(2)}x — hold Shift to snap`
-                    : "Drag layer, resize corners, or rotate handle"
+                    ? `Scale ${(selectedLayer.scale * 100).toFixed(0)}% — Shift: 10% snap • Esc: cancel`
+                    : draggingLayer
+                      ? `X ${Math.round(selectedLayer.x)} px • Y ${Math.round(selectedLayer.y)} px — Shift: axis lock • Esc: cancel`
+                      : "Drag layer, resize corners, or rotate handle"
                 : activeTool === "brush"
                   ? !selectedLayer.maskSrc
                     ? "Add a layer mask before painting"
@@ -15234,7 +15375,8 @@ function ResizeHandle({
       onPointerCancel={
         onPointerUp
       }
-      className={`absolute h-4 w-4 rounded-sm border-2 border-indigo-600 bg-white shadow ${classes[position]}`}
+      title="Drag to scale • Shift snaps to 10%"
+      className={`absolute h-4 w-4 rounded-[3px] border-2 border-indigo-600 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.35)] transition-transform hover:scale-110 ${classes[position]}`}
     />
   );
 }
