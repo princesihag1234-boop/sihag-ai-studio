@@ -17863,6 +17863,7 @@ export default function Home() {
                         <LayerTransformPanel
                           layer={selectedLayer}
                           onChange={updateLayerTransform}
+                          onChangeStart={saveHistory}
                           onReset={resetLayerTransform}
                         />
                       )}
@@ -19967,6 +19968,7 @@ export default function Home() {
             <LayerTransformPanel
               layer={selectedLayer}
               onChange={updateLayerTransform}
+              onChangeStart={saveHistory}
               onReset={resetLayerTransform}
             />
           )}

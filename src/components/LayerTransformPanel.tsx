@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  useRef,
+} from "react";
+
 import type {
   ImageLayer,
 } from "@/lib/layerTypes";
@@ -12,14 +16,52 @@ type LayerTransformPanelProps = {
     changes: Partial<ImageLayer>
   ) => void;
 
+  /*
+    Starts one Undo/Redo transaction before an
+    inspector-driven transform begins. On-canvas
+    transforms already do this through LayerCanvas.
+  */
+  onChangeStart: () => void;
+
   onReset: (
     id: string
   ) => void;
 };
 
+function clamp(
+  value: number,
+  min: number,
+  max: number
+) {
+  return Math.min(
+    max,
+    Math.max(
+      min,
+      value
+    )
+  );
+}
+
+function normalizeDegrees(
+  value: number
+) {
+  let normalized =
+    ((value + 180) % 360 + 360) % 360 - 180;
+
+  if (
+    Math.abs(normalized) <
+    0.000001
+  ) {
+    normalized = 0;
+  }
+
+  return normalized;
+}
+
 export default function LayerTransformPanel({
   layer,
   onChange,
+  onChangeStart,
   onReset,
 }: LayerTransformPanelProps) {
   if (!layer) {
@@ -41,6 +83,23 @@ export default function LayerTransformPanel({
   const disabled =
     layer.locked;
 
+  const layerId =
+    layer.id;
+
+  function beginAndChange(
+    changes: Partial<ImageLayer>
+  ) {
+    if (disabled) {
+      return;
+    }
+
+    onChangeStart();
+    onChange(
+      layerId,
+      changes
+    );
+  }
+
   return (
     <section className="border-b border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0))] p-4">
 
@@ -48,7 +107,7 @@ export default function LayerTransformPanel({
 
       <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.018] px-3 py-2.5">
 
-        <div>
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold">
             Layer Transform
           </h3>
@@ -59,6 +118,7 @@ export default function LayerTransformPanel({
         </div>
 
         <button
+          type="button"
           disabled={disabled}
           onClick={() =>
             onReset(layer.id)
@@ -80,51 +140,93 @@ export default function LayerTransformPanel({
 
       <PanelTitle title="POSITION" />
 
-      <NumberControl
-        title="X"
-        value={layer.x}
-        disabled={disabled}
-        onChange={(value) =>
-          onChange(
-            layer.id,
-            {
-              x: value,
-            }
-          )
-        }
-      />
+      <div className="grid grid-cols-2 gap-2.5">
+        <NumberControl
+          title="X"
+          value={layer.x}
+          step={1}
+          suffix="px"
+          disabled={disabled}
+          onChangeStart={onChangeStart}
+          onChange={(value) =>
+            onChange(
+              layer.id,
+              {
+                x: value,
+              }
+            )
+          }
+        />
 
-      <NumberControl
-        title="Y"
-        value={layer.y}
-        disabled={disabled}
-        onChange={(value) =>
-          onChange(
-            layer.id,
-            {
-              y: value,
-            }
-          )
-        }
-      />
+        <NumberControl
+          title="Y"
+          value={layer.y}
+          step={1}
+          suffix="px"
+          disabled={disabled}
+          onChangeStart={onChangeStart}
+          onChange={(value) =>
+            onChange(
+              layer.id,
+              {
+                y: value,
+              }
+            )
+          }
+        />
+      </div>
+
+      <p className="mt-1 text-[9px] leading-4 text-gray-600">
+        Position is measured from the document center.
+      </p>
 
       {/* SCALE */}
 
       <PanelTitle title="SIZE" />
 
-      <Slider
+      <NumberControl
         title="Scale"
-        value={layer.scale}
-        min={0.05}
-        max={3}
-        step={0.01}
-        suffix="x"
+        value={layer.scale * 100}
+        min={5}
+        max={500}
+        step={1}
+        suffix="%"
         disabled={disabled}
+        onChangeStart={onChangeStart}
         onChange={(value) =>
           onChange(
             layer.id,
             {
-              scale: value,
+              scale:
+                clamp(
+                  value / 100,
+                  0.05,
+                  5
+                ),
+            }
+          )
+        }
+      />
+
+      <Slider
+        title="Scale"
+        value={layer.scale}
+        min={0.05}
+        max={5}
+        step={0.01}
+        suffix="x"
+        disabled={disabled}
+        onChangeStart={onChangeStart}
+        onChange={(value) =>
+          onChange(
+            layer.id,
+            {
+              scale:
+                clamp(
+                  value,
+                  0.05,
+                  5
+                ),
             }
           )
         }
@@ -136,12 +238,9 @@ export default function LayerTransformPanel({
           title="50%"
           disabled={disabled}
           onClick={() =>
-            onChange(
-              layer.id,
-              {
-                scale: 0.5,
-              }
-            )
+            beginAndChange({
+              scale: 0.5,
+            })
           }
         />
 
@@ -149,12 +248,9 @@ export default function LayerTransformPanel({
           title="100%"
           disabled={disabled}
           onClick={() =>
-            onChange(
-              layer.id,
-              {
-                scale: 1,
-              }
-            )
+            beginAndChange({
+              scale: 1,
+            })
           }
         />
 
@@ -162,12 +258,9 @@ export default function LayerTransformPanel({
           title="200%"
           disabled={disabled}
           onClick={() =>
-            onChange(
-              layer.id,
-              {
-                scale: 2,
-              }
-            )
+            beginAndChange({
+              scale: 2,
+            })
           }
         />
 
@@ -177,38 +270,78 @@ export default function LayerTransformPanel({
 
       <PanelTitle title="ROTATION" />
 
-      <Slider
+      <NumberControl
         title="Angle"
         value={layer.rotation}
         min={-180}
         max={180}
-        step={1}
+        step={0.1}
+        precision={1}
         suffix="°"
         disabled={disabled}
+        onChangeStart={onChangeStart}
         onChange={(value) =>
           onChange(
             layer.id,
             {
-              rotation: value,
+              rotation:
+                normalizeDegrees(
+                  value
+                ),
             }
           )
         }
       />
 
-      <div className="grid grid-cols-2 gap-2">
+      <Slider
+        title="Angle"
+        value={
+          normalizeDegrees(
+            layer.rotation
+          )
+        }
+        min={-180}
+        max={180}
+        step={0.1}
+        suffix="°"
+        disabled={disabled}
+        onChangeStart={onChangeStart}
+        onChange={(value) =>
+          onChange(
+            layer.id,
+            {
+              rotation:
+                normalizeDegrees(
+                  value
+                ),
+            }
+          )
+        }
+      />
+
+      <div className="grid grid-cols-3 gap-2">
 
         <PresetButton
           title="↺ 90°"
           disabled={disabled}
           onClick={() =>
-            onChange(
-              layer.id,
-              {
-                rotation:
+            beginAndChange({
+              rotation:
+                normalizeDegrees(
                   layer.rotation -
-                  90,
-              }
-            )
+                  90
+                ),
+            })
+          }
+        />
+
+        <PresetButton
+          title="0°"
+          disabled={disabled}
+          onClick={() =>
+            beginAndChange({
+              rotation: 0,
+            })
           }
         />
 
@@ -216,14 +349,13 @@ export default function LayerTransformPanel({
           title="↻ 90°"
           disabled={disabled}
           onClick={() =>
-            onChange(
-              layer.id,
-              {
-                rotation:
+            beginAndChange({
+              rotation:
+                normalizeDegrees(
                   layer.rotation +
-                  90,
-              }
-            )
+                  90
+                ),
+            })
           }
         />
 
@@ -236,15 +368,13 @@ export default function LayerTransformPanel({
       <div className="grid grid-cols-2 gap-2">
 
         <button
+          type="button"
           disabled={disabled}
           onClick={() =>
-            onChange(
-              layer.id,
-              {
-                flipHorizontal:
-                  !layer.flipHorizontal,
-              }
-            )
+            beginAndChange({
+              flipHorizontal:
+                !layer.flipHorizontal,
+            })
           }
           className={
             layer.flipHorizontal
@@ -256,15 +386,13 @@ export default function LayerTransformPanel({
         </button>
 
         <button
+          type="button"
           disabled={disabled}
           onClick={() =>
-            onChange(
-              layer.id,
-              {
-                flipVertical:
-                  !layer.flipVertical,
-              }
-            )
+            beginAndChange({
+              flipVertical:
+                !layer.flipVertical,
+            })
           }
           className={
             layer.flipVertical
@@ -289,15 +417,25 @@ export default function LayerTransformPanel({
         step={1}
         suffix="%"
         disabled={disabled}
+        onChangeStart={onChangeStart}
         onChange={(value) =>
           onChange(
             layer.id,
             {
-              opacity: value,
+              opacity:
+                clamp(
+                  value,
+                  0,
+                  100
+                ),
             }
           )
         }
       />
+
+      <div className="mt-4 rounded-xl border border-white/[0.06] bg-black/10 px-3 py-2 text-[9px] leading-4 text-gray-600">
+        Inspector transforms now participate in Undo/Redo as complete editing transactions.
+      </div>
 
     </section>
   );
@@ -327,6 +465,8 @@ type SliderProps = {
 
   disabled?: boolean;
 
+  onChangeStart: () => void;
+
   onChange: (
     value: number
   ) => void;
@@ -340,8 +480,34 @@ function Slider({
   step,
   suffix = "",
   disabled = false,
+  onChangeStart,
   onChange,
 }: SliderProps) {
+  const editingRef =
+    useRef(false);
+
+  function changeValue(
+    value: number
+  ) {
+    if (
+      disabled ||
+      !Number.isFinite(value)
+    ) {
+      return;
+    }
+
+    if (!editingRef.current) {
+      onChangeStart();
+      editingRef.current = true;
+    }
+
+    onChange(value);
+  }
+
+  function finishEditing() {
+    editingRef.current = false;
+  }
+
   return (
     <div className="mb-4">
 
@@ -351,7 +517,7 @@ function Slider({
           {title}
         </span>
 
-        <span className="min-w-[60px] rounded bg-white/5 px-2 py-1 text-center text-[10px] text-gray-300">
+        <span className="min-w-[60px] rounded bg-white/5 px-2 py-1 text-center text-[10px] tabular-nums text-gray-300">
           {step < 1
             ? value.toFixed(2)
             : Math.round(value)}
@@ -368,13 +534,20 @@ function Slider({
         value={value}
         disabled={disabled}
         onChange={(event) =>
-          onChange(
-            Number(
-              event.target.value
-            )
+          changeValue(
+            event.currentTarget
+              .valueAsNumber
           )
         }
+        onPointerUp={
+          finishEditing
+        }
+        onPointerCancel={
+          finishEditing
+        }
+        onBlur={finishEditing}
         className="w-full cursor-pointer accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-30"
+        aria-label={title}
       />
 
     </div>
@@ -385,7 +558,15 @@ type NumberControlProps = {
   title: string;
   value: number;
 
+  min?: number;
+  max?: number;
+  step?: number;
+  precision?: number;
+  suffix?: string;
+
   disabled?: boolean;
+
+  onChangeStart: () => void;
 
   onChange: (
     value: number
@@ -395,35 +576,108 @@ type NumberControlProps = {
 function NumberControl({
   title,
   value,
+  min,
+  max,
+  step = 1,
+  precision = 0,
+  suffix = "",
   disabled = false,
+  onChangeStart,
   onChange,
 }: NumberControlProps) {
-  return (
-    <div className="mb-3 flex items-center gap-3">
+  const editingRef =
+    useRef(false);
 
-      <span className="w-6 text-xs text-gray-400">
+  function changeValue(
+    nextValue: number
+  ) {
+    if (
+      disabled ||
+      !Number.isFinite(
+        nextValue
+      )
+    ) {
+      return;
+    }
+
+    if (!editingRef.current) {
+      onChangeStart();
+      editingRef.current = true;
+    }
+
+    let normalized =
+      nextValue;
+
+    if (
+      min !== undefined
+    ) {
+      normalized =
+        Math.max(
+          min,
+          normalized
+        );
+    }
+
+    if (
+      max !== undefined
+    ) {
+      normalized =
+        Math.min(
+          max,
+          normalized
+        );
+    }
+
+    onChange(normalized);
+  }
+
+  function finishEditing() {
+    editingRef.current = false;
+  }
+
+  const displayValue =
+    precision > 0
+      ? Number(
+          value.toFixed(
+            precision
+          )
+        )
+      : Math.round(value);
+
+  return (
+    <label className="mb-3 block min-w-0">
+
+      <span className="mb-1.5 block text-[10px] font-medium text-gray-500">
         {title}
       </span>
 
-      <input
-        type="number"
-        value={Math.round(value)}
-        disabled={disabled}
-        onChange={(event) =>
-          onChange(
-            Number(
-              event.target.value
+      <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#0d1016] px-3 transition focus-within:border-cyan-400/35 focus-within:ring-2 focus-within:ring-cyan-400/[0.06]">
+        <input
+          type="number"
+          value={displayValue}
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          onChange={(event) =>
+            changeValue(
+              event.currentTarget
+                .valueAsNumber
             )
-          )
-        }
-        className="w-full rounded-xl border border-white/[0.08] bg-[#0d1016] px-3 py-2 text-xs text-gray-100 outline-none transition focus:border-cyan-400/35 focus:ring-2 focus:ring-cyan-400/[0.06] disabled:opacity-30"
-      />
+          }
+          onBlur={finishEditing}
+          className="min-w-0 flex-1 bg-transparent py-2 text-xs tabular-nums text-gray-100 outline-none disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label={title}
+        />
 
-      <span className="text-[10px] text-gray-500">
-        px
-      </span>
+        {suffix && (
+          <span className="select-none text-[10px] text-gray-500">
+            {suffix}
+          </span>
+        )}
+      </div>
 
-    </div>
+    </label>
   );
 }
 
@@ -439,6 +693,7 @@ function PresetButton({
 }) {
   return (
     <button
+      type="button"
       disabled={disabled}
       onClick={onClick}
       className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-2 py-2 text-[10px] text-gray-300 transition hover:border-cyan-400/20 hover:bg-cyan-400/[0.055] disabled:cursor-not-allowed disabled:opacity-30"
