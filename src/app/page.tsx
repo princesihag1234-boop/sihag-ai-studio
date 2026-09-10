@@ -197,6 +197,7 @@ type EditorSnapshot = {
   groups: LayerGroup[];
 
   selectedLayerId: string | null;
+  selectedLayerIds: string[];
 };
 
 type SihagProjectFile = {
@@ -211,6 +212,7 @@ type SihagProjectFile = {
   groups: LayerGroup[];
 
   selectedLayerId: string | null;
+  selectedLayerIds?: string[];
 
   selection: SelectionRect | null;
   selectionInverted: boolean;
@@ -981,10 +983,102 @@ export default function Home() {
       []
     );
 
-  const selectedLayer =
+  function getLayerGroup(
+    layer: ImageLayer
+  ) {
+    if (!layer.groupId) {
+      return null;
+    }
+
+    return (
+      groups.find(
+        (group) =>
+          group.id ===
+          layer.groupId
+      ) ?? null
+    );
+  }
+
+  function isLayerEffectivelyVisible(
+    layer: ImageLayer
+  ) {
+    const group =
+      getLayerGroup(
+        layer
+      );
+
+    return (
+      layer.visible &&
+      (group?.visible ?? true)
+    );
+  }
+
+  function isLayerEffectivelyLocked(
+    layer: ImageLayer
+  ) {
+    const group =
+      getLayerGroup(
+        layer
+      );
+
+    return (
+      layer.locked ||
+      (group?.locked ?? false)
+    );
+  }
+
+  function getEffectiveLayerStack(
+    sourceLayers: ImageLayer[] = layers
+  ): ImageLayer[] {
+    return sourceLayers.map(
+      (layer) => {
+        const visible =
+          isLayerEffectivelyVisible(
+            layer
+          );
+
+        const locked =
+          isLayerEffectivelyLocked(
+            layer
+          );
+
+        if (
+          visible ===
+            layer.visible &&
+          locked ===
+            layer.locked
+        ) {
+          return layer;
+        }
+
+        return {
+          ...layer,
+          visible,
+          locked,
+        };
+      }
+    );
+  }
+
+  const storedSelectedLayer =
     layers.find(
       (layer) => layer.id === selectedLayerId
     ) ?? null;
+
+  const selectedLayer =
+    storedSelectedLayer
+      ? {
+          ...storedSelectedLayer,
+          visible:
+            isLayerEffectivelyVisible(
+              storedSelectedLayer
+            ),
+          locked:
+            isLayerEffectivelyLocked(
+              storedSelectedLayer
+            ),
+        }
+      : null;
 
   useEffect(() => {
     if (
@@ -3906,6 +4000,10 @@ export default function Home() {
         ),
 
       selectedLayerId,
+
+      selectedLayerIds: [
+        ...selectedLayerIds,
+      ],
     };
   }
 
@@ -3952,6 +4050,22 @@ export default function Home() {
 
     setSelectedLayerId(
       snapshot.selectedLayerId
+    );
+
+    setSelectedLayerIds(
+      Array.isArray(
+        snapshot.selectedLayerIds
+      )
+        ? snapshot.selectedLayerIds.filter(
+            (id) =>
+              restoredLayers.some(
+                (layer) =>
+                  layer.id === id
+              )
+          )
+        : snapshot.selectedLayerId
+          ? [snapshot.selectedLayerId]
+          : []
     );
 
     setFileName(
@@ -4648,7 +4762,12 @@ export default function Home() {
       (layer) => layer.id === id
     );
 
-    if (!target || target.locked) return;
+    if (
+      !target ||
+      isLayerEffectivelyLocked(
+        target
+      )
+    ) return;
 
     setLayers((items) =>
       items.map((layer) =>
@@ -4803,7 +4922,9 @@ export default function Home() {
 
     if (
       !target ||
-      target.locked ||
+      isLayerEffectivelyLocked(
+        target
+      ) ||
       !target.maskSrc
     ) {
       return;
@@ -4920,7 +5041,9 @@ export default function Home() {
 
     if (
       !target ||
-      target.locked ||
+      isLayerEffectivelyLocked(
+        target
+      ) ||
       target.maskSrc
     ) {
       return;
@@ -5015,7 +5138,9 @@ export default function Home() {
 
     if (
       !target ||
-      target.locked ||
+      isLayerEffectivelyLocked(
+        target
+      ) ||
       !target.maskSrc
     ) {
       return;
@@ -5052,7 +5177,9 @@ export default function Home() {
 
     if (
       !target ||
-      target.locked ||
+      isLayerEffectivelyLocked(
+        target
+      ) ||
       !target.maskSrc
     ) {
       return;
@@ -5089,7 +5216,9 @@ export default function Home() {
 
     if (
       !target ||
-      target.locked ||
+      isLayerEffectivelyLocked(
+        target
+      ) ||
       !target.maskSrc
     ) {
       return;
@@ -5132,7 +5261,9 @@ export default function Home() {
 
     if (
       !target ||
-      target.locked ||
+      isLayerEffectivelyLocked(
+        target
+      ) ||
       target.blendMode === mode
     ) {
       return;
@@ -5340,7 +5471,8 @@ export default function Home() {
         );
 
         showLayerInEditor(
-          layer
+          layer,
+          false
         );
 
         return;
@@ -5403,7 +5535,8 @@ export default function Home() {
               nextPrimary
             ) {
               showLayerInEditor(
-                nextPrimary
+                nextPrimary,
+                false
               );
             }
           }
@@ -5424,7 +5557,8 @@ export default function Home() {
       );
 
       showLayerInEditor(
-        layer
+        layer,
+        false
       );
 
       return;
@@ -5439,7 +5573,335 @@ export default function Home() {
     );
 
     showLayerInEditor(
-      layer
+      layer,
+      false
+    );
+  }
+
+  function getSelectedLayerIdsForBatch() {
+    if (
+      selectedLayerIds.length > 0
+    ) {
+      return selectedLayerIds.filter(
+        (id) =>
+          layers.some(
+            (layer) =>
+              layer.id === id
+          )
+      );
+    }
+
+    return selectedLayerId
+      ? [selectedLayerId]
+      : [];
+  }
+
+  function selectLayerGroup(
+    id: string
+  ) {
+    const groupLayers =
+      layers.filter(
+        (layer) =>
+          layer.groupId === id
+      );
+
+    if (
+      groupLayers.length === 0
+    ) {
+      return;
+    }
+
+    const ids =
+      groupLayers.map(
+        (layer) =>
+          layer.id
+      );
+
+    const primary =
+      groupLayers[
+        groupLayers.length - 1
+      ];
+
+    setSelectedLayerIds(
+      ids
+    );
+
+    setSelectedLayerId(
+      primary.id
+    );
+
+    showLayerInEditor(
+      primary,
+      false
+    );
+  }
+
+  function setSelectedLayersVisible(
+    visible: boolean
+  ) {
+    const ids =
+      getSelectedLayerIdsForBatch();
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    const changed =
+      layers.some(
+        (layer) =>
+          selectedIds.has(
+            layer.id
+          ) &&
+          layer.visible !==
+            visible
+      );
+
+    if (!changed) {
+      return;
+    }
+
+    saveHistory();
+
+    setLayers(
+      (items) =>
+        items.map(
+          (layer) =>
+            selectedIds.has(
+              layer.id
+            )
+              ? {
+                  ...layer,
+                  visible,
+                }
+              : layer
+        )
+    );
+  }
+
+  function setSelectedLayersLocked(
+    locked: boolean
+  ) {
+    const ids =
+      getSelectedLayerIdsForBatch();
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    const changed =
+      layers.some(
+        (layer) =>
+          selectedIds.has(
+            layer.id
+          ) &&
+          layer.locked !==
+            locked
+      );
+
+    if (!changed) {
+      return;
+    }
+
+    saveHistory();
+
+    setLayers(
+      (items) =>
+        items.map(
+          (layer) =>
+            selectedIds.has(
+              layer.id
+            )
+              ? {
+                  ...layer,
+                  locked,
+                }
+              : layer
+        )
+    );
+  }
+
+  function duplicateSelectedLayers() {
+    const ids =
+      getSelectedLayerIdsForBatch();
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    const sourceLayers =
+      layers.filter(
+        (layer) =>
+          selectedIds.has(
+            layer.id
+          )
+      );
+
+    if (
+      sourceLayers.length === 0
+    ) {
+      return;
+    }
+
+    const copiedLayers =
+      sourceLayers.map(
+        (source) => {
+          const cloned =
+            cloneLayers([
+              source,
+            ])[0];
+
+          return {
+            ...cloned,
+            id:
+              createLayerId(),
+            name:
+              `${source.name} copy`,
+            x:
+              source.x + 30,
+            y:
+              source.y + 30,
+          };
+        }
+      );
+
+    let highestIndex = -1;
+
+    layers.forEach(
+      (layer, index) => {
+        if (
+          selectedIds.has(
+            layer.id
+          )
+        ) {
+          highestIndex =
+            Math.max(
+              highestIndex,
+              index
+            );
+        }
+      }
+    );
+
+    saveHistory();
+
+    const nextLayers = [
+      ...layers,
+    ];
+
+    nextLayers.splice(
+      Math.max(
+        0,
+        highestIndex + 1
+      ),
+      0,
+      ...copiedLayers
+    );
+
+    setLayers(
+      nextLayers
+    );
+
+    const copiedIds =
+      copiedLayers.map(
+        (layer) =>
+          layer.id
+      );
+
+    const primary =
+      copiedLayers[
+        copiedLayers.length - 1
+      ];
+
+    setSelectedLayerIds(
+      copiedIds
+    );
+
+    setSelectedLayerId(
+      primary.id
+    );
+
+    showLayerInEditor(
+      primary,
+      false
+    );
+  }
+
+  function deleteSelectedLayers() {
+    const ids =
+      getSelectedLayerIdsForBatch();
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const selectedIds =
+      new Set(ids);
+
+    const next =
+      layers.filter(
+        (layer) =>
+          !selectedIds.has(
+            layer.id
+          )
+      );
+
+    if (
+      next.length ===
+      layers.length
+    ) {
+      return;
+    }
+
+    saveHistory();
+
+    setLayers(
+      next
+    );
+
+    if (
+      next.length === 0
+    ) {
+      setSelectedLayerId(
+        null
+      );
+      setSelectedLayerIds(
+        []
+      );
+      setImage(
+        null
+      );
+      setFileName(
+        "No image open"
+      );
+      setGroups(
+        []
+      );
+      return;
+    }
+
+    const replacement =
+      next[
+        next.length - 1
+      ];
+
+    setSelectedLayerId(
+      replacement.id
+    );
+    setSelectedLayerIds([
+      replacement.id,
+    ]);
+    showLayerInEditor(
+      replacement,
+      false
     );
   }
 
@@ -5594,11 +6056,8 @@ export default function Home() {
   }
 
   function createLayerGroup() {
-    if (
-      layers.length === 0
-    ) {
-      return;
-    }
+    const ids =
+      getSelectedLayerIdsForBatch();
 
     saveHistory();
 
@@ -5630,30 +6089,29 @@ export default function Home() {
     );
 
     if (
-      selectedLayerId
+      ids.length === 0
     ) {
-      setLayers(
-        (items) =>
-          items.map(
-            (layer) =>
-              layer.id ===
-              selectedLayerId
-                ? {
-                    ...layer,
-
-                    groupId:
-                      group.id,
-
-                    visible:
-                      group.visible,
-
-                    locked:
-                      group.locked,
-                  }
-                : layer
-          )
-      );
+      return;
     }
+
+    const selectedIds =
+      new Set(ids);
+
+    setLayers(
+      (items) =>
+        items.map(
+          (layer) =>
+            selectedIds.has(
+              layer.id
+            )
+              ? {
+                  ...layer,
+                  groupId:
+                    group.id,
+                }
+              : layer
+        )
+    );
   }
 
   function toggleLayerGroupVisible(
@@ -5671,9 +6129,6 @@ export default function Home() {
 
     saveHistory();
 
-    const nextVisible =
-      !group.visible;
-
     setGroups(
       (items) =>
         items.map(
@@ -5681,35 +6136,18 @@ export default function Home() {
             item.id === id
               ? {
                   ...item,
-
                   visible:
-                    nextVisible,
+                    !item.visible,
                 }
               : item
         )
     );
 
     /*
-      Apply the folder visibility state to
-      every current child layer. This means
-      the existing renderer/export system can
-      continue using layer.visible normally.
+      Folder visibility is now non-destructive.
+      Child layer eye states remain untouched and
+      become effective again when the folder is shown.
     */
-
-    setLayers(
-      (items) =>
-        items.map(
-          (layer) =>
-            layer.groupId === id
-              ? {
-                  ...layer,
-
-                  visible:
-                    nextVisible,
-                }
-              : layer
-        )
-    );
   }
 
   function toggleLayerGroupLock(
@@ -5727,9 +6165,6 @@ export default function Home() {
 
     saveHistory();
 
-    const nextLocked =
-      !group.locked;
-
     setGroups(
       (items) =>
         items.map(
@@ -5737,34 +6172,19 @@ export default function Home() {
             item.id === id
               ? {
                   ...item,
-
                   locked:
-                    nextLocked,
+                    !item.locked,
                 }
               : item
         )
     );
 
     /*
-      Apply the folder lock to each child.
-      Existing transform/text/shape/mask logic
-      already respects layer.locked.
+      Folder locking is also non-destructive.
+      A child keeps its own lock flag while the folder
+      supplies an additional effective lock in the UI,
+      canvas and editing commands.
     */
-
-    setLayers(
-      (items) =>
-        items.map(
-          (layer) =>
-            layer.groupId === id
-              ? {
-                  ...layer,
-
-                  locked:
-                    nextLocked,
-                }
-              : layer
-        )
-    );
   }
 
   function toggleLayerGroupCollapsed(
@@ -6160,8 +6580,16 @@ export default function Home() {
       selectedCopy.id
     );
 
+    setSelectedLayerIds(
+      copiedLayers.map(
+        (layer) =>
+          layer.id
+      )
+    );
+
     showLayerInEditor(
-      selectedCopy
+      selectedCopy,
+      false
     );
   }
 
@@ -6237,16 +6665,6 @@ export default function Home() {
 
     saveHistory();
 
-    const targetGroup =
-      nextGroupId
-        ? groups.find(
-            (group) =>
-              group.id ===
-              nextGroupId
-          ) ??
-          null
-        : null;
-
     setLayers(
       (items) =>
         items.map(
@@ -6258,16 +6676,6 @@ export default function Home() {
 
                   groupId:
                     nextGroupId,
-
-                  visible:
-                    targetGroup
-                      ? targetGroup.visible
-                      : item.visible,
-
-                  locked:
-                    targetGroup
-                      ? targetGroup.locked
-                      : item.locked,
                 }
               : item
         )
@@ -6275,6 +6683,16 @@ export default function Home() {
   }
 
   function toggleLayerVisible(id: string) {
+    const target =
+      layers.find(
+        (item) =>
+          item.id === id
+      );
+
+    if (!target) {
+      return;
+    }
+
     saveHistory();
 
     setLayers((items) =>
@@ -6287,6 +6705,16 @@ export default function Home() {
   }
 
   function toggleLayerLock(id: string) {
+    const target =
+      layers.find(
+        (item) =>
+          item.id === id
+      );
+
+    if (!target) {
+      return;
+    }
+
     saveHistory();
 
     setLayers((items) =>
@@ -6484,7 +6912,9 @@ export default function Home() {
 
     if (
       !below ||
-      below.locked ||
+      isLayerEffectivelyLocked(
+        below
+      ) ||
       below.layerKind ===
         "adjustment"
     ) {
@@ -6522,7 +6952,9 @@ export default function Home() {
 
     await renderLayerStack(
       mergedCanvas,
-      isolatedStack,
+      getEffectiveLayerStack(
+        isolatedStack
+      ),
       null
     );
 
@@ -6580,8 +7012,11 @@ export default function Home() {
   }
 
   async function mergeVisibleLayers() {
+    const renderableLayers =
+      getEffectiveLayerStack();
+
     const visibleLayers =
-      layers.filter(
+      renderableLayers.filter(
         (layer) =>
           layer.visible
       );
@@ -6600,7 +7035,7 @@ export default function Home() {
 
     await renderLayerStack(
       mergedCanvas,
-      layers,
+      renderableLayers,
       null
     );
 
@@ -6618,7 +7053,7 @@ export default function Home() {
       );
 
     const topVisibleIndex =
-      layers.reduce(
+      renderableLayers.reduce(
         (
           result,
           layer,
@@ -6718,7 +7153,7 @@ export default function Home() {
 
     await renderLayerStack(
       flattenedCanvas,
-      layers,
+      getEffectiveLayerStack(),
       null
     );
 
@@ -7135,7 +7570,9 @@ export default function Home() {
         ids.has(
           layer.id
         ) &&
-        !layer.locked &&
+        !isLayerEffectivelyLocked(
+          layer
+        ) &&
         layer.layerKind !==
           "adjustment"
     );
@@ -7424,7 +7861,13 @@ export default function Home() {
     next.splice(index + 1, 0, copy);
     setLayers(next);
     setSelectedLayerId(copy.id);
-    showLayerInEditor(copy);
+    setSelectedLayerIds([
+      copy.id,
+    ]);
+    showLayerInEditor(
+      copy,
+      false
+    );
   }
 
   function deleteLayer(id: string) {
@@ -7441,9 +7884,16 @@ export default function Home() {
 
     if (replacement) {
       setSelectedLayerId(replacement.id);
-      showLayerInEditor(replacement);
+      setSelectedLayerIds([
+        replacement.id,
+      ]);
+      showLayerInEditor(
+        replacement,
+        false
+      );
     } else {
       setSelectedLayerId(null);
+      setSelectedLayerIds([]);
       setImage(null);
       setFileName("No image open");
       setGroups([]);
@@ -7706,7 +8156,9 @@ export default function Home() {
       current.layerKind !==
         "text" ||
       !current.text ||
-      current.locked
+      isLayerEffectivelyLocked(
+        current
+      )
     ) {
       return;
     }
@@ -8098,7 +8550,9 @@ export default function Home() {
       current.layerKind !==
         "shape" ||
       !current.shape ||
-      current.locked
+      isLayerEffectivelyLocked(
+        current
+      )
     ) {
       return;
     }
@@ -8249,6 +8703,10 @@ export default function Home() {
         ),
 
       selectedLayerId,
+
+      selectedLayerIds: [
+        ...selectedLayerIds,
+      ],
 
       selection:
         selection
@@ -8528,6 +8986,28 @@ export default function Home() {
 
     setSelectedLayerId(
       restoredSelectedLayer.id
+    );
+
+    const restoredSelectedLayerIds =
+      Array.isArray(
+        parsed.selectedLayerIds
+      )
+        ? parsed.selectedLayerIds.filter(
+            (id): id is string =>
+              typeof id === "string" &&
+              loadedLayers.some(
+                (layer) =>
+                  layer.id === id
+              )
+          )
+        : [];
+
+    setSelectedLayerIds(
+      restoredSelectedLayerIds.includes(
+        restoredSelectedLayer.id
+      )
+        ? restoredSelectedLayerIds
+        : [restoredSelectedLayer.id]
     );
 
     const restoredSelection =
@@ -11592,9 +12072,7 @@ export default function Home() {
         event.preventDefault();
 
         if (!event.repeat) {
-          duplicateLayer(
-            selectedLayerId
-          );
+          duplicateSelectedLayers();
         }
 
         return;
@@ -12388,9 +12866,7 @@ export default function Home() {
         event.preventDefault();
 
         if (!event.repeat) {
-          deleteLayer(
-            selectedLayerId
-          );
+          deleteSelectedLayers();
         }
 
         return;
@@ -12461,7 +12937,9 @@ export default function Home() {
                 selectedIds.has(
                   layer.id
                 ) &&
-                !layer.locked &&
+                !isLayerEffectivelyLocked(
+                  layer
+                ) &&
                 layer.layerKind !==
                   "adjustment"
                   ? {
@@ -13385,7 +13863,7 @@ export default function Home() {
 
     await renderLayerStack(
       previewCanvas,
-      layers,
+      getEffectiveLayerStack(),
       null
     );
 
@@ -13761,7 +14239,7 @@ export default function Home() {
 
       await renderLayerStack(
         renderedCanvas,
-        layers,
+        getEffectiveLayerStack(),
         null
       );
 
@@ -13945,7 +14423,7 @@ export default function Home() {
 
       await renderLayerStack(
         renderedCanvas,
-        layers,
+        getEffectiveLayerStack(),
         null
       );
 
@@ -14733,15 +15211,15 @@ export default function Home() {
                     if (
                       selectedLayerId
                     ) {
-                      duplicateLayer(
-                        selectedLayerId
-                      );
+                      duplicateSelectedLayers();
                     }
                   }}
                   className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   <span>
-                    Duplicate Layer
+                    {selectedLayerIds.length > 1
+                      ? "Duplicate Selected Layers"
+                      : "Duplicate Layer"}
                   </span>
 
                   <span className="text-[9px] text-gray-600">
@@ -14761,15 +15239,15 @@ export default function Home() {
                     if (
                       selectedLayerId
                     ) {
-                      deleteLayer(
-                        selectedLayerId
-                      );
+                      deleteSelectedLayers();
                     }
                   }}
                   className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-red-300/80 hover:bg-red-500/10 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   <span>
-                    Delete Layer
+                    {selectedLayerIds.length > 1
+                      ? "Delete Selected Layers"
+                      : "Delete Layer"}
                   </span>
 
                   <span className="text-[9px] text-gray-600">
@@ -17845,7 +18323,7 @@ export default function Home() {
               ) : (
 
                 <LayerCanvas
-                  layers={layers}
+                  layers={getEffectiveLayerStack()}
                   zoom={zoom}
                   previewMaxSize={previewMaxSize}
                   pan={pan}
@@ -18766,6 +19244,12 @@ export default function Home() {
                       selectedLayerId={selectedLayerId}
                       selectedLayerIds={selectedLayerIds}
                       onCreateGroup={createLayerGroup}
+                      onSelectGroup={selectLayerGroup}
+                      onGroupSelection={groupSelectedLayersShortcut}
+                      onDuplicateSelection={duplicateSelectedLayers}
+                      onDeleteSelection={deleteSelectedLayers}
+                      onSetSelectionVisible={setSelectedLayersVisible}
+                      onSetSelectionLocked={setSelectedLayersLocked}
                       onRenameGroup={renameLayerGroup}
                       onDeleteGroup={deleteLayerGroup}
                       onDuplicateGroup={duplicateLayerGroup}
@@ -19952,14 +20436,22 @@ export default function Home() {
                       selectedLayer.id
                   ) <=
                     0 ||
-                  layers[
-                    layers.findIndex(
-                      (layer) =>
-                        layer.id ===
-                        selectedLayer.id
-                    ) -
-                      1
-                  ]?.locked ||
+                  (() => {
+                    const below =
+                      layers[
+                        layers.findIndex(
+                          (layer) =>
+                            layer.id ===
+                            selectedLayer.id
+                        ) - 1
+                      ];
+
+                    return below
+                      ? isLayerEffectivelyLocked(
+                          below
+                        )
+                      : false;
+                  })() ||
                   layers[
                     layers.findIndex(
                       (layer) =>
@@ -20257,6 +20749,12 @@ export default function Home() {
             selectedLayerId={selectedLayerId}
             selectedLayerIds={selectedLayerIds}
             onCreateGroup={createLayerGroup}
+            onSelectGroup={selectLayerGroup}
+            onGroupSelection={groupSelectedLayersShortcut}
+            onDuplicateSelection={duplicateSelectedLayers}
+            onDeleteSelection={deleteSelectedLayers}
+            onSetSelectionVisible={setSelectedLayersVisible}
+            onSetSelectionLocked={setSelectedLayersLocked}
             onRenameGroup={renameLayerGroup}
             onDeleteGroup={deleteLayerGroup}
             onDuplicateGroup={duplicateLayerGroup}

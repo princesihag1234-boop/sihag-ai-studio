@@ -24,6 +24,24 @@ type LayerPanelProps = {
 
   onCreateGroup: () => void;
 
+  onSelectGroup: (
+    id: string
+  ) => void;
+
+  onGroupSelection: () => void;
+
+  onDuplicateSelection: () => void;
+
+  onDeleteSelection: () => void;
+
+  onSetSelectionVisible: (
+    visible: boolean
+  ) => void;
+
+  onSetSelectionLocked: (
+    locked: boolean
+  ) => void;
+
   onRenameGroup: (
     id: string,
     name: string
@@ -150,6 +168,12 @@ export default function LayerPanel({
   selectedLayerId,
   selectedLayerIds,
   onCreateGroup,
+  onSelectGroup,
+  onGroupSelection,
+  onDuplicateSelection,
+  onDeleteSelection,
+  onSetSelectionVisible,
+  onSetSelectionLocked,
   onRenameGroup,
   onDeleteGroup,
   onDuplicateGroup,
@@ -195,6 +219,23 @@ export default function LayerPanel({
     editingName,
     setEditingName,
   ] = useState("");
+
+  const [
+    editingGroupId,
+    setEditingGroupId,
+  ] = useState<string | null>(
+    null
+  );
+
+  const [
+    editingGroupName,
+    setEditingGroupName,
+  ] = useState("");
+
+  const groupInputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
 
   const [
     draggingLayerId,
@@ -255,6 +296,75 @@ export default function LayerPanel({
     inputRef.current?.focus();
     inputRef.current?.select();
   }, [editingLayerId]);
+
+  useEffect(() => {
+    if (!editingGroupId) {
+      return;
+    }
+
+    groupInputRef.current?.focus();
+    groupInputRef.current?.select();
+  }, [editingGroupId]);
+
+  useEffect(() => {
+    if (!openActionMenu) {
+      return;
+    }
+
+    function closeActionMenu(
+      event: globalThis.PointerEvent
+    ) {
+      const target =
+        event.target as HTMLElement | null;
+
+      if (
+        target?.closest(
+          ".sihag-inline-overflow-panel"
+        ) ||
+        target?.closest(
+          ".sihag-overflow-trigger"
+        )
+      ) {
+        return;
+      }
+
+      setOpenActionMenu(
+        null
+      );
+    }
+
+    function closeActionMenuOnEscape(
+      event: globalThis.KeyboardEvent
+    ) {
+      if (event.key === "Escape") {
+        setOpenActionMenu(
+          null
+        );
+      }
+    }
+
+    window.addEventListener(
+      "pointerdown",
+      closeActionMenu
+    );
+
+    window.addEventListener(
+      "keydown",
+      closeActionMenuOnEscape
+    );
+
+    return () => {
+      window.removeEventListener(
+        "pointerdown",
+        closeActionMenu
+      );
+
+      window.removeEventListener(
+        "keydown",
+        closeActionMenuOnEscape
+      );
+    };
+  }, [openActionMenu]);
 
   function beginRename(
     layer: ImageLayer
@@ -564,25 +674,62 @@ export default function LayerPanel({
     );
   }
 
-  function renameGroupPrompt(
+  function beginGroupRename(
     group: LayerGroup
   ) {
-    const next =
-      window.prompt(
-        "Rename folder",
-        group.name
-      );
+    setEditingGroupId(
+      group.id
+    );
+
+    setEditingGroupName(
+      group.name
+    );
+  }
+
+  function cancelGroupRename() {
+    setEditingGroupId(
+      null
+    );
+
+    setEditingGroupName(
+      ""
+    );
+  }
+
+  function finishGroupRename(
+    group: LayerGroup
+  ) {
+    const nextName =
+      editingGroupName.trim();
 
     if (
-      next &&
-      next.trim() &&
-      next.trim() !==
-        group.name
+      nextName &&
+      nextName !== group.name
     ) {
       onRenameGroup(
         group.id,
-        next.trim()
+        nextName
       );
+    }
+
+    cancelGroupRename();
+  }
+
+  function handleGroupRenameKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+    group: LayerGroup
+  ) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      finishGroupRename(
+        group
+      );
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelGroupRename();
     }
   }
 
@@ -636,9 +783,6 @@ export default function LayerPanel({
         </div>
 
         <button
-          disabled={
-            layers.length === 0
-          }
           onClick={
             onCreateGroup
           }
@@ -658,12 +802,24 @@ export default function LayerPanel({
 
           {groups.map(
             (group) => {
-              const count =
+              const groupLayers =
                 layers.filter(
                   (layer) =>
                     layer.groupId ===
                     group.id
-                ).length;
+                );
+
+              const count =
+                groupLayers.length;
+
+              const groupSelected =
+                count > 0 &&
+                groupLayers.every(
+                  (layer) =>
+                    selectedLayerIds.includes(
+                      layer.id
+                    )
+                );
 
               return (
                 <div
@@ -707,13 +863,31 @@ export default function LayerPanel({
                       group.id
                     )
                   }
+                  onClick={(event) => {
+                    const target =
+                      event.target as HTMLElement;
+
+                    if (
+                      target.closest(
+                        "button,input,select"
+                      )
+                    ) {
+                      return;
+                    }
+
+                    onSelectGroup(
+                      group.id
+                    );
+                  }}
                   className={
                     [
                       "sihag-folder-row relative flex flex-wrap items-center gap-2 rounded-xl border px-2.5 py-2.5 transition-all duration-150",
                       dragOverGroupId ===
                       group.id
                         ? "border-cyan-400/60 bg-cyan-400/[0.10] shadow-[0_0_0_1px_rgba(34,211,238,0.10)]"
-                        : "border-white/[0.055] bg-white/[0.025] hover:border-white/[0.10] hover:bg-white/[0.045]",
+                        : groupSelected
+                          ? "border-cyan-400/35 bg-cyan-400/[0.065] ring-1 ring-cyan-300/10"
+                          : "border-white/[0.055] bg-white/[0.025] hover:border-white/[0.10] hover:bg-white/[0.045]",
                     ].join(
                       " "
                     )
@@ -755,14 +929,53 @@ export default function LayerPanel({
                   </span>
 
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[11px] font-semibold text-gray-200">
-                      {group.name}
-                    </div>
+                    {editingGroupId === group.id ? (
+                      <input
+                        ref={groupInputRef}
+                        value={editingGroupName}
+                        maxLength={120}
+                        onClick={(event) =>
+                          event.stopPropagation()
+                        }
+                        onChange={(event) =>
+                          setEditingGroupName(
+                            event.target.value
+                          )
+                        }
+                        onKeyDown={(event) =>
+                          handleGroupRenameKeyDown(
+                            event,
+                            group
+                          )
+                        }
+                        onBlur={() =>
+                          finishGroupRename(
+                            group
+                          )
+                        }
+                        className="w-full rounded-lg border border-cyan-400/40 bg-[#0b0e13] px-2 py-1 text-[11px] font-semibold text-white outline-none ring-2 ring-cyan-400/[0.05]"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        title="Double-click to rename folder"
+                        onDoubleClick={(event) => {
+                          event.stopPropagation();
+                          beginGroupRename(
+                            group
+                          );
+                        }}
+                        className="block w-full truncate text-left text-[11px] font-semibold text-gray-200 transition hover:text-white"
+                      >
+                        {group.name}
+                      </button>
+                    )}
                     <div className="mt-0.5 truncate text-[9px] text-gray-600">
                       {count}
                       {count === 1
                         ? " layer"
                         : " layers"}
+                      {groupSelected && " • Selected"}
                       {!group.visible && " • Hidden"}
                       {group.locked && " • Locked"}
                     </div>
@@ -916,7 +1129,7 @@ export default function LayerPanel({
                       <button
                         className="sihag-overflow-action"
                         onClick={() => {
-                          renameGroupPrompt(group);
+                          beginGroupRename(group);
                           setOpenActionMenu(null);
                         }}
                       >
@@ -932,7 +1145,7 @@ export default function LayerPanel({
                           setOpenActionMenu(null);
                         }}
                       >
-                        <span>Delete Folder</span><span>×</span>
+                        <span>{count === 0 ? "Delete Empty Folder" : "Ungroup Folder"}</span><span>×</span>
                       </button>
                     </div>
                   )}
@@ -993,10 +1206,89 @@ export default function LayerPanel({
 
       {selectedLayerIds.length >
         1 && (
-        <div className="mx-2 mb-2 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.055] px-3 py-2 text-[9px] leading-4 text-cyan-100/80">
-          {selectedLayerIds.length}
-          {" "}
-          layers selected • Ctrl/Cmd+Click toggles • Shift+Click selects a range
+        <div className="mx-2 mb-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.055] p-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.16)]">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-semibold text-cyan-100">
+                {selectedLayerIds.length} layers selected
+              </div>
+              <div className="mt-0.5 text-[8px] leading-3 text-cyan-100/55">
+                Ctrl/Cmd+Click toggles • Shift+Click selects a range
+              </div>
+            </div>
+            <span className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.06] px-1.5 py-0.5 text-[8px] font-semibold tracking-wide text-cyan-100/70">
+              MULTI
+            </span>
+          </div>
+
+          <div className="mt-2 grid grid-cols-3 gap-1">
+            <button
+              type="button"
+              onClick={onGroupSelection}
+              className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-2 py-1.5 text-[9px] font-medium text-gray-200 transition hover:bg-white/[0.07]"
+            >
+              Group
+            </button>
+            <button
+              type="button"
+              onClick={onDuplicateSelection}
+              className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-2 py-1.5 text-[9px] font-medium text-gray-200 transition hover:bg-white/[0.07]"
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onSetSelectionVisible(
+                  false
+                )
+              }
+              className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-2 py-1.5 text-[9px] font-medium text-gray-200 transition hover:bg-white/[0.07]"
+            >
+              Hide
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onSetSelectionVisible(
+                  true
+                )
+              }
+              className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-2 py-1.5 text-[9px] font-medium text-gray-200 transition hover:bg-white/[0.07]"
+            >
+              Show
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onSetSelectionLocked(
+                  true
+                )
+              }
+              className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-2 py-1.5 text-[9px] font-medium text-gray-200 transition hover:bg-white/[0.07]"
+            >
+              Lock
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onSetSelectionLocked(
+                  false
+                )
+              }
+              className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-2 py-1.5 text-[9px] font-medium text-gray-200 transition hover:bg-white/[0.07]"
+            >
+              Unlock
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={onDeleteSelection}
+            className="mt-1.5 w-full rounded-lg border border-red-400/10 bg-red-500/[0.07] px-2 py-1.5 text-[9px] font-medium text-red-200 transition hover:bg-red-500/[0.12]"
+          >
+            Delete Selected Layers
+          </button>
         </div>
       )}
 
@@ -1021,6 +1313,19 @@ export default function LayerPanel({
               const editing =
                 editingLayerId ===
                 layer.id;
+
+              const parentGroup =
+                layer.groupId
+                  ? groups.find(
+                      (group) =>
+                        group.id ===
+                        layer.groupId
+                    ) ?? null
+                  : null;
+
+              const effectivelyLocked =
+                layer.locked ||
+                (parentGroup?.locked ?? false);
 
               return (
                 <div
@@ -1242,8 +1547,10 @@ export default function LayerPanel({
                       )}
 
                       <div className="mt-1 truncate text-[10px] text-gray-500">
-                        {layer.locked
-                          ? "Locked"
+                        {effectivelyLocked
+                          ? parentGroup?.locked && !layer.locked
+                            ? "Locked by Folder"
+                            : "Locked"
                           : layer.layerKind ===
                               "text"
                             ? "Text Layer"
@@ -1262,6 +1569,9 @@ export default function LayerPanel({
                             {getGroupName(
                               layer.groupId
                             )}
+                            {parentGroup &&
+                              !parentGroup.visible &&
+                              " (hidden)"}
                           </>
                         )}
 
@@ -1289,9 +1599,16 @@ export default function LayerPanel({
 
                     <button
                       title={
-                        layer.locked
-                          ? "Unlock layer"
-                          : "Lock layer"
+                        parentGroup?.locked &&
+                        !layer.locked
+                          ? "Locked by folder"
+                          : layer.locked
+                            ? "Unlock layer"
+                            : "Lock layer"
+                      }
+                      disabled={
+                        parentGroup?.locked &&
+                        !layer.locked
                       }
                       onClick={(
                         event
@@ -1305,7 +1622,7 @@ export default function LayerPanel({
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-xs transition hover:border-white/[0.07] hover:bg-white/[0.06]"
                     >
                       <LayerLockIcon
-                        locked={layer.locked}
+                        locked={effectivelyLocked}
                       />
                     </button>
 
@@ -1464,7 +1781,7 @@ export default function LayerPanel({
                             "normal"
                           }
                           disabled={
-                            layer.locked
+                            effectivelyLocked
                           }
                           onChange={(event) =>
                             onBlendModeChange(
@@ -1504,7 +1821,7 @@ export default function LayerPanel({
                           max={100}
                           step={1}
                           value={layer.opacity}
-                          disabled={layer.locked}
+                          disabled={effectivelyLocked}
                           onPointerDown={() =>
                             onOpacityStart()
                           }
@@ -1542,7 +1859,7 @@ export default function LayerPanel({
 
                         {!layer.maskSrc ? (
                           <button
-                            disabled={layer.locked}
+                            disabled={effectivelyLocked}
                             onClick={() =>
                               onAddMask(
                                 layer.id
@@ -1556,7 +1873,7 @@ export default function LayerPanel({
                           <>
                             <div className="grid grid-cols-3 gap-1">
                               <button
-                                disabled={layer.locked}
+                                disabled={effectivelyLocked}
                                 onClick={() =>
                                   onToggleMask(
                                     layer.id
@@ -1570,7 +1887,7 @@ export default function LayerPanel({
                               </button>
 
                               <button
-                                disabled={layer.locked}
+                                disabled={effectivelyLocked}
                                 onClick={() =>
                                   onInvertMask(
                                     layer.id
@@ -1582,7 +1899,7 @@ export default function LayerPanel({
                               </button>
 
                               <button
-                                disabled={layer.locked}
+                                disabled={effectivelyLocked}
                                 onClick={() =>
                                   onRemoveMask(
                                     layer.id
@@ -1596,7 +1913,7 @@ export default function LayerPanel({
 
                             <div className="mt-2 grid grid-cols-2 gap-1">
                               <button
-                                disabled={layer.locked}
+                                disabled={effectivelyLocked}
                                 onClick={() =>
                                   onRevealAllMask(
                                     layer.id
@@ -1608,7 +1925,7 @@ export default function LayerPanel({
                               </button>
 
                               <button
-                                disabled={layer.locked}
+                                disabled={effectivelyLocked}
                                 onClick={() =>
                                   onHideAllMask(
                                     layer.id
@@ -1645,7 +1962,7 @@ export default function LayerPanel({
                                   100
                                 }
                                 disabled={
-                                  layer.locked ||
+                                  effectivelyLocked ||
                                   !(layer.maskEnabled ?? true)
                                 }
                                 onPointerDown={() =>
@@ -1688,7 +2005,7 @@ export default function LayerPanel({
                                   0
                                 }
                                 disabled={
-                                  layer.locked ||
+                                  effectivelyLocked ||
                                   !(layer.maskEnabled ?? true)
                                 }
                                 onPointerDown={() =>
