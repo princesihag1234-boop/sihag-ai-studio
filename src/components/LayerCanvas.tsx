@@ -4753,6 +4753,14 @@ export default function LayerCanvas({
       start.y +
       start.height;
 
+    const centerX =
+      originalLeft +
+      start.width / 2;
+
+    const centerY =
+      originalTop +
+      start.height / 2;
+
     let left =
       originalLeft;
 
@@ -4768,96 +4776,365 @@ export default function LayerCanvas({
     const handle =
       start.handle;
 
-    if (
-      handle.includes(
-        "w"
-      )
-    ) {
-      left =
-        Math.min(
-          point.x,
-          originalRight
-        );
-    }
+    const changesHorizontal =
+      handle.includes("w") ||
+      handle.includes("e");
 
-    if (
-      handle.includes(
-        "e"
-      )
-    ) {
-      right =
-        Math.max(
-          point.x,
-          originalLeft
-        );
-    }
-
-    if (
-      handle.includes(
-        "n"
-      )
-    ) {
-      top =
-        Math.min(
-          point.y,
-          originalBottom
-        );
-    }
-
-    if (
-      handle.includes(
-        "s"
-      )
-    ) {
-      bottom =
-        Math.max(
-          point.y,
-          originalTop
-        );
-    }
+    const changesVertical =
+      handle.includes("n") ||
+      handle.includes("s");
 
     /*
-      Edge handles contain only one
-      direction, so they change only
-      one dimension.
+      PROFESSIONAL RESIZE MODIFIERS
+
+      Alt keeps the selection center fixed while resizing.
+      Shift preserves the selection's starting pixel aspect
+      ratio for corner handles. A fixed aspect preset remains
+      constrained even when Shift is not held.
     */
 
-    if (handle === "n") {
-      left =
-        originalLeft;
+    if (event.altKey) {
+      if (changesHorizontal) {
+        const halfWidth =
+          Math.abs(
+            point.x -
+            centerX
+          );
 
-      right =
-        originalRight;
-    }
+        left =
+          centerX -
+          halfWidth;
 
-    if (handle === "s") {
-      left =
-        originalLeft;
+        right =
+          centerX +
+          halfWidth;
+      }
 
-      right =
-        originalRight;
-    }
+      if (changesVertical) {
+        const halfHeight =
+          Math.abs(
+            point.y -
+            centerY
+          );
 
-    if (handle === "e") {
-      top =
-        originalTop;
+        top =
+          centerY -
+          halfHeight;
 
-      bottom =
-        originalBottom;
-    }
+        bottom =
+          centerY +
+          halfHeight;
+      }
+    } else {
+      if (
+        handle.includes(
+          "w"
+        )
+      ) {
+        left =
+          Math.min(
+            point.x,
+            originalRight
+          );
+      }
 
-    if (handle === "w") {
-      top =
-        originalTop;
+      if (
+        handle.includes(
+          "e"
+        )
+      ) {
+        right =
+          Math.max(
+            point.x,
+            originalLeft
+          );
+      }
 
-      bottom =
-        originalBottom;
+      if (
+        handle.includes(
+          "n"
+        )
+      ) {
+        top =
+          Math.min(
+            point.y,
+            originalBottom
+          );
+      }
+
+      if (
+        handle.includes(
+          "s"
+        )
+      ) {
+        bottom =
+          Math.max(
+            point.y,
+            originalTop
+          );
+      }
     }
 
     /*
-      Keep the marquee within the
-      document and prevent zero-size
-      selections.
+      Edge handles change only one dimension. Corner handles
+      can preserve aspect ratio in true document-pixel space,
+      so non-square documents still behave correctly.
+    */
+
+    if (handle === "n" || handle === "s") {
+      left =
+        originalLeft;
+
+      right =
+        originalRight;
+    }
+
+    if (handle === "e" || handle === "w") {
+      top =
+        originalTop;
+
+      bottom =
+        originalBottom;
+    }
+
+    const presetRatio =
+      getSelectionAspectRatio();
+
+    const startingPixelRatio =
+      (
+        start.width *
+        Math.max(
+          1,
+          documentSize.width
+        )
+      ) /
+      Math.max(
+        0.000001,
+        start.height *
+          Math.max(
+            1,
+            documentSize.height
+          )
+      );
+
+    const constrainedRatio =
+      presetRatio ??
+      (
+        event.shiftKey &&
+        changesHorizontal &&
+        changesVertical
+          ? startingPixelRatio
+          : null
+      );
+
+    if (
+      constrainedRatio &&
+      changesHorizontal &&
+      changesVertical
+    ) {
+      let widthNormalized =
+        Math.max(
+          0.000001,
+          right - left
+        );
+
+      let heightNormalized =
+        Math.max(
+          0.000001,
+          bottom - top
+        );
+
+      let widthPixels =
+        widthNormalized *
+        Math.max(
+          1,
+          documentSize.width
+        );
+
+      let heightPixels =
+        heightNormalized *
+        Math.max(
+          1,
+          documentSize.height
+        );
+
+      const startWidthPixels =
+        Math.max(
+          0.000001,
+          start.width *
+            Math.max(
+              1,
+              documentSize.width
+            )
+        );
+
+      const startHeightPixels =
+        Math.max(
+          0.000001,
+          start.height *
+            Math.max(
+              1,
+              documentSize.height
+            )
+        );
+
+      const horizontalChange =
+        Math.abs(
+          widthPixels /
+            startWidthPixels -
+            1
+        );
+
+      const verticalChange =
+        Math.abs(
+          heightPixels /
+            startHeightPixels -
+            1
+        );
+
+      if (
+        horizontalChange >=
+        verticalChange
+      ) {
+        heightPixels =
+          widthPixels /
+          constrainedRatio;
+      } else {
+        widthPixels =
+          heightPixels *
+          constrainedRatio;
+      }
+
+      widthNormalized =
+        widthPixels /
+        Math.max(
+          1,
+          documentSize.width
+        );
+
+      heightNormalized =
+        heightPixels /
+        Math.max(
+          1,
+          documentSize.height
+        );
+
+      /*
+        Scale the constrained rectangle down uniformly if it
+        would cross the document edge. This preserves ratio
+        instead of independently clipping width and height.
+      */
+
+      let maxWidthNormalized: number;
+      let maxHeightNormalized: number;
+
+      if (event.altKey) {
+        maxWidthNormalized =
+          2 *
+          Math.min(
+            centerX,
+            1 - centerX
+          );
+
+        maxHeightNormalized =
+          2 *
+          Math.min(
+            centerY,
+            1 - centerY
+          );
+      } else {
+        maxWidthNormalized =
+          handle.includes("w")
+            ? originalRight
+            : 1 - originalLeft;
+
+        maxHeightNormalized =
+          handle.includes("n")
+            ? originalBottom
+            : 1 - originalTop;
+      }
+
+      const fitScale =
+        Math.min(
+          1,
+          maxWidthNormalized /
+            Math.max(
+              0.000001,
+              widthNormalized
+            ),
+          maxHeightNormalized /
+            Math.max(
+              0.000001,
+              heightNormalized
+            )
+        );
+
+      widthNormalized *=
+        Math.max(
+          0,
+          fitScale
+        );
+
+      heightNormalized *=
+        Math.max(
+          0,
+          fitScale
+        );
+
+      if (event.altKey) {
+        left =
+          centerX -
+          widthNormalized / 2;
+
+        right =
+          centerX +
+          widthNormalized / 2;
+
+        top =
+          centerY -
+          heightNormalized / 2;
+
+        bottom =
+          centerY +
+          heightNormalized / 2;
+      } else {
+        if (handle.includes("w")) {
+          right =
+            originalRight;
+
+          left =
+            right -
+            widthNormalized;
+        } else {
+          left =
+            originalLeft;
+
+          right =
+            left +
+            widthNormalized;
+        }
+
+        if (handle.includes("n")) {
+          bottom =
+            originalBottom;
+
+          top =
+            bottom -
+            heightNormalized;
+        } else {
+          top =
+            originalTop;
+
+          bottom =
+            top +
+            heightNormalized;
+        }
+      }
+    }
+
+    /*
+      Keep the marquee within the document and prevent
+      zero-size selections.
     */
 
     const minimum =
@@ -4903,7 +5180,24 @@ export default function LayerCanvas({
       right - left <
       minimum
     ) {
-      if (
+      if (event.altKey) {
+        const safeHalf =
+          minimum / 2;
+
+        left =
+          Math.max(
+            0,
+            centerX -
+              safeHalf
+          );
+
+        right =
+          Math.min(
+            1,
+            centerX +
+              safeHalf
+          );
+      } else if (
         handle.includes(
           "w"
         )
@@ -4928,7 +5222,24 @@ export default function LayerCanvas({
       bottom - top <
       minimum
     ) {
-      if (
+      if (event.altKey) {
+        const safeHalf =
+          minimum / 2;
+
+        top =
+          Math.max(
+            0,
+            centerY -
+              safeHalf
+          );
+
+        bottom =
+          Math.min(
+            1,
+            centerY +
+              safeHalf
+          );
+      } else if (
         handle.includes(
           "n"
         )
@@ -15534,7 +15845,7 @@ export default function LayerCanvas({
                         : "Drag freely around an area to create a lasso selection"
                   : activeTool === "select"
                     ? resizingSelection
-                      ? "Resizing selection"
+                      ? "Resizing selection • Shift: constrain • Alt: center • Esc: cancel"
                       : movingSelection
                         ? "Moving selection"
                         : selection
@@ -15544,7 +15855,7 @@ export default function LayerCanvas({
                               : "Inverted selection — outside area selected"
                             : selectionFeather > 0
                               ? `Selection active • Feather ${Math.round(selectionFeather)} px`
-                              : "Drag inside to move • Drag handles to resize"
+                              : "Drag inside to move • Resize: Shift constrain • Alt center • Esc cancel"
                           : selectionAspect === "free"
                             ? selectionShape === "ellipse"
                               ? "Drag ellipse • Shift: circle • Alt: center • Shift+M: rectangle"
