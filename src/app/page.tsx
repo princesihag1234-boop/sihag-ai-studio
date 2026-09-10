@@ -2173,12 +2173,41 @@ export default function Home() {
   function clampSelection(
     next: SelectionRect
   ): SelectionRect {
-    const minimum =
-      0.0025;
+    const {
+      width: documentWidth,
+      height: documentHeight,
+    } =
+      getSelectionDocumentSize();
+
+    /*
+      A professional selection can be as small as one source pixel.
+      The previous percentage-based minimum became several pixels on
+      large images, which made precise selections impossible.
+    */
+
+    const minimumWidth =
+      Math.min(
+        1,
+        1 /
+          Math.max(
+            1,
+            documentWidth
+          )
+      );
+
+    const minimumHeight =
+      Math.min(
+        1,
+        1 /
+          Math.max(
+            1,
+            documentHeight
+          )
+      );
 
     const width =
       Math.max(
-        minimum,
+        minimumWidth,
         Math.min(
           1,
           next.width
@@ -2187,7 +2216,7 @@ export default function Home() {
 
     const height =
       Math.max(
-        minimum,
+        minimumHeight,
         Math.min(
           1,
           next.height
@@ -2220,27 +2249,306 @@ export default function Home() {
     };
   }
 
+  /*
+    Apply a bounding-box transform to the entire selection model.
+
+    Selection masks and export are driven by selectionRegions, while
+    the inspector and on-canvas box use selection. Updating only the
+    box made numeric edits, Center and keyboard nudging visually move
+    without moving the actual mask/export region. This helper keeps the
+    bounds, lasso path and every add/subtract/intersect region together.
+  */
+
+  function transformSelectionGeometry(
+    nextBoundsInput: SelectionRect
+  ) {
+    if (!selection) {
+      return;
+    }
+
+    const sourceBounds = {
+      ...selection,
+    };
+
+    const nextBounds =
+      clampSelection(
+        nextBoundsInput
+      );
+
+    const scaleX =
+      sourceBounds.width >
+      0.0000001
+        ? nextBounds.width /
+          sourceBounds.width
+        : 1;
+
+    const scaleY =
+      sourceBounds.height >
+      0.0000001
+        ? nextBounds.height /
+          sourceBounds.height
+        : 1;
+
+    function mapPoint(
+      point: SelectionPoint
+    ): SelectionPoint {
+      return {
+        x:
+          Math.max(
+            0,
+            Math.min(
+              1,
+              nextBounds.x +
+                (
+                  point.x -
+                  sourceBounds.x
+                ) *
+                  scaleX
+            )
+          ),
+
+        y:
+          Math.max(
+            0,
+            Math.min(
+              1,
+              nextBounds.y +
+                (
+                  point.y -
+                  sourceBounds.y
+                ) *
+                  scaleY
+            )
+          ),
+      };
+    }
+
+    function mapRect(
+      rect: SelectionRect
+    ): SelectionRect {
+      const mapped = {
+        x:
+          nextBounds.x +
+          (
+            rect.x -
+            sourceBounds.x
+          ) *
+            scaleX,
+
+        y:
+          nextBounds.y +
+          (
+            rect.y -
+            sourceBounds.y
+          ) *
+            scaleY,
+
+        width:
+          rect.width *
+          scaleX,
+
+        height:
+          rect.height *
+          scaleY,
+      };
+
+      const left =
+        Math.max(
+          0,
+          Math.min(
+            1,
+            mapped.x
+          )
+        );
+
+      const top =
+        Math.max(
+          0,
+          Math.min(
+            1,
+            mapped.y
+          )
+        );
+
+      const right =
+        Math.max(
+          left,
+          Math.min(
+            1,
+            mapped.x +
+              mapped.width
+          )
+        );
+
+      const bottom =
+        Math.max(
+          top,
+          Math.min(
+            1,
+            mapped.y +
+              mapped.height
+          )
+        );
+
+      return {
+        x: left,
+        y: top,
+        width:
+          right -
+          left,
+        height:
+          bottom -
+          top,
+      };
+    }
+
+    const nextRegions =
+      getSelectionRegionsWithFallback().map(
+        (region) => ({
+          ...region,
+          rect:
+            mapRect(
+              region.rect
+            ),
+          path:
+            region.path
+              ? region.path.map(
+                  mapPoint
+                )
+              : null,
+        })
+      );
+
+    setSelection(
+      nextBounds
+    );
+
+    setSelectionRegions(
+      nextRegions
+    );
+
+    if (selectionPath) {
+      setSelectionPath(
+        selectionPath.map(
+          mapPoint
+        )
+      );
+    }
+  }
+
   function updateSelectionField(
     field:
       | "x"
       | "y"
       | "width"
       | "height",
-    percentValue: number
+    pixelValue: number
   ) {
     if (!selection) {
       return;
     }
 
-    const value =
-      percentValue / 100;
+    const {
+      width: documentWidth,
+      height: documentHeight,
+    } =
+      getSelectionDocumentSize();
 
-    setSelection(
-      clampSelection({
-        ...selection,
-        [field]:
-          value,
-      })
+    const horizontal =
+      field === "x" ||
+      field === "width";
+
+    const divisor =
+      horizontal
+        ? documentWidth
+        : documentHeight;
+
+    const normalizedValue =
+      Math.max(
+        0,
+        pixelValue
+      ) /
+      Math.max(
+        1,
+        divisor
+      );
+
+    const next = {
+      ...selection,
+    };
+
+    if (field === "x") {
+      next.x =
+        Math.min(
+          Math.max(
+            0,
+            normalizedValue
+          ),
+          Math.max(
+            0,
+            1 -
+              selection.width
+          )
+        );
+    } else if (field === "y") {
+      next.y =
+        Math.min(
+          Math.max(
+            0,
+            normalizedValue
+          ),
+          Math.max(
+            0,
+            1 -
+              selection.height
+          )
+        );
+    } else if (field === "width") {
+      next.width =
+        Math.min(
+          Math.max(
+            1 /
+              Math.max(
+                1,
+                documentWidth
+              ),
+            normalizedValue
+          ),
+          Math.max(
+            1 /
+              Math.max(
+                1,
+                documentWidth
+              ),
+            1 -
+              selection.x
+          )
+        );
+    } else {
+      next.height =
+        Math.min(
+          Math.max(
+            1 /
+              Math.max(
+                1,
+                documentHeight
+              ),
+            normalizedValue
+          ),
+          Math.max(
+            1 /
+              Math.max(
+                1,
+                documentHeight
+              ),
+            1 -
+              selection.y
+          )
+        );
+    }
+
+    transformSelectionGeometry(
+      next
     );
   }
 
@@ -2249,7 +2557,7 @@ export default function Home() {
       return;
     }
 
-    setSelection({
+    transformSelectionGeometry({
       ...selection,
 
       x:
@@ -11988,10 +12296,35 @@ export default function Home() {
         !commandKey &&
         !event.altKey
       ) {
-        const amount =
+        const {
+          width: documentWidth,
+          height: documentHeight,
+        } =
+          getSelectionDocumentSize();
+
+        /*
+          Photoshop-style nudging is pixel based, not percentage based.
+          Arrow = 1 source pixel, Shift+Arrow = 10 source pixels.
+        */
+
+        const pixelStep =
           event.shiftKey
-            ? 0.01
-            : 0.001;
+            ? 10
+            : 1;
+
+        const amountX =
+          pixelStep /
+          Math.max(
+            1,
+            documentWidth
+          );
+
+        const amountY =
+          pixelStep /
+          Math.max(
+            1,
+            documentHeight
+          );
 
         let nextX =
           selection.x;
@@ -12001,16 +12334,16 @@ export default function Home() {
 
         switch (event.key) {
           case "ArrowLeft":
-            nextX -= amount;
+            nextX -= amountX;
             break;
           case "ArrowRight":
-            nextX += amount;
+            nextX += amountX;
             break;
           case "ArrowUp":
-            nextY -= amount;
+            nextY -= amountY;
             break;
           case "ArrowDown":
-            nextY += amount;
+            nextY += amountY;
             break;
           default:
             nextX = selection.x;
@@ -12023,7 +12356,7 @@ export default function Home() {
         ) {
           event.preventDefault();
 
-          setSelection(
+          transformSelectionGeometry(
             clampSelection({
               ...selection,
               x: nextX,
@@ -20427,13 +20760,7 @@ export default function Home() {
                 </button>
 
                 <button
-                  disabled={
-                    !selection ||
-                    selectionShape ===
-                      "lasso" ||
-                    selectionRegions.length >
-                      1
-                  }
+                  disabled={!selection}
                   onClick={
                     centerSelection
                   }
@@ -21098,93 +21425,130 @@ export default function Home() {
 
                   </div>
 
-                  {selectionShape !==
-                    "lasso" && (
-                  <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="mt-4">
 
-                    <SelectionNumberInput
-                      label="X"
-                      value={
-                        selection.x *
-                        100
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        updateSelectionField(
-                          "x",
-                          value
-                        )
-                      }
-                    />
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[10px] font-semibold tracking-[0.14em] text-gray-500">
+                        BOUNDS
+                      </span>
 
-                    <SelectionNumberInput
-                      label="Y"
-                      value={
-                        selection.y *
-                        100
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        updateSelectionField(
-                          "y",
-                          value
-                        )
-                      }
-                    />
+                      <span className="rounded bg-white/5 px-2 py-0.5 text-[9px] tabular-nums text-gray-400">
+                        {Math.round(
+                          selection.width *
+                          getSelectionDocumentSize().width
+                        )}
+                        {" × "}
+                        {Math.round(
+                          selection.height *
+                          getSelectionDocumentSize().height
+                        )}
+                        {" px"}
+                      </span>
+                    </div>
 
-                    <SelectionNumberInput
-                      label="Width"
-                      value={
-                        selection.width *
-                        100
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        updateSelectionField(
-                          "width",
-                          value
-                        )
-                      }
-                    />
+                    <div className="grid grid-cols-2 gap-2">
 
-                    <SelectionNumberInput
-                      label="Height"
-                      value={
-                        selection.height *
-                        100
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        updateSelectionField(
-                          "height",
+                      <SelectionNumberInput
+                        label="X"
+                        value={
+                          selection.x *
+                          getSelectionDocumentSize().width
+                        }
+                        max={
+                          getSelectionDocumentSize().width
+                        }
+                        onChange={(
                           value
-                        )
-                      }
-                    />
+                        ) =>
+                          updateSelectionField(
+                            "x",
+                            value
+                          )
+                        }
+                      />
+
+                      <SelectionNumberInput
+                        label="Y"
+                        value={
+                          selection.y *
+                          getSelectionDocumentSize().height
+                        }
+                        max={
+                          getSelectionDocumentSize().height
+                        }
+                        onChange={(
+                          value
+                        ) =>
+                          updateSelectionField(
+                            "y",
+                            value
+                          )
+                        }
+                      />
+
+                      <SelectionNumberInput
+                        label="Width"
+                        value={
+                          selection.width *
+                          getSelectionDocumentSize().width
+                        }
+                        max={
+                          getSelectionDocumentSize().width
+                        }
+                        onChange={(
+                          value
+                        ) =>
+                          updateSelectionField(
+                            "width",
+                            value
+                          )
+                        }
+                      />
+
+                      <SelectionNumberInput
+                        label="Height"
+                        value={
+                          selection.height *
+                          getSelectionDocumentSize().height
+                        }
+                        max={
+                          getSelectionDocumentSize().height
+                        }
+                        onChange={(
+                          value
+                        ) =>
+                          updateSelectionField(
+                            "height",
+                            value
+                          )
+                        }
+                      />
+
+                    </div>
+
+                    {selectionShape === "lasso" && (
+                      <div className="mt-2 text-[9px] leading-4 text-gray-600">
+                        Lasso values edit the selection bounding box while preserving and transforming the complete path.
+                      </div>
+                    )}
 
                   </div>
-
-                  )}
 
                   <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-[10px] leading-5 text-gray-400">
                     {selectionShape === "lasso"
                       ? activeTool === "polygonal-lasso"
-                        ? "Polygonal Lasso: Shift+L activates it. Double-click or Enter closes the shape, Backspace removes the last point, Ctrl+Shift+I inverts, and Ctrl+D deselects."
-                        : "Lasso: drag freely around an area. L redraws the selection, Ctrl+Shift+I inverts it, and Ctrl+D deselects."
-                      : "Arrow keys move the selection by 0.1%. Hold Shift for 1%. Ctrl+A selects all, Ctrl+Shift+I inverts, and Ctrl+D deselects."}
+                        ? "Polygonal Lasso: Shift+L activates it. Click the first point, double-click, or press Enter to close. Backspace removes the last point. Ctrl+Shift+I inverts and Ctrl+D deselects."
+                        : "Lasso: drag freely around an area. L redraws the selection. Esc cancels an unfinished lasso, Ctrl+Shift+I inverts, and Ctrl+D deselects."
+                      : "Arrow keys move the selection by 1 px. Hold Shift for 10 px. Ctrl+A selects all, Ctrl+Shift+I inverts, and Ctrl+D deselects."}
                   </div>
                 </>
               ) : (
                 <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-[10px] leading-5 text-gray-400">
                   {activeTool ===
                   "polygonal-lasso"
-                    ? "Click around the subject to place straight-edged points. Double-click or press Enter to close the polygon. Backspace removes the last point."
+                    ? "Click around the subject to place straight-edged points. Click the first point, double-click, or press Enter to close. Backspace removes the last point and Esc cancels the draft."
                     : activeTool === "lasso"
-                      ? "Drag freely around the subject or area you want to select. Release the pointer to close the lasso."
+                      ? "Drag freely around the subject or area you want to select. Release to close the lasso, or press Esc to cancel the unfinished path."
                       : "Drag directly over the canvas to create a rectangle or ellipse selection. Press Esc to clear it."}
                 </div>
               )}
@@ -21804,16 +22168,18 @@ function CropHandle({
 function SelectionNumberInput({
   label,
   value,
+  max,
   onChange,
 }: {
   label: string;
   value: number;
+  max: number;
   onChange: (
     value: number
   ) => void;
 }) {
   return (
-    <label className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+    <label className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 transition-colors focus-within:border-indigo-500/40 focus-within:bg-indigo-500/[0.06]">
 
       <div className="text-[10px] text-gray-500">
         {label}
@@ -21824,27 +22190,41 @@ function SelectionNumberInput({
         <input
           type="number"
           min={0}
-          max={100}
-          step={0.1}
-          value={
-            Number(
-              value.toFixed(
-                1
+          max={
+            Math.max(
+              1,
+              Math.round(
+                max
               )
             )
           }
-          onChange={(event) =>
-            onChange(
+          step={1}
+          value={
+            Math.round(
+              value
+            )
+          }
+          onChange={(event) => {
+            const nextValue =
               Number(
                 event.target.value
+              );
+
+            if (
+              Number.isFinite(
+                nextValue
               )
-            )
-          }
+            ) {
+              onChange(
+                nextValue
+              );
+            }
+          }}
           className="min-w-0 flex-1 bg-transparent text-xs tabular-nums text-gray-200 outline-none"
         />
 
         <span className="text-[10px] text-gray-500">
-          %
+          px
         </span>
 
       </div>

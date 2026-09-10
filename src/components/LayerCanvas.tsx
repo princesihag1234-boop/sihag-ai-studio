@@ -528,6 +528,15 @@ export default function LayerCanvas({
     setQuickSelectionBusy,
   ] = useState(false);
 
+  const [
+    quickSelectionCursor,
+    setQuickSelectionCursor,
+  ] = useState({
+    x: 0,
+    y: 0,
+    visible: false,
+  });
+
   const quickSelectionSeedsRef =
     useRef<
       {
@@ -1571,6 +1580,36 @@ export default function LayerCanvas({
             1,
             y
           )
+        ),
+    };
+  }
+
+  function getMinimumSelectionSize() {
+    /*
+      A professional editor should allow a marquee down to one
+      source-image pixel regardless of preview scaling. documentSize
+      is the rendered preview size, so previewScale / documentSize
+      maps exactly one source pixel into normalized document space.
+    */
+    return {
+      width:
+        Math.max(
+          0.000001,
+          previewScale /
+            Math.max(
+              1,
+              documentSize.width
+            )
+        ),
+
+      height:
+        Math.max(
+          0.000001,
+          previewScale /
+            Math.max(
+              1,
+              documentSize.height
+            )
         ),
     };
   }
@@ -3220,6 +3259,30 @@ export default function LayerCanvas({
           height - 1
             ? pixel + width
             : -1,
+
+          x > 0 &&
+          y > 0
+            ? pixel - width - 1
+            : -1,
+
+          x <
+            width - 1 &&
+          y > 0
+            ? pixel - width + 1
+            : -1,
+
+          x > 0 &&
+          y <
+            height - 1
+            ? pixel + width - 1
+            : -1,
+
+          x <
+            width - 1 &&
+          y <
+            height - 1
+            ? pixel + width + 1
+            : -1,
         ];
 
         for (
@@ -3351,6 +3414,36 @@ export default function LayerCanvas({
     };
   }
 
+  function updateQuickSelectionCursor(
+    clientX: number,
+    clientY: number
+  ) {
+    const documentPoint =
+      pointerToDocumentPoint(
+        clientX,
+        clientY
+      );
+
+    if (!documentPoint) {
+      setQuickSelectionCursor(
+        (current) => ({
+          ...current,
+          visible: false,
+        })
+      );
+
+      return;
+    }
+
+    setQuickSelectionCursor({
+      x:
+        documentPoint.x,
+      y:
+        documentPoint.y,
+      visible: true,
+    });
+  }
+
   function startQuickSelection(
     event:
       PointerEvent<HTMLDivElement>
@@ -3365,6 +3458,11 @@ export default function LayerCanvas({
     ) {
       return;
     }
+
+    updateQuickSelectionCursor(
+      event.clientX,
+      event.clientY
+    );
 
     const point =
       pointerToMaskPoint(
@@ -3405,6 +3503,18 @@ export default function LayerCanvas({
       PointerEvent<HTMLDivElement>
   ) {
     if (
+      activeTool !==
+        "quick-select"
+    ) {
+      return;
+    }
+
+    updateQuickSelectionCursor(
+      event.clientX,
+      event.clientY
+    );
+
+    if (
       !quickSelecting ||
       !selectedLayer
     ) {
@@ -3428,6 +3538,22 @@ export default function LayerCanvas({
     addQuickSelectionSeed(
       point
     );
+  }
+
+  function cancelQuickSelection() {
+    if (!quickSelecting) {
+      return;
+    }
+
+    setQuickSelecting(
+      false
+    );
+
+    quickSelectionSeedsRef.current =
+      [];
+
+    lastQuickSelectionSeedRef.current =
+      null;
   }
 
   async function endQuickSelection() {
@@ -3842,6 +3968,30 @@ export default function LayerCanvas({
           height - 1
             ? pixel + width
             : -1,
+
+          x > 0 &&
+          y > 0
+            ? pixel - width - 1
+            : -1,
+
+          x <
+            width - 1 &&
+          y > 0
+            ? pixel - width + 1
+            : -1,
+
+          x > 0 &&
+          y <
+            height - 1
+            ? pixel + width - 1
+            : -1,
+
+          x <
+            width - 1 &&
+          y <
+            height - 1
+            ? pixel + width + 1
+            : -1,
         ];
 
         for (
@@ -4013,14 +4163,10 @@ export default function LayerCanvas({
         null
       );
 
-      onSelectionChange(
-        null
-      );
-
-      onSelectionPathChange(
-        null
-      );
-
+      /*
+        An unfinished polygon is cancelled, not committed. Keep the
+        previous selection intact until a valid polygon is closed.
+      */
       return;
     }
 
@@ -4072,11 +4218,14 @@ export default function LayerCanvas({
           minY
       );
 
+    const minimumSelectionSize =
+      getMinimumSelectionSize();
+
     if (
       width <
-        0.001 ||
+        minimumSelectionSize.width ||
       height <
-        0.001
+        minimumSelectionSize.height
     ) {
       polygonDraftRef.current =
         [];
@@ -4086,14 +4235,6 @@ export default function LayerCanvas({
       );
 
       setPolygonPointer(
-        null
-      );
-
-      onSelectionChange(
-        null
-      );
-
-      onSelectionPathChange(
         null
       );
 
@@ -4206,30 +4347,61 @@ export default function LayerCanvas({
         ),
     };
 
+    /*
+      Keep the existing selection visible until the polygon is actually
+      committed. This makes Escape/backtracking non-destructive.
+    */
+
+    const currentDraft =
+      polygonDraftRef.current;
+
     if (
-      polygonDraftRef.current.length ===
-      0
+      currentDraft.length >=
+        3
     ) {
+      const firstPoint =
+        currentDraft[0];
+
+      const distanceToFirst =
+        Math.hypot(
+          (
+            nextPoint.x -
+            firstPoint.x
+          ) *
+            documentSize.width *
+            Math.max(
+              0.01,
+              zoom
+            ),
+          (
+            nextPoint.y -
+            firstPoint.y
+          ) *
+            documentSize.height *
+            Math.max(
+              0.01,
+              zoom
+            )
+        );
+
+      /*
+        Clicking close to the first vertex closes the polygon, matching
+        the familiar professional lasso workflow.
+      */
       if (
-        selectionMode ===
-        "new"
+        distanceToFirst <=
+        12
       ) {
-        onSelectionChange(
-          null
+        finishPolygonalLasso(
+          currentDraft
         );
 
-        onSelectionPathChange(
-          null
-        );
+        return;
       }
-
-      onSelectionInvertChange(
-        false
-      );
     }
 
     const next = [
-      ...polygonDraftRef.current,
+      ...currentDraft,
       nextPoint,
     ];
 
@@ -4343,26 +4515,11 @@ export default function LayerCanvas({
         event.pointerId
       );
 
-    onSelectionInvertChange(
-      false
-    );
-
-    onSelectionShapeChange(
-      "lasso"
-    );
-
-    if (
-      selectionMode ===
-      "new"
-    ) {
-      onSelectionChange(
-        null
-      );
-
-      onSelectionPathChange(
-        null
-      );
-    }
+    /*
+      Do not clear or reshape the existing selection while a freehand
+      lasso is only being drafted. The previous selection is replaced
+      only after a valid path is committed.
+    */
 
     const firstPoint = {
       x:
@@ -4529,14 +4686,6 @@ export default function LayerCanvas({
       points.length <
       3
     ) {
-      onSelectionChange(
-        null
-      );
-
-      onSelectionPathChange(
-        null
-      );
-
       return;
     }
 
@@ -4588,22 +4737,21 @@ export default function LayerCanvas({
           minY
       );
 
+    const minimumSelectionSize =
+      getMinimumSelectionSize();
+
     if (
       width <
-        0.001 ||
+        minimumSelectionSize.width ||
       height <
-        0.001
+        minimumSelectionSize.height
     ) {
-      onSelectionChange(
-        null
-      );
-
-      onSelectionPathChange(
-        null
-      );
-
       return;
     }
+
+    onSelectionInvertChange(
+      false
+    );
 
     onSelectionShapeChange(
       "lasso"
@@ -4650,6 +4798,75 @@ export default function LayerCanvas({
       selectionMode
     );
   }
+
+  function cancelLassoDraft() {
+    if (!drawingLasso) {
+      return;
+    }
+
+    setDrawingLasso(
+      false
+    );
+
+    lassoDraftRef.current =
+      [];
+
+    setLassoDraft(
+      []
+    );
+  }
+
+  /*
+    Escape cancels unfinished freehand and quick-selection gestures.
+    No committed selection state is touched until a valid result exists.
+  */
+  useEffect(() => {
+    if (
+      !drawingLasso &&
+      !quickSelecting
+    ) {
+      return;
+    }
+
+    function cancelDraftSelection(
+      event: KeyboardEvent
+    ) {
+      if (
+        event.key !==
+        "Escape"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (drawingLasso) {
+        cancelLassoDraft();
+      }
+
+      if (quickSelecting) {
+        cancelQuickSelection();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      cancelDraftSelection,
+      true
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        cancelDraftSelection,
+        true
+      );
+    };
+  }, [
+    drawingLasso,
+    quickSelecting,
+  ]);
 
   function startSelectionResize(
     event:
@@ -5137,8 +5354,14 @@ export default function LayerCanvas({
       zero-size selections.
     */
 
-    const minimum =
-      0.0025;
+    const minimumSelectionSize =
+      getMinimumSelectionSize();
+
+    const minimumWidth =
+      minimumSelectionSize.width;
+
+    const minimumHeight =
+      minimumSelectionSize.height;
 
     left =
       Math.max(
@@ -5178,11 +5401,11 @@ export default function LayerCanvas({
 
     if (
       right - left <
-      minimum
+      minimumWidth
     ) {
       if (event.altKey) {
         const safeHalf =
-          minimum / 2;
+          minimumWidth / 2;
 
         left =
           Math.max(
@@ -5206,25 +5429,25 @@ export default function LayerCanvas({
           Math.max(
             0,
             right -
-              minimum
+              minimumWidth
           );
       } else {
         right =
           Math.min(
             1,
             left +
-              minimum
+              minimumWidth
           );
       }
     }
 
     if (
       bottom - top <
-      minimum
+      minimumHeight
     ) {
       if (event.altKey) {
         const safeHalf =
-          minimum / 2;
+          minimumHeight / 2;
 
         top =
           Math.max(
@@ -5248,14 +5471,14 @@ export default function LayerCanvas({
           Math.max(
             0,
             bottom -
-              minimum
+              minimumHeight
           );
       } else {
         bottom =
           Math.min(
             1,
             top +
-              minimum
+              minimumHeight
           );
       }
     }
@@ -5379,12 +5602,15 @@ export default function LayerCanvas({
     selectionDraftRef.current =
       null;
 
+    const minimumSelectionSize =
+      getMinimumSelectionSize();
+
     if (
       completed &&
       completed.width >=
-        0.001 &&
+        minimumSelectionSize.width &&
       completed.height >=
-        0.001
+        minimumSelectionSize.height
     ) {
       if (wasSelecting) {
         onSelectionRegionCommit(
@@ -14201,7 +14427,9 @@ export default function LayerCanvas({
       : drawingLasso
         ? lassoDraft
         : selectionShape ===
-            "lasso"
+            "lasso" &&
+          selectionRegions.length <=
+            1
           ? selectionPath ??
             []
           : [];
@@ -14270,6 +14498,44 @@ export default function LayerCanvas({
           documentSize.height
         }`
       : "";
+
+  const sourceDocumentWidth =
+    documentSize.width /
+    Math.max(
+      0.000001,
+      previewScale
+    );
+
+  const sourceDocumentHeight =
+    documentSize.height /
+    Math.max(
+      0.000001,
+      previewScale
+    );
+
+  const selectionHudVisible =
+    !!selection &&
+    activeTool ===
+      "select" &&
+    (
+      selecting ||
+      movingSelection ||
+      resizingSelection
+    );
+
+  const quickSelectionCursorSize =
+    Math.max(
+      8,
+      quickSelectionBrushSize *
+        previewScale *
+        Math.max(
+          0.05,
+          Math.abs(
+            selectedLayer?.scale ??
+              1
+          )
+        )
+    );
 
   return (
     <div
@@ -14377,11 +14643,11 @@ export default function LayerCanvas({
           activeTool === "select"
             ? endSelection
             : activeTool === "lasso"
-              ? endLasso
+              ? cancelLassoDraft
               : activeTool === "polygonal-lasso"
                 ? undefined
                 : activeTool === "quick-select"
-                  ? endQuickSelection
+                  ? cancelQuickSelection
                   : activeTool === "brush"
               ? endMaskStroke
               : activeTool === "heal"
@@ -14401,6 +14667,19 @@ export default function LayerCanvas({
                 : endLayerDrag
         }
         onPointerLeave={() => {
+          if (
+            activeTool ===
+              "quick-select" &&
+            !quickSelecting
+          ) {
+            setQuickSelectionCursor(
+              (current) => ({
+                ...current,
+                visible: false,
+              })
+            );
+          }
+
           if (
             !paintingMask &&
             !healing &&
@@ -14905,17 +15184,40 @@ export default function LayerCanvas({
                 lassoPathD
               }
               fill="none"
+              stroke="rgba(0,0,0,0.92)"
+              strokeWidth="2.2"
+              vectorEffect="non-scaling-stroke"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+
+            <path
+              d={
+                lassoPathD
+              }
+              fill="none"
               stroke={
                 selectionInverted
                   ? "rgb(252 165 165)"
                   : "white"
               }
               strokeWidth="1.25"
-              strokeDasharray="5 4"
+              strokeDasharray="6 6"
               vectorEffect="non-scaling-stroke"
               strokeLinejoin="round"
               strokeLinecap="round"
-            />
+            >
+              {!drawingLasso &&
+                !drawingPolygon && (
+                <animate
+                  attributeName="stroke-dashoffset"
+                  from="0"
+                  to="-24"
+                  dur="0.85s"
+                  repeatCount="indefinite"
+                />
+              )}
+            </path>
 
             {drawingPolygon &&
               polygonDraft.map(
@@ -14933,10 +15235,30 @@ export default function LayerCanvas({
                       point.y *
                       documentSize.height
                     }
-                    r="3.5"
-                    fill="rgb(129 140 248)"
-                    stroke="white"
-                    strokeWidth="1"
+                    r={
+                      index === 0 &&
+                      polygonDraft.length >= 3
+                        ? "4.8"
+                        : "3.5"
+                    }
+                    fill={
+                      index === 0 &&
+                      polygonDraft.length >= 3
+                        ? "white"
+                        : "rgb(129 140 248)"
+                    }
+                    stroke={
+                      index === 0 &&
+                      polygonDraft.length >= 3
+                        ? "rgb(99 102 241)"
+                        : "white"
+                    }
+                    strokeWidth={
+                      index === 0 &&
+                      polygonDraft.length >= 3
+                        ? "2"
+                        : "1"
+                    }
                     vectorEffect="non-scaling-stroke"
                   />
                 )
@@ -15039,6 +15361,8 @@ export default function LayerCanvas({
           selection.width > 0 &&
           selection.height > 0 &&
           selectionInverted &&
+          selectionRegions.length <=
+            1 &&
           selectionShape ===
             "ellipse" && (
           <div
@@ -15066,6 +15390,8 @@ export default function LayerCanvas({
           selection.width > 0 &&
           selection.height > 0 &&
           selectionInverted &&
+          selectionRegions.length <=
+            1 &&
           selectionShape ===
             "rectangle" && (
           <>
@@ -15124,14 +15450,12 @@ export default function LayerCanvas({
         {selection &&
           selection.width > 0 &&
           selection.height > 0 &&
+          selectionRegions.length <=
+            1 &&
           selectionShape !==
             "lasso" && (
           <div
-            className={
-              selectionInverted
-                ? "pointer-events-none absolute border border-red-300"
-                : "pointer-events-none absolute border border-white"
-            }
+            className="pointer-events-none absolute"
             style={{
               left:
                 `${selection.x * 100}%`,
@@ -15145,52 +15469,97 @@ export default function LayerCanvas({
               height:
                 `${selection.height * 100}%`,
 
-              borderRadius:
-                selectionShape ===
-                  "ellipse"
-                  ? "9999px"
-                  : "0",
-
-              borderStyle:
-                selectionShape ===
-                  "ellipse"
-                  ? "dashed"
-                  : "solid",
-
-              backgroundImage:
-                selectionShape ===
-                  "rectangle"
-                  ? "linear-gradient(90deg, black 50%, transparent 50%), linear-gradient(90deg, black 50%, transparent 50%), linear-gradient(0deg, black 50%, transparent 50%), linear-gradient(0deg, black 50%, transparent 50%)"
-                  : "none",
-
-              backgroundRepeat:
-                selectionShape ===
-                  "rectangle"
-                  ? "repeat-x, repeat-x, repeat-y, repeat-y"
-                  : "no-repeat",
-
-              backgroundSize:
-                selectionShape ===
-                  "rectangle"
-                  ? "8px 1px, 8px 1px, 1px 8px, 1px 8px"
-                  : "auto",
-
-              backgroundPosition:
-                selectionShape ===
-                  "rectangle"
-                  ? "0 0, 0 100%, 0 0, 100% 0"
-                  : "0 0",
-
               boxShadow:
                 selectionFeather > 0
                   ? `0 0 ${Math.max(
                       2,
                       selectionFeather *
                         previewScale
-                    )}px rgba(255,255,255,0.28)`
+                    )}px rgba(255,255,255,0.22)`
                   : "none",
             }}
           >
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {selectionShape ===
+              "ellipse" ? (
+                <>
+                  <ellipse
+                    cx="50"
+                    cy="50"
+                    rx="49.7"
+                    ry="49.7"
+                    fill="none"
+                    stroke="rgba(0,0,0,0.94)"
+                    strokeWidth="2.2"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <ellipse
+                    cx="50"
+                    cy="50"
+                    rx="49.7"
+                    ry="49.7"
+                    fill="none"
+                    stroke={
+                      selectionInverted
+                        ? "rgb(252 165 165)"
+                        : "white"
+                    }
+                    strokeWidth="1.2"
+                    strokeDasharray="6 6"
+                    vectorEffect="non-scaling-stroke"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from="0"
+                      to="-24"
+                      dur="0.85s"
+                      repeatCount="indefinite"
+                    />
+                  </ellipse>
+                </>
+              ) : (
+                <>
+                  <rect
+                    x="0.3"
+                    y="0.3"
+                    width="99.4"
+                    height="99.4"
+                    fill="none"
+                    stroke="rgba(0,0,0,0.94)"
+                    strokeWidth="2.2"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <rect
+                    x="0.3"
+                    y="0.3"
+                    width="99.4"
+                    height="99.4"
+                    fill="none"
+                    stroke={
+                      selectionInverted
+                        ? "rgb(252 165 165)"
+                        : "white"
+                    }
+                    strokeWidth="1.2"
+                    strokeDasharray="6 6"
+                    vectorEffect="non-scaling-stroke"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from="0"
+                      to="-24"
+                      dur="0.85s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                </>
+              )}
+            </svg>
+
             {activeTool ===
               "select" &&
               selectionRegions.length <=
@@ -15301,6 +15670,79 @@ export default function LayerCanvas({
                 />
               </>
             )}
+          </div>
+        )}
+
+        {selectionHudVisible &&
+          selection && (
+          <div
+            className="pointer-events-none absolute z-50 whitespace-nowrap rounded-md border border-white/15 bg-black/80 px-2 py-1 font-mono text-[9px] tabular-nums text-white shadow-lg backdrop-blur-sm"
+            style={{
+              left:
+                `${selection.x * 100}%`,
+              top:
+                `${selection.y * 100}%`,
+              transform:
+                selection.y <
+                0.08
+                  ? "translate(0, 6px)"
+                  : "translate(0, calc(-100% - 6px))",
+            }}
+          >
+            X {Math.round(
+              selection.x *
+              sourceDocumentWidth
+            )}
+            {"  Y "}
+            {Math.round(
+              selection.y *
+              sourceDocumentHeight
+            )}
+            {"  •  "}
+            {Math.round(
+              selection.width *
+              sourceDocumentWidth
+            )}
+            {" × "}
+            {Math.round(
+              selection.height *
+              sourceDocumentHeight
+            )}
+            {" px"}
+          </div>
+        )}
+
+        {activeTool ===
+          "quick-select" &&
+          quickSelectionCursor.visible &&
+          selectedLayer &&
+          selectedLayer.layerKind !==
+            "adjustment" && (
+          <div
+            className="pointer-events-none absolute z-50 rounded-full border border-emerald-200 shadow-[0_0_0_1px_rgba(0,0,0,0.9),0_0_10px_rgba(52,211,153,0.25)]"
+            style={{
+              left:
+                `${quickSelectionCursor.x * 100}%`,
+              top:
+                `${quickSelectionCursor.y * 100}%`,
+              width:
+                quickSelectionCursorSize,
+              height:
+                quickSelectionCursorSize,
+              transform:
+                "translate(-50%, -50%)",
+            }}
+          >
+            <div className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-100 shadow-[0_0_0_1px_rgba(0,0,0,0.8)]" />
+          </div>
+        )}
+
+        {(magicWandBusy ||
+          quickSelectionBusy) && (
+          <div className="pointer-events-none absolute left-1/2 top-3 z-50 -translate-x-1/2 rounded-lg border border-white/10 bg-black/80 px-3 py-1.5 text-[9px] font-medium text-gray-100 shadow-xl backdrop-blur-sm">
+            {magicWandBusy
+              ? "Magic Wand • analyzing pixels…"
+              : "Quick Selection • building edge…"}
           </div>
         )}
 
@@ -15830,10 +16272,24 @@ export default function LayerCanvas({
                       : selectedLayer?.layerKind === "image"
                         ? `Paint Brush • ${paintBrushColor.toUpperCase()} • paint on raster pixels`
                         : "Paint Brush • select an unlocked image layer"
+                  : activeTool === "magic-wand"
+                    ? magicWandBusy
+                      ? "Magic Wand • analyzing connected pixels…"
+                      : selectedLayer?.layerKind === "adjustment"
+                        ? "Magic Wand • select a visual layer first"
+                        : `Magic Wand • tolerance ${Math.round(magicWandTolerance)} • click a connected color area`
+                  : activeTool === "quick-select"
+                    ? quickSelectionBusy
+                      ? "Quick Selection • refining connected edge…"
+                      : quickSelecting
+                        ? `Quick Selection • sampling stroke • ${Math.round(quickSelectionBrushSize)} px`
+                        : selectedLayer?.layerKind === "adjustment"
+                          ? "Quick Selection • select a visual layer first"
+                          : `Quick Selection • ${Math.round(quickSelectionBrushSize)} px • drag across the subject • Esc cancels`
                   : activeTool === "polygonal-lasso"
                     ? polygonDraft.length > 0
-                      ? `Polygonal Lasso • ${polygonDraft.length} point${polygonDraft.length === 1 ? "" : "s"} • Double-click or Enter to close • Backspace removes last`
-                      : "Polygonal Lasso • Click to place points • Double-click or Enter to close"
+                      ? `Polygonal Lasso • ${polygonDraft.length} point${polygonDraft.length === 1 ? "" : "s"} • Click first point, double-click, or Enter to close • Backspace removes last`
+                      : "Polygonal Lasso • Click to place points • close on the first point, double-click, or Enter"
                   : activeTool === "lasso"
                     ? drawingLasso
                       ? "Drawing freehand lasso — release to close selection"
