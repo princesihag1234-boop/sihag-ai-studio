@@ -661,6 +661,20 @@ export default function LayerCanvas({
       height: 0,
     });
 
+  const selectionGestureSnapshotRef =
+    useRef<{
+      selection: SelectionRect | null;
+      path: SelectionPoint[] | null;
+      shape: SelectionShape;
+      inverted: boolean;
+    } | null>(null);
+
+  const selectionInteractionRectRef =
+    useRef<SelectionRect | null>(null);
+
+  const selectionInteractionPathRef =
+    useRef<SelectionPoint[] | null>(null);
+
   const maskCanvasRef =
     useRef<HTMLCanvasElement | null>(
       null
@@ -1583,6 +1597,48 @@ export default function LayerCanvas({
     }
   }
 
+  function cloneSelectionPathForGesture(
+    path: SelectionPoint[] | null
+  ) {
+    return path
+      ? path.map(
+          (point) => ({
+            ...point,
+          })
+        )
+      : null;
+  }
+
+  function captureSelectionGestureSnapshot() {
+    selectionGestureSnapshotRef.current = {
+      selection: selection
+        ? { ...selection }
+        : null,
+      path:
+        cloneSelectionPathForGesture(
+          selectionPath
+        ),
+      shape: selectionShape,
+      inverted: selectionInverted,
+    };
+
+    selectionInteractionRectRef.current =
+      selection
+        ? { ...selection }
+        : null;
+
+    selectionInteractionPathRef.current =
+      cloneSelectionPathForGesture(
+        selectionPath
+      );
+  }
+
+  function clearSelectionGestureSnapshot() {
+    selectionGestureSnapshotRef.current = null;
+    selectionInteractionRectRef.current = null;
+    selectionInteractionPathRef.current = null;
+  }
+
   function startSelection(
     event:
       PointerEvent<HTMLDivElement>
@@ -1639,6 +1695,8 @@ export default function LayerCanvas({
       insideSelection &&
       selection
     ) {
+      captureSelectionGestureSnapshot();
+
       selectionMoveStartRef.current = {
         pointerX:
           point.x,
@@ -1675,6 +1733,8 @@ export default function LayerCanvas({
       A fresh selection starts in normal
       (inside selected) mode.
     */
+
+    captureSelectionGestureSnapshot();
 
     onSelectionInvertChange(
       false
@@ -1719,6 +1779,12 @@ export default function LayerCanvas({
     selectionDraftRef.current =
       initialSelection;
 
+    selectionInteractionRectRef.current =
+      initialSelection;
+
+    selectionInteractionPathRef.current =
+      null;
+
     onSelectionChange(
       initialSelection
     );
@@ -1762,13 +1828,28 @@ export default function LayerCanvas({
       const start =
         selectionMoveStartRef.current;
 
-      const deltaX =
+      let deltaX =
         point.x -
         start.pointerX;
 
-      const deltaY =
+      let deltaY =
         point.y -
         start.pointerY;
+
+      /*
+        Professional marquee move behavior:
+        hold Shift to lock motion to the dominant axis.
+      */
+      if (event.shiftKey) {
+        if (
+          Math.abs(deltaX) >=
+          Math.abs(deltaY)
+        ) {
+          deltaY = 0;
+        } else {
+          deltaX = 0;
+        }
+      }
 
       const maxX =
         Math.max(
@@ -1804,14 +1885,68 @@ export default function LayerCanvas({
           )
         );
 
-      onSelectionChange({
+      const nextRect = {
         x: nextX,
         y: nextY,
         width:
           start.width,
         height:
           start.height,
-      });
+      };
+
+      const actualDeltaX =
+        nextX -
+        start.x;
+
+      const actualDeltaY =
+        nextY -
+        start.y;
+
+      const startPath =
+        selectionGestureSnapshotRef.current
+          ?.path;
+
+      const nextPath =
+        startPath
+          ? startPath.map(
+              (pathPoint) => ({
+                x:
+                  Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      pathPoint.x +
+                        actualDeltaX
+                    )
+                  ),
+                y:
+                  Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      pathPoint.y +
+                        actualDeltaY
+                    )
+                  ),
+              })
+            )
+          : null;
+
+      selectionInteractionRectRef.current =
+        nextRect;
+
+      selectionInteractionPathRef.current =
+        nextPath;
+
+      onSelectionChange(
+        nextRect
+      );
+
+      if (startPath) {
+        onSelectionPathChange(
+          nextPath
+        );
+      }
 
       return;
     }
@@ -2056,6 +2191,12 @@ export default function LayerCanvas({
 
     selectionDraftRef.current =
       nextSelection;
+
+    selectionInteractionRectRef.current =
+      nextSelection;
+
+    selectionInteractionPathRef.current =
+      null;
 
     onSelectionChange(
       nextSelection
@@ -4535,6 +4676,8 @@ export default function LayerCanvas({
     event.preventDefault();
     event.stopPropagation();
 
+    captureSelectionGestureSnapshot();
+
     event.currentTarget
       .setPointerCapture(
         event.pointerId
@@ -4806,14 +4949,82 @@ export default function LayerCanvas({
       }
     }
 
-    onSelectionChange({
+    const nextRect = {
       x: left,
       y: top,
       width:
         right - left,
       height:
         bottom - top,
-    });
+    };
+
+    const startPath =
+      selectionGestureSnapshotRef.current
+        ?.path;
+
+    const nextPath =
+      startPath
+        ? startPath.map(
+            (pathPoint) => {
+              const relativeX =
+                start.width > 0.000001
+                  ? (
+                      pathPoint.x -
+                      start.x
+                    ) /
+                    start.width
+                  : 0.5;
+
+              const relativeY =
+                start.height > 0.000001
+                  ? (
+                      pathPoint.y -
+                      start.y
+                    ) /
+                    start.height
+                  : 0.5;
+
+              return {
+                x:
+                  Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      nextRect.x +
+                        relativeX *
+                          nextRect.width
+                    )
+                  ),
+                y:
+                  Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      nextRect.y +
+                        relativeY *
+                          nextRect.height
+                    )
+                  ),
+              };
+            }
+          )
+        : null;
+
+    selectionInteractionRectRef.current =
+      nextRect;
+
+    selectionInteractionPathRef.current =
+      nextPath;
+
+    onSelectionChange(
+      nextRect
+    );
+
+    if (startPath) {
+      onSelectionPathChange(
+        nextPath
+      );
+    }
   }
 
   function endSelection() {
@@ -4825,10 +5036,22 @@ export default function LayerCanvas({
       return;
     }
 
+    const wasSelecting =
+      selecting;
+
+    const wasMoving =
+      movingSelection;
+
+    const wasResizing =
+      resizingSelection;
+
     const completed =
-      selecting
+      wasSelecting
         ? selectionDraftRef.current
-        : null;
+        : selectionInteractionRectRef.current;
+
+    const completedPath =
+      selectionInteractionPathRef.current;
 
     setSelecting(
       false
@@ -4852,26 +5075,135 @@ export default function LayerCanvas({
       completed.height >=
         0.001
     ) {
-      onSelectionRegionCommit(
-        {
-          shape:
-            selectionShape ===
-              "ellipse"
-              ? "ellipse"
-              : "rectangle",
+      if (wasSelecting) {
+        onSelectionRegionCommit(
+          {
+            shape:
+              selectionShape ===
+                "ellipse"
+                ? "ellipse"
+                : "rectangle",
 
-          rect: {
-            ...completed,
+            rect: {
+              ...completed,
+            },
+
+            path:
+              null,
           },
 
-          path:
-            null,
-        },
-
-        selectionMode
-      );
+          selectionMode
+        );
+      } else if (
+        wasMoving ||
+        wasResizing
+      ) {
+        /*
+          Keep the single-region selection model in sync with
+          the visible marquee after a move or resize. This is
+          critical for masks/export because the region geometry
+          is the source of truth for the composite selection.
+        */
+        onSelectionRegionCommit(
+          {
+            shape:
+              selectionShape,
+            rect: {
+              ...completed,
+            },
+            path:
+              cloneSelectionPathForGesture(
+                completedPath
+              ),
+          },
+          "new"
+        );
+      }
     }
+
+    clearSelectionGestureSnapshot();
   }
+
+  /*
+    Escape cancels an active marquee draw/move/resize and
+    restores the exact selection state from before the gesture.
+    This mirrors the transform engine's non-destructive cancel.
+  */
+  useEffect(() => {
+    if (
+      !selecting &&
+      !movingSelection &&
+      !resizingSelection
+    ) {
+      return;
+    }
+
+    function cancelActiveSelectionGesture(
+      event: KeyboardEvent
+    ) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      const snapshot =
+        selectionGestureSnapshotRef.current;
+
+      if (!snapshot) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      onSelectionChange(
+        snapshot.selection
+          ? { ...snapshot.selection }
+          : null
+      );
+
+      onSelectionPathChange(
+        cloneSelectionPathForGesture(
+          snapshot.path
+        )
+      );
+
+      onSelectionShapeChange(
+        snapshot.shape
+      );
+
+      onSelectionInvertChange(
+        snapshot.inverted
+      );
+
+      setSelecting(false);
+      setMovingSelection(false);
+      setResizingSelection(false);
+      selectionDraftRef.current = null;
+      clearSelectionGestureSnapshot();
+    }
+
+    window.addEventListener(
+      "keydown",
+      cancelActiveSelectionGesture,
+      true
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        cancelActiveSelectionGesture,
+        true
+      );
+    };
+  }, [
+    selecting,
+    movingSelection,
+    resizingSelection,
+    onSelectionChange,
+    onSelectionPathChange,
+    onSelectionShapeChange,
+    onSelectionInvertChange,
+  ]);
 
   /*
     MASK BRUSH
