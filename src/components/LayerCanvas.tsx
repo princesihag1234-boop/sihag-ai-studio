@@ -270,6 +270,10 @@ type LayerCanvasProps = {
 
   onBlurSharpenStrokeStart: () => void;
 
+  onRetouchStrokeCommit: () => void;
+
+  onRetouchStrokeCancel: () => void;
+
   paintBrushColor: string;
 
   paintBrushSize: number;
@@ -385,6 +389,8 @@ export default function LayerCanvas({
   blurSharpenBrushHardness,
   blurSharpenStrength,
   onBlurSharpenStrokeStart,
+  onRetouchStrokeCommit,
+  onRetouchStrokeCancel,
   paintBrushColor,
   paintBrushSize,
   paintBrushHardness,
@@ -753,6 +759,21 @@ export default function LayerCanvas({
   const lastHealEmitRef =
     useRef(0);
 
+  const healStrokeOriginalSrcRef =
+    useRef("");
+
+  const healSelectionMaskRef =
+    useRef<HTMLCanvasElement | null>(
+      null
+    );
+
+  const lastCommittedHealPointRef =
+    useRef<{
+      layerId: string;
+      x: number;
+      y: number;
+    } | null>(null);
+
   const cloneCanvasRef =
     useRef<HTMLCanvasElement | null>(
       null
@@ -785,6 +806,30 @@ export default function LayerCanvas({
   const lastCloneEmitRef =
     useRef(0);
 
+  const cloneStrokeOriginalSrcRef =
+    useRef("");
+
+  const cloneSelectionMaskRef =
+    useRef<HTMLCanvasElement | null>(
+      null
+    );
+
+  const clonePersistentOffsetRef =
+    useRef<{
+      x: number;
+      y: number;
+    } | null>(null);
+
+  const cloneSampleSignatureRef =
+    useRef("");
+
+  const lastCommittedClonePointRef =
+    useRef<{
+      layerId: string;
+      x: number;
+      y: number;
+    } | null>(null);
+
   const eraserCanvasRef =
     useRef<HTMLCanvasElement | null>(
       null
@@ -803,6 +848,21 @@ export default function LayerCanvas({
 
   const lastEraserEmitRef =
     useRef(0);
+
+  const eraserStrokeOriginalSrcRef =
+    useRef("");
+
+  const eraserSelectionMaskRef =
+    useRef<HTMLCanvasElement | null>(
+      null
+    );
+
+  const lastCommittedEraserPointRef =
+    useRef<{
+      layerId: string;
+      x: number;
+      y: number;
+    } | null>(null);
 
   const dodgeBurnCanvasRef =
     useRef<HTMLCanvasElement | null>(
@@ -828,6 +888,16 @@ export default function LayerCanvas({
   const lastDodgeBurnEmitRef =
     useRef(0);
 
+  const dodgeBurnStrokeOriginalSrcRef =
+    useRef("");
+
+  const lastCommittedDodgeBurnPointRef =
+    useRef<{
+      layerId: string;
+      x: number;
+      y: number;
+    } | null>(null);
+
   const blurSharpenCanvasRef =
     useRef<HTMLCanvasElement | null>(
       null
@@ -851,6 +921,27 @@ export default function LayerCanvas({
 
   const lastBlurSharpenEmitRef =
     useRef(0);
+
+  const blurSharpenStrokeOriginalSrcRef =
+    useRef("");
+
+  const lastCommittedBlurSharpenPointRef =
+    useRef<{
+      layerId: string;
+      x: number;
+      y: number;
+    } | null>(null);
+
+  /*
+    Async image decoding can outlive a fast click. This token
+    prevents a retouch stroke from starting after the pointer
+    has already been released or the active tool has changed.
+  */
+  const retouchPointerDownRef =
+    useRef<{
+      tool: string;
+      layerId: string;
+    } | null>(null);
 
   const paintCanvasRef =
     useRef<HTMLCanvasElement | null>(
@@ -8081,6 +8172,160 @@ export default function LayerCanvas({
   ]);
 
   /*
+    PROFESSIONAL RETOUCH BRUSH HELPERS
+
+    Retouch tools share the same hard-edge semantics as the Paint
+    engine: 100% hardness is actually hard, while lower values use
+    a perceptually smoother falloff. Coalesced pointer samples are
+    used when the browser provides them so fast strokes stay dense.
+  */
+
+  function createRetouchBrushMask(
+    diameter: number,
+    hardnessPercent: number,
+    opacity = 1
+  ) {
+    const mask =
+      document.createElement(
+        "canvas"
+      );
+
+    mask.width =
+      diameter;
+
+    mask.height =
+      diameter;
+
+    const context =
+      mask.getContext(
+        "2d"
+      );
+
+    if (!context) {
+      return mask;
+    }
+
+    const center =
+      diameter / 2;
+
+    const outer =
+      Math.max(
+        0.5,
+        diameter / 2
+      );
+
+    const hardness =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          hardnessPercent / 100
+        )
+      );
+
+    const safeOpacity =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          opacity
+        )
+      );
+
+    if (hardness >= 0.995) {
+      context.fillStyle =
+        `rgba(255,255,255,${safeOpacity})`;
+
+      context.beginPath();
+
+      context.arc(
+        center,
+        center,
+        Math.max(
+          0.5,
+          outer - 0.35
+        ),
+        0,
+        Math.PI * 2
+      );
+
+      context.fill();
+
+      return mask;
+    }
+
+    const inner =
+      outer *
+      Math.pow(
+        hardness,
+        0.72
+      );
+
+    const gradient =
+      context.createRadialGradient(
+        center,
+        center,
+        inner,
+        center,
+        center,
+        outer
+      );
+
+    gradient.addColorStop(
+      0,
+      `rgba(255,255,255,${safeOpacity})`
+    );
+
+    gradient.addColorStop(
+      1,
+      "rgba(255,255,255,0)"
+    );
+
+    context.fillStyle =
+      gradient;
+
+    context.fillRect(
+      0,
+      0,
+      diameter,
+      diameter
+    );
+
+    return mask;
+  }
+
+  function getRetouchPointerSamples(
+    event:
+      PointerEvent<HTMLDivElement>
+  ) {
+    const nativeEvent =
+      event.nativeEvent;
+
+    return typeof nativeEvent.getCoalescedEvents ===
+      "function"
+        ? nativeEvent.getCoalescedEvents()
+        : [nativeEvent];
+  }
+
+  function isTypingTarget(
+    target:
+      EventTarget | null
+  ) {
+    const element =
+      target as HTMLElement | null;
+
+    const tag =
+      element?.tagName?.toLowerCase();
+
+    return (
+      tag === "input" ||
+      tag === "textarea" ||
+      tag === "select" ||
+      !!element?.isContentEditable
+    );
+  }
+
+  /*
     SPOT HEAL TOOL
 
     The working layer is copied at stroke start.
@@ -8155,7 +8400,7 @@ export default function LayerCanvas({
 
     const radius =
       Math.max(
-        2.5,
+        0.5,
         healBrushSize /
           2
       );
@@ -8264,79 +8509,194 @@ export default function LayerCanvas({
     );
 
     /*
-      Soft circular alpha mask.
-      Hardness 100 = almost hard edge.
-      Hardness 0 = very soft transition.
+      Match the sampled texture toward the local destination tone.
+      This keeps Spot Heal from looking like a literal clone when
+      the nearby texture has a slightly different brightness/color.
     */
+    try {
+      const sourcePixels =
+        stampContext.getImageData(
+          0,
+          0,
+          diameter,
+          diameter
+        );
 
-    const mask =
-      document.createElement(
-        "canvas"
-      );
+      const targetCanvas =
+        document.createElement(
+          "canvas"
+        );
 
-    mask.width =
-      diameter;
+      targetCanvas.width =
+        diameter;
 
-    mask.height =
-      diameter;
+      targetCanvas.height =
+        diameter;
 
-    const maskContext =
-      mask.getContext(
-        "2d"
-      );
+      const targetContext =
+        targetCanvas.getContext(
+          "2d",
+          {
+            willReadFrequently:
+              true,
+          }
+        );
 
-    if (!maskContext) {
-      return;
+      if (targetContext) {
+        targetContext.drawImage(
+          sourceCanvas,
+          x - radius,
+          y - radius,
+          radius * 2,
+          radius * 2,
+          0,
+          0,
+          diameter,
+          diameter
+        );
+
+        const targetPixels =
+          targetContext.getImageData(
+            0,
+            0,
+            diameter,
+            diameter
+          );
+
+        let sourceRed = 0;
+        let sourceGreen = 0;
+        let sourceBlue = 0;
+        let targetRed = 0;
+        let targetGreen = 0;
+        let targetBlue = 0;
+        let count = 0;
+
+        for (
+          let index = 0;
+          index < sourcePixels.data.length;
+          index += 4
+        ) {
+          if (
+            sourcePixels.data[index + 3] < 8 ||
+            targetPixels.data[index + 3] < 8
+          ) {
+            continue;
+          }
+
+          sourceRed +=
+            sourcePixels.data[index];
+
+          sourceGreen +=
+            sourcePixels.data[index + 1];
+
+          sourceBlue +=
+            sourcePixels.data[index + 2];
+
+          targetRed +=
+            targetPixels.data[index];
+
+          targetGreen +=
+            targetPixels.data[index + 1];
+
+          targetBlue +=
+            targetPixels.data[index + 2];
+
+          count += 1;
+        }
+
+        if (count > 0) {
+          const redDelta =
+            (
+              targetRed -
+              sourceRed
+            ) /
+            count;
+
+          const greenDelta =
+            (
+              targetGreen -
+              sourceGreen
+            ) /
+            count;
+
+          const blueDelta =
+            (
+              targetBlue -
+              sourceBlue
+            ) /
+            count;
+
+          for (
+            let index = 0;
+            index < sourcePixels.data.length;
+            index += 4
+          ) {
+            if (
+              sourcePixels.data[index + 3] === 0
+            ) {
+              continue;
+            }
+
+            sourcePixels.data[index] =
+              Math.round(
+                Math.max(
+                  0,
+                  Math.min(
+                    255,
+                    sourcePixels.data[index] +
+                      redDelta *
+                        0.85
+                  )
+                )
+              );
+
+            sourcePixels.data[index + 1] =
+              Math.round(
+                Math.max(
+                  0,
+                  Math.min(
+                    255,
+                    sourcePixels.data[index + 1] +
+                      greenDelta *
+                        0.85
+                  )
+                )
+              );
+
+            sourcePixels.data[index + 2] =
+              Math.round(
+                Math.max(
+                  0,
+                  Math.min(
+                    255,
+                    sourcePixels.data[index + 2] +
+                      blueDelta *
+                        0.85
+                  )
+                )
+              );
+          }
+
+          stampContext.putImageData(
+            sourcePixels,
+            0,
+            0
+          );
+        }
+      }
+    } catch {
+      /*
+        Cross-origin/security errors are not expected for normal
+        local editor images, but the heal stroke should remain usable
+        even when tone matching cannot read the temporary pixels.
+      */
     }
 
-    const center =
-      diameter /
-      2;
-
-    const outer =
-      diameter /
-      2;
-
-    const inner =
-      outer *
-      Math.min(
-        0.98,
-        Math.max(
-          0,
-          healBrushHardness /
-            100
-        )
+    const mask =
+      createRetouchBrushMask(
+        diameter,
+        healBrushHardness
       );
-
-    const gradient =
-      maskContext.createRadialGradient(
-        center,
-        center,
-        inner,
-        center,
-        center,
-        outer
-      );
-
-    gradient.addColorStop(
-      0,
-      "rgba(255,255,255,1)"
-    );
-
-    gradient.addColorStop(
-      1,
-      "rgba(255,255,255,0)"
-    );
-
-    maskContext.fillStyle =
-      gradient;
-
-    maskContext.fillRect(
-      0,
-      0,
-      diameter,
-      diameter
-    );
 
     stampContext.globalCompositeOperation =
       "destination-in";
@@ -8391,11 +8751,7 @@ export default function LayerCanvas({
       );
 
       const selectionMask =
-        createSelectionMaskForLayer(
-          layer,
-          healCanvas.width,
-          healCanvas.height
-        );
+        healSelectionMaskRef.current;
 
       if (
         selectionMask
@@ -8554,11 +8910,14 @@ export default function LayerCanvas({
       return;
     }
 
+    const layerAtStart =
+      selectedLayer;
+
     const point =
       pointerToMaskPoint(
         event.clientX,
         event.clientY,
-        selectedLayer
+        layerAtStart
       );
 
     if (!point) {
@@ -8568,24 +8927,61 @@ export default function LayerCanvas({
     event.preventDefault();
     event.stopPropagation();
 
+    retouchPointerDownRef.current = {
+      tool: "heal",
+      layerId:
+        layerAtStart.id,
+    };
+
     event.currentTarget
       .setPointerCapture(
         event.pointerId
       );
 
-    onHealStrokeStart();
+    let sourceImage:
+      HTMLImageElement;
 
-    const sourceImage =
-      await loadImage(
-        selectedLayer.src
+    try {
+      sourceImage =
+        await loadImage(
+          layerAtStart.src
+        );
+    } catch (error) {
+      retouchPointerDownRef.current =
+        null;
+
+      console.error(
+        "Spot Heal source load failed:",
+        error
       );
+
+      return;
+    }
+
+    const token =
+      retouchPointerDownRef.current;
+
+    if (
+      !token ||
+      token.tool !==
+        "heal" ||
+      token.layerId !==
+        layerAtStart.id ||
+      activeTool !==
+        "heal"
+    ) {
+      return;
+    }
 
     const size =
       layerSizes[
-        selectedLayer.id
+        layerAtStart.id
       ];
 
     if (!size) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -8622,6 +9018,9 @@ export default function LayerCanvas({
       );
 
     if (!healContext) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -8650,6 +9049,9 @@ export default function LayerCanvas({
       );
 
     if (!sourceContext) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -8665,8 +9067,20 @@ export default function LayerCanvas({
     healSourceCanvasRef.current =
       sourceCanvas;
 
+    healSelectionMaskRef.current =
+      selection
+        ? createSelectionMaskForLayer(
+            layerAtStart,
+            width,
+            height
+          )
+        : null;
+
     healStrokeLayerIdRef.current =
-      selectedLayer.id;
+      layerAtStart.id;
+
+    healStrokeOriginalSrcRef.current =
+      layerAtStart.src;
 
     lastHealPointRef.current =
       null;
@@ -8674,12 +9088,28 @@ export default function LayerCanvas({
     lastHealEmitRef.current =
       0;
 
+    onHealStrokeStart();
+
     setHealing(
       true
     );
 
+    const straightAnchor =
+      event.shiftKey &&
+      lastCommittedHealPointRef.current?.layerId ===
+        layerAtStart.id
+        ? lastCommittedHealPointRef.current
+        : null;
+
+    if (straightAnchor) {
+      lastHealPointRef.current = {
+        x: straightAnchor.x,
+        y: straightAnchor.y,
+      };
+    }
+
     paintHealSegment(
-      selectedLayer,
+      layerAtStart,
       point
     );
   }
@@ -8702,54 +9132,114 @@ export default function LayerCanvas({
       return;
     }
 
-    const point =
-      pointerToMaskPoint(
-        event.clientX,
-        event.clientY,
-        selectedLayer
-      );
-
-    if (!point) {
-      lastHealPointRef.current =
-        null;
-
-      return;
-    }
-
     event.preventDefault();
     event.stopPropagation();
 
-    paintHealSegment(
-      selectedLayer,
-      point
-    );
+    let drewPoint =
+      false;
+
+    for (
+      const sample of
+        getRetouchPointerSamples(
+          event
+        )
+    ) {
+      const point =
+        pointerToMaskPoint(
+          sample.clientX,
+          sample.clientY,
+          selectedLayer
+        );
+
+      if (!point) {
+        continue;
+      }
+
+      paintHealSegment(
+        selectedLayer,
+        point
+      );
+
+      drewPoint =
+        true;
+    }
+
+    if (!drewPoint) {
+      lastHealPointRef.current =
+        null;
+    }
+  }
+
+  function clearHealStrokeRuntime() {
+    setHealing(false);
+    healCanvasRef.current = null;
+    healSourceCanvasRef.current = null;
+    healSelectionMaskRef.current = null;
+    lastHealPointRef.current = null;
+    healStrokeLayerIdRef.current = "";
+    healStrokeOriginalSrcRef.current = "";
   }
 
   function endHealStroke() {
+    retouchPointerDownRef.current =
+      null;
+
     if (!healing) {
       return;
     }
 
+    const layerId =
+      healStrokeLayerIdRef.current;
+
+    const finalPoint =
+      lastHealPointRef.current;
+
     emitHealPreview(
-      healStrokeLayerIdRef.current,
+      layerId,
       true
     );
 
-    setHealing(
-      false
-    );
+    if (
+      layerId &&
+      finalPoint
+    ) {
+      lastCommittedHealPointRef.current = {
+        layerId,
+        x: finalPoint.x,
+        y: finalPoint.y,
+      };
+    }
 
-    healCanvasRef.current =
+    clearHealStrokeRuntime();
+    onRetouchStrokeCommit();
+  }
+
+  function cancelHealStroke() {
+    retouchPointerDownRef.current =
       null;
 
-    healSourceCanvasRef.current =
-      null;
+    if (!healing) {
+      return;
+    }
 
-    lastHealPointRef.current =
-      null;
+    const layerId =
+      healStrokeLayerIdRef.current;
 
-    healStrokeLayerIdRef.current =
-      "";
+    const originalSrc =
+      healStrokeOriginalSrcRef.current;
+
+    if (
+      layerId &&
+      originalSrc
+    ) {
+      onLayerSourceChange(
+        layerId,
+        originalSrc
+      );
+    }
+
+    clearHealStrokeRuntime();
+    onRetouchStrokeCancel();
   }
 
   /*
@@ -8832,7 +9322,7 @@ export default function LayerCanvas({
 
     const radius =
       Math.max(
-        2.5,
+        0.5,
         cloneBrushSize /
           2
       );
@@ -8891,73 +9381,10 @@ export default function LayerCanvas({
     );
 
     const mask =
-      document.createElement(
-        "canvas"
+      createRetouchBrushMask(
+        diameter,
+        cloneBrushHardness
       );
-
-    mask.width =
-      diameter;
-
-    mask.height =
-      diameter;
-
-    const maskContext =
-      mask.getContext(
-        "2d"
-      );
-
-    if (!maskContext) {
-      return;
-    }
-
-    const center =
-      diameter /
-      2;
-
-    const outer =
-      diameter /
-      2;
-
-    const inner =
-      outer *
-      Math.min(
-        0.98,
-        Math.max(
-          0,
-          cloneBrushHardness /
-            100
-        )
-      );
-
-    const gradient =
-      maskContext.createRadialGradient(
-        center,
-        center,
-        inner,
-        center,
-        center,
-        outer
-      );
-
-    gradient.addColorStop(
-      0,
-      "rgba(255,255,255,1)"
-    );
-
-    gradient.addColorStop(
-      1,
-      "rgba(255,255,255,0)"
-    );
-
-    maskContext.fillStyle =
-      gradient;
-
-    maskContext.fillRect(
-      0,
-      0,
-      diameter,
-      diameter
-    );
 
     stampContext.globalCompositeOperation =
       "destination-in";
@@ -9015,11 +9442,7 @@ export default function LayerCanvas({
       );
 
       const selectionMask =
-        createSelectionMaskForLayer(
-          layer,
-          targetCanvas.width,
-          targetCanvas.height
-        );
+        cloneSelectionMaskRef.current;
 
       if (
         selectionMask
@@ -9164,11 +9587,14 @@ export default function LayerCanvas({
       return;
     }
 
+    const layerAtStart =
+      selectedLayer;
+
     const point =
       pointerToMaskPoint(
         event.clientX,
         event.clientY,
-        selectedLayer
+        layerAtStart
       );
 
     if (!point) {
@@ -9179,19 +9605,22 @@ export default function LayerCanvas({
     event.stopPropagation();
 
     /*
-      Alt+Click = choose source only.
+      Alt+Click = choose a new source and reset the persistent
+      aligned offset. The next paint click establishes the new
+      source-to-destination relationship.
     */
+    if (event.altKey) {
+      clonePersistentOffsetRef.current =
+        null;
 
-    if (
-      event.altKey
-    ) {
+      cloneSampleSignatureRef.current =
+        "";
+
       onCloneSampleChange({
         layerId:
-          selectedLayer.id,
-
+          layerAtStart.id,
         x:
           point.x,
-
         y:
           point.y,
       });
@@ -9202,29 +9631,66 @@ export default function LayerCanvas({
     if (
       !cloneSample ||
       cloneSample.layerId !==
-        selectedLayer.id
+        layerAtStart.id
     ) {
       return;
     }
+
+    retouchPointerDownRef.current = {
+      tool: "clone",
+      layerId:
+        layerAtStart.id,
+    };
 
     event.currentTarget
       .setPointerCapture(
         event.pointerId
       );
 
-    onCloneStrokeStart();
+    let sourceImage:
+      HTMLImageElement;
 
-    const sourceImage =
-      await loadImage(
-        selectedLayer.src
+    try {
+      sourceImage =
+        await loadImage(
+          layerAtStart.src
+        );
+    } catch (error) {
+      retouchPointerDownRef.current =
+        null;
+
+      console.error(
+        "Clone Stamp source load failed:",
+        error
       );
+
+      return;
+    }
+
+    const token =
+      retouchPointerDownRef.current;
+
+    if (
+      !token ||
+      token.tool !==
+        "clone" ||
+      token.layerId !==
+        layerAtStart.id ||
+      activeTool !==
+        "clone"
+    ) {
+      return;
+    }
 
     const size =
       layerSizes[
-        selectedLayer.id
+        layerAtStart.id
       ];
 
     if (!size) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -9261,6 +9727,9 @@ export default function LayerCanvas({
       );
 
     if (!targetContext) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -9289,6 +9758,9 @@ export default function LayerCanvas({
       );
 
     if (!sourceContext) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -9304,17 +9776,54 @@ export default function LayerCanvas({
     cloneSourceCanvasRef.current =
       sourceCanvas;
 
+    cloneSelectionMaskRef.current =
+      selection
+        ? createSelectionMaskForLayer(
+            layerAtStart,
+            width,
+            height
+          )
+        : null;
+
     cloneStrokeLayerIdRef.current =
-      selectedLayer.id;
+      layerAtStart.id;
+
+    cloneStrokeOriginalSrcRef.current =
+      layerAtStart.src;
+
+    const sampleSignature =
+      [
+        cloneSample.layerId,
+        cloneSample.x.toFixed(3),
+        cloneSample.y.toFixed(3),
+      ].join(":");
+
+    if (
+      cloneSampleSignatureRef.current !==
+        sampleSignature
+    ) {
+      clonePersistentOffsetRef.current =
+        null;
+
+      cloneSampleSignatureRef.current =
+        sampleSignature;
+    }
+
+    if (
+      !clonePersistentOffsetRef.current
+    ) {
+      clonePersistentOffsetRef.current = {
+        x:
+          cloneSample.x -
+          point.x,
+        y:
+          cloneSample.y -
+          point.y,
+      };
+    }
 
     cloneOffsetRef.current = {
-      x:
-        cloneSample.x -
-        point.x,
-
-      y:
-        cloneSample.y -
-        point.y,
+      ...clonePersistentOffsetRef.current,
     };
 
     lastClonePointRef.current =
@@ -9323,12 +9832,28 @@ export default function LayerCanvas({
     lastCloneEmitRef.current =
       0;
 
+    onCloneStrokeStart();
+
     setCloning(
       true
     );
 
+    const straightAnchor =
+      event.shiftKey &&
+      lastCommittedClonePointRef.current?.layerId ===
+        layerAtStart.id
+        ? lastCommittedClonePointRef.current
+        : null;
+
+    if (straightAnchor) {
+      lastClonePointRef.current = {
+        x: straightAnchor.x,
+        y: straightAnchor.y,
+      };
+    }
+
     paintCloneSegment(
-      selectedLayer,
+      layerAtStart,
       point
     );
   }
@@ -9351,57 +9876,115 @@ export default function LayerCanvas({
       return;
     }
 
-    const point =
-      pointerToMaskPoint(
-        event.clientX,
-        event.clientY,
-        selectedLayer
-      );
-
-    if (!point) {
-      lastClonePointRef.current =
-        null;
-
-      return;
-    }
-
     event.preventDefault();
     event.stopPropagation();
 
-    paintCloneSegment(
-      selectedLayer,
-      point
-    );
+    let drewPoint =
+      false;
+
+    for (
+      const sample of
+        getRetouchPointerSamples(
+          event
+        )
+    ) {
+      const point =
+        pointerToMaskPoint(
+          sample.clientX,
+          sample.clientY,
+          selectedLayer
+        );
+
+      if (!point) {
+        continue;
+      }
+
+      paintCloneSegment(
+        selectedLayer,
+        point
+      );
+
+      drewPoint =
+        true;
+    }
+
+    if (!drewPoint) {
+      lastClonePointRef.current =
+        null;
+    }
+  }
+
+  function clearCloneStrokeRuntime() {
+    setCloning(false);
+    cloneCanvasRef.current = null;
+    cloneSourceCanvasRef.current = null;
+    cloneSelectionMaskRef.current = null;
+    cloneOffsetRef.current = null;
+    lastClonePointRef.current = null;
+    cloneStrokeLayerIdRef.current = "";
+    cloneStrokeOriginalSrcRef.current = "";
   }
 
   function endCloneStroke() {
+    retouchPointerDownRef.current =
+      null;
+
     if (!cloning) {
       return;
     }
 
+    const layerId =
+      cloneStrokeLayerIdRef.current;
+
+    const finalPoint =
+      lastClonePointRef.current;
+
     emitClonePreview(
-      cloneStrokeLayerIdRef.current,
+      layerId,
       true
     );
 
-    setCloning(
-      false
-    );
+    if (
+      layerId &&
+      finalPoint
+    ) {
+      lastCommittedClonePointRef.current = {
+        layerId,
+        x: finalPoint.x,
+        y: finalPoint.y,
+      };
+    }
 
-    cloneCanvasRef.current =
+    clearCloneStrokeRuntime();
+    onRetouchStrokeCommit();
+  }
+
+  function cancelCloneStroke() {
+    retouchPointerDownRef.current =
       null;
 
-    cloneSourceCanvasRef.current =
-      null;
+    if (!cloning) {
+      return;
+    }
 
-    cloneOffsetRef.current =
-      null;
+    const layerId =
+      cloneStrokeLayerIdRef.current;
 
-    lastClonePointRef.current =
-      null;
+    const originalSrc =
+      cloneStrokeOriginalSrcRef.current;
 
-    cloneStrokeLayerIdRef.current =
-      "";
+    if (
+      layerId &&
+      originalSrc
+    ) {
+      onLayerSourceChange(
+        layerId,
+        originalSrc
+      );
+    }
+
+    clearCloneStrokeRuntime();
+    onRetouchStrokeCancel();
   }
 
   /*
@@ -9471,7 +10054,7 @@ export default function LayerCanvas({
 
     const radius =
       Math.max(
-        2.5,
+        0.5,
         eraserBrushSize /
           2
       );
@@ -9486,57 +10069,9 @@ export default function LayerCanvas({
       );
 
     const stamp =
-      document.createElement(
-        "canvas"
-      );
-
-    stamp.width =
-      diameter;
-
-    stamp.height =
-      diameter;
-
-    const stampContext =
-      stamp.getContext(
-        "2d"
-      );
-
-    if (!stampContext) {
-      return;
-    }
-
-    const center =
-      diameter /
-      2;
-
-    const outer =
-      diameter /
-      2;
-
-    const inner =
-      outer *
-      Math.min(
-        0.98,
-        Math.max(
-          0,
-          eraserBrushHardness /
-            100
-        )
-      );
-
-    const gradient =
-      stampContext.createRadialGradient(
-        center,
-        center,
-        inner,
-        center,
-        center,
-        outer
-      );
-
-    gradient.addColorStop(
-      0,
-      `rgba(255,255,255,${
+      createRetouchBrushMask(
+        diameter,
+        eraserBrushHardness,
         Math.max(
           0.01,
           Math.min(
@@ -9545,23 +10080,7 @@ export default function LayerCanvas({
               100
           )
         )
-      })`
-    );
-
-    gradient.addColorStop(
-      1,
-      "rgba(255,255,255,0)"
-    );
-
-    stampContext.fillStyle =
-      gradient;
-
-    stampContext.fillRect(
-      0,
-      0,
-      diameter,
-      diameter
-    );
+      );
 
     if (selection) {
       const stroke =
@@ -9597,11 +10116,7 @@ export default function LayerCanvas({
       );
 
       const selectionMask =
-        createSelectionMaskForLayer(
-          layer,
-          workingCanvas.width,
-          workingCanvas.height
-        );
+        eraserSelectionMaskRef.current;
 
       if (selectionMask) {
         strokeContext.globalCompositeOperation =
@@ -9741,11 +10256,14 @@ export default function LayerCanvas({
       return;
     }
 
+    const layerAtStart =
+      selectedLayer;
+
     const point =
       pointerToMaskPoint(
         event.clientX,
         event.clientY,
-        selectedLayer
+        layerAtStart
       );
 
     if (!point) {
@@ -9755,24 +10273,61 @@ export default function LayerCanvas({
     event.preventDefault();
     event.stopPropagation();
 
+    retouchPointerDownRef.current = {
+      tool: "eraser",
+      layerId:
+        layerAtStart.id,
+    };
+
     event.currentTarget
       .setPointerCapture(
         event.pointerId
       );
 
-    onEraserStrokeStart();
+    let sourceImage:
+      HTMLImageElement;
 
-    const sourceImage =
-      await loadImage(
-        selectedLayer.src
+    try {
+      sourceImage =
+        await loadImage(
+          layerAtStart.src
+        );
+    } catch (error) {
+      retouchPointerDownRef.current =
+        null;
+
+      console.error(
+        "Eraser source load failed:",
+        error
       );
+
+      return;
+    }
+
+    const token =
+      retouchPointerDownRef.current;
+
+    if (
+      !token ||
+      token.tool !==
+        "eraser" ||
+      token.layerId !==
+        layerAtStart.id ||
+      activeTool !==
+        "eraser"
+    ) {
+      return;
+    }
 
     const size =
       layerSizes[
-        selectedLayer.id
+        layerAtStart.id
       ];
 
     if (!size) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -9809,6 +10364,9 @@ export default function LayerCanvas({
       );
 
     if (!context) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -9823,8 +10381,20 @@ export default function LayerCanvas({
     eraserCanvasRef.current =
       workingCanvas;
 
+    eraserSelectionMaskRef.current =
+      selection
+        ? createSelectionMaskForLayer(
+            layerAtStart,
+            width,
+            height
+          )
+        : null;
+
     eraserStrokeLayerIdRef.current =
-      selectedLayer.id;
+      layerAtStart.id;
+
+    eraserStrokeOriginalSrcRef.current =
+      layerAtStart.src;
 
     lastEraserPointRef.current =
       null;
@@ -9832,12 +10402,28 @@ export default function LayerCanvas({
     lastEraserEmitRef.current =
       0;
 
+    onEraserStrokeStart();
+
     setErasing(
       true
     );
 
+    const straightAnchor =
+      event.shiftKey &&
+      lastCommittedEraserPointRef.current?.layerId ===
+        layerAtStart.id
+        ? lastCommittedEraserPointRef.current
+        : null;
+
+    if (straightAnchor) {
+      lastEraserPointRef.current = {
+        x: straightAnchor.x,
+        y: straightAnchor.y,
+      };
+    }
+
     paintEraserSegment(
-      selectedLayer,
+      layerAtStart,
       point
     );
   }
@@ -9860,51 +10446,113 @@ export default function LayerCanvas({
       return;
     }
 
-    const point =
-      pointerToMaskPoint(
-        event.clientX,
-        event.clientY,
-        selectedLayer
-      );
-
-    if (!point) {
-      lastEraserPointRef.current =
-        null;
-
-      return;
-    }
-
     event.preventDefault();
     event.stopPropagation();
 
-    paintEraserSegment(
-      selectedLayer,
-      point
-    );
+    let drewPoint =
+      false;
+
+    for (
+      const sample of
+        getRetouchPointerSamples(
+          event
+        )
+    ) {
+      const point =
+        pointerToMaskPoint(
+          sample.clientX,
+          sample.clientY,
+          selectedLayer
+        );
+
+      if (!point) {
+        continue;
+      }
+
+      paintEraserSegment(
+        selectedLayer,
+        point
+      );
+
+      drewPoint =
+        true;
+    }
+
+    if (!drewPoint) {
+      lastEraserPointRef.current =
+        null;
+    }
+  }
+
+  function clearEraserStrokeRuntime() {
+    setErasing(false);
+    eraserCanvasRef.current = null;
+    eraserSelectionMaskRef.current = null;
+    lastEraserPointRef.current = null;
+    eraserStrokeLayerIdRef.current = "";
+    eraserStrokeOriginalSrcRef.current = "";
   }
 
   function endEraserStroke() {
+    retouchPointerDownRef.current =
+      null;
+
     if (!erasing) {
       return;
     }
 
+    const layerId =
+      eraserStrokeLayerIdRef.current;
+
+    const finalPoint =
+      lastEraserPointRef.current;
+
     emitEraserPreview(
-      eraserStrokeLayerIdRef.current,
+      layerId,
       true
     );
 
-    setErasing(
-      false
-    );
+    if (
+      layerId &&
+      finalPoint
+    ) {
+      lastCommittedEraserPointRef.current = {
+        layerId,
+        x: finalPoint.x,
+        y: finalPoint.y,
+      };
+    }
 
-    eraserCanvasRef.current =
+    clearEraserStrokeRuntime();
+    onRetouchStrokeCommit();
+  }
+
+  function cancelEraserStroke() {
+    retouchPointerDownRef.current =
       null;
 
-    lastEraserPointRef.current =
-      null;
+    if (!erasing) {
+      return;
+    }
 
-    eraserStrokeLayerIdRef.current =
-      "";
+    const layerId =
+      eraserStrokeLayerIdRef.current;
+
+    const originalSrc =
+      eraserStrokeOriginalSrcRef.current;
+
+    if (
+      layerId &&
+      originalSrc
+    ) {
+      onLayerSourceChange(
+        layerId,
+        originalSrc
+      );
+    }
+
+    clearEraserStrokeRuntime();
+    onRetouchStrokeCancel();
   }
 
   /*
@@ -10055,7 +10703,7 @@ export default function LayerCanvas({
 
     const radius =
       Math.max(
-        2.5,
+        0.5,
         dodgeBurnBrushSize /
           2
       );
@@ -10168,11 +10816,13 @@ export default function LayerCanvas({
       );
 
     const innerRadius =
-      radius *
-      Math.min(
-        0.98,
-        hardness
-      );
+      hardness >= 0.995
+        ? radius
+        : radius *
+          Math.pow(
+            hardness,
+            0.72
+          );
 
     const exposure =
       Math.max(
@@ -10333,73 +10983,71 @@ export default function LayerCanvas({
           continue;
         }
 
-        if (
-          dodgeBurnMode ===
-          "dodge"
-        ) {
-          data[index] =
-            Math.round(
-              red +
-              (
-                255 -
-                red
-              ) *
-              amount
-            );
+        /*
+          Change luminance with a shared RGB scale instead of
+          independently pulling channels toward white/black. This
+          preserves hue and saturation much better over repeated
+          retouch passes.
+        */
+        const sourceLuminance =
+          Math.max(
+            0.002,
+            luminance
+          );
 
-          data[
-            index + 1
-          ] =
-            Math.round(
-              green +
-              (
-                255 -
-                green
-              ) *
-              amount
-            );
+        const targetLuminance =
+          dodgeBurnMode === "dodge"
+            ? luminance +
+              (1 - luminance) *
+                amount
+            : luminance *
+              (1 - amount);
 
-          data[
-            index + 2
-          ] =
-            Math.round(
-              blue +
-              (
-                255 -
-                blue
-              ) *
-              amount
-            );
-        } else {
-          const factor =
+        const toneScale =
+          Math.max(
+            0,
+            Math.min(
+              3,
+              targetLuminance /
+                sourceLuminance
+            )
+          );
+
+        data[index] =
+          Math.round(
             Math.max(
               0,
-              1 -
-              amount
-            );
+              Math.min(
+                255,
+                red *
+                  toneScale
+              )
+            )
+          );
 
-          data[index] =
-            Math.round(
-              red *
-              factor
-            );
+        data[index + 1] =
+          Math.round(
+            Math.max(
+              0,
+              Math.min(
+                255,
+                green *
+                  toneScale
+              )
+            )
+          );
 
-          data[
-            index + 1
-          ] =
-            Math.round(
-              green *
-              factor
-            );
-
-          data[
-            index + 2
-          ] =
-            Math.round(
-              blue *
-              factor
-            );
-        }
+        data[index + 2] =
+          Math.round(
+            Math.max(
+              0,
+              Math.min(
+                255,
+                blue *
+                  toneScale
+              )
+            )
+          );
       }
     }
 
@@ -10498,11 +11146,14 @@ export default function LayerCanvas({
       return;
     }
 
+    const layerAtStart =
+      selectedLayer;
+
     const point =
       pointerToMaskPoint(
         event.clientX,
         event.clientY,
-        selectedLayer
+        layerAtStart
       );
 
     if (!point) {
@@ -10512,24 +11163,61 @@ export default function LayerCanvas({
     event.preventDefault();
     event.stopPropagation();
 
+    retouchPointerDownRef.current = {
+      tool: "dodge-burn",
+      layerId:
+        layerAtStart.id,
+    };
+
     event.currentTarget
       .setPointerCapture(
         event.pointerId
       );
 
-    onDodgeBurnStrokeStart();
+    let sourceImage:
+      HTMLImageElement;
 
-    const sourceImage =
-      await loadImage(
-        selectedLayer.src
+    try {
+      sourceImage =
+        await loadImage(
+          layerAtStart.src
+        );
+    } catch (error) {
+      retouchPointerDownRef.current =
+        null;
+
+      console.error(
+        "Dodge/Burn source load failed:",
+        error
       );
+
+      return;
+    }
+
+    const token =
+      retouchPointerDownRef.current;
+
+    if (
+      !token ||
+      token.tool !==
+        "dodge-burn" ||
+      token.layerId !==
+        layerAtStart.id ||
+      activeTool !==
+        "dodge-burn"
+    ) {
+      return;
+    }
 
     const size =
       layerSizes[
-        selectedLayer.id
+        layerAtStart.id
       ];
 
     if (!size) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -10566,6 +11254,9 @@ export default function LayerCanvas({
       );
 
     if (!context) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -10583,14 +11274,17 @@ export default function LayerCanvas({
     dodgeBurnSelectionMaskRef.current =
       selection
         ? createSelectionMaskForLayer(
-            selectedLayer,
+            layerAtStart,
             width,
             height
           )
         : null;
 
     dodgeBurnStrokeLayerIdRef.current =
-      selectedLayer.id;
+      layerAtStart.id;
+
+    dodgeBurnStrokeOriginalSrcRef.current =
+      layerAtStart.src;
 
     lastDodgeBurnPointRef.current =
       null;
@@ -10598,9 +11292,25 @@ export default function LayerCanvas({
     lastDodgeBurnEmitRef.current =
       0;
 
+    onDodgeBurnStrokeStart();
+
     setDodgeBurnPainting(
       true
     );
+
+    const straightAnchor =
+      event.shiftKey &&
+      lastCommittedDodgeBurnPointRef.current?.layerId ===
+        layerAtStart.id
+        ? lastCommittedDodgeBurnPointRef.current
+        : null;
+
+    if (straightAnchor) {
+      lastDodgeBurnPointRef.current = {
+        x: straightAnchor.x,
+        y: straightAnchor.y,
+      };
+    }
 
     paintDodgeBurnSegment(
       point
@@ -10625,55 +11335,116 @@ export default function LayerCanvas({
       return;
     }
 
-    const point =
-      pointerToMaskPoint(
-        event.clientX,
-        event.clientY,
-        selectedLayer
-      );
-
-    if (!point) {
-      lastDodgeBurnPointRef.current =
-        null;
-
-      return;
-    }
-
     event.preventDefault();
     event.stopPropagation();
 
-    paintDodgeBurnSegment(
-      point
-    );
+    let drewPoint =
+      false;
+
+    for (
+      const sample of
+        getRetouchPointerSamples(
+          event
+        )
+    ) {
+      const point =
+        pointerToMaskPoint(
+          sample.clientX,
+          sample.clientY,
+          selectedLayer
+        );
+
+      if (!point) {
+        continue;
+      }
+
+      paintDodgeBurnSegment(
+        point
+      );
+
+      drewPoint =
+        true;
+    }
+
+    if (!drewPoint) {
+      lastDodgeBurnPointRef.current =
+        null;
+    }
+  }
+
+  function clearDodgeBurnStrokeRuntime() {
+    setDodgeBurnPainting(false);
+    dodgeBurnCanvasRef.current = null;
+    dodgeBurnSelectionMaskRef.current = null;
+    lastDodgeBurnPointRef.current = null;
+    dodgeBurnStrokeLayerIdRef.current = "";
+    dodgeBurnStrokeOriginalSrcRef.current = "";
   }
 
   function endDodgeBurnStroke() {
+    retouchPointerDownRef.current =
+      null;
+
     if (
       !dodgeBurnPainting
     ) {
       return;
     }
 
+    const layerId =
+      dodgeBurnStrokeLayerIdRef.current;
+
+    const finalPoint =
+      lastDodgeBurnPointRef.current;
+
     emitDodgeBurnPreview(
-      dodgeBurnStrokeLayerIdRef.current,
+      layerId,
       true
     );
 
-    setDodgeBurnPainting(
-      false
-    );
+    if (
+      layerId &&
+      finalPoint
+    ) {
+      lastCommittedDodgeBurnPointRef.current = {
+        layerId,
+        x: finalPoint.x,
+        y: finalPoint.y,
+      };
+    }
 
-    dodgeBurnCanvasRef.current =
+    clearDodgeBurnStrokeRuntime();
+    onRetouchStrokeCommit();
+  }
+
+  function cancelDodgeBurnStroke() {
+    retouchPointerDownRef.current =
       null;
 
-    dodgeBurnSelectionMaskRef.current =
-      null;
+    if (
+      !dodgeBurnPainting
+    ) {
+      return;
+    }
 
-    lastDodgeBurnPointRef.current =
-      null;
+    const layerId =
+      dodgeBurnStrokeLayerIdRef.current;
 
-    dodgeBurnStrokeLayerIdRef.current =
-      "";
+    const originalSrc =
+      dodgeBurnStrokeOriginalSrcRef.current;
+
+    if (
+      layerId &&
+      originalSrc
+    ) {
+      onLayerSourceChange(
+        layerId,
+        originalSrc
+      );
+    }
+
+    clearDodgeBurnStrokeRuntime();
+    onRetouchStrokeCancel();
   }
 
   /*
@@ -10745,7 +11516,7 @@ export default function LayerCanvas({
 
     const radius =
       Math.max(
-        2.5,
+        0.5,
         blurSharpenBrushSize /
           2
       );
@@ -10802,73 +11573,10 @@ export default function LayerCanvas({
     );
 
     const mask =
-      document.createElement(
-        "canvas"
+      createRetouchBrushMask(
+        diameter,
+        blurSharpenBrushHardness
       );
-
-    mask.width =
-      diameter;
-
-    mask.height =
-      diameter;
-
-    const maskContext =
-      mask.getContext(
-        "2d"
-      );
-
-    if (!maskContext) {
-      return;
-    }
-
-    const center =
-      diameter /
-      2;
-
-    const outer =
-      diameter /
-      2;
-
-    const inner =
-      outer *
-      Math.min(
-        0.98,
-        Math.max(
-          0,
-          blurSharpenBrushHardness /
-            100
-        )
-      );
-
-    const gradient =
-      maskContext.createRadialGradient(
-        center,
-        center,
-        inner,
-        center,
-        center,
-        outer
-      );
-
-    gradient.addColorStop(
-      0,
-      "rgba(255,255,255,1)"
-    );
-
-    gradient.addColorStop(
-      1,
-      "rgba(255,255,255,0)"
-    );
-
-    maskContext.fillStyle =
-      gradient;
-
-    maskContext.fillRect(
-      0,
-      0,
-      diameter,
-      diameter
-    );
 
     patchContext.globalCompositeOperation =
       "destination-in";
@@ -11006,7 +11714,7 @@ export default function LayerCanvas({
 
     const radius =
       Math.max(
-        2.5,
+        0.5,
         blurSharpenBrushSize /
           2
       );
@@ -11136,11 +11844,13 @@ export default function LayerCanvas({
       );
 
     const innerRadius =
-      radius *
-      Math.min(
-        0.98,
-        hardness
-      );
+      hardness >= 0.995
+        ? radius
+        : radius *
+          Math.pow(
+            hardness,
+            0.72
+          );
 
     const strength =
       Math.max(
@@ -11272,9 +11982,14 @@ export default function LayerCanvas({
         let averageBlue =
           0;
 
-        let count =
+        let totalWeight =
           0;
 
+        /*
+          3x3 Gaussian neighborhood instead of an unweighted box
+          average. It produces a cleaner blur and a more stable
+          unsharp reference with fewer square artifacts.
+        */
         for (
           let offsetY = -1;
           offsetY <= 1;
@@ -11309,43 +12024,58 @@ export default function LayerCanvas({
               continue;
             }
 
+            const weight =
+              (
+                offsetX === 0
+                  ? 2
+                  : 1
+              ) *
+              (
+                offsetY === 0
+                  ? 2
+                  : 1
+              );
+
             averageRed +=
               src[
                 neighborIndex
-              ];
+              ] *
+              weight;
 
             averageGreen +=
               src[
                 neighborIndex +
                   1
-              ];
+              ] *
+              weight;
 
             averageBlue +=
               src[
                 neighborIndex +
                   2
-              ];
+              ] *
+              weight;
 
-            count +=
-              1;
+            totalWeight +=
+              weight;
           }
         }
 
         if (
-          count <=
+          totalWeight <=
           0
         ) {
           continue;
         }
 
         averageRed /=
-          count;
+          totalWeight;
 
         averageGreen /=
-          count;
+          totalWeight;
 
         averageBlue /=
-          count;
+          totalWeight;
 
         const red =
           src[index];
@@ -11653,11 +12383,14 @@ export default function LayerCanvas({
       return;
     }
 
+    const layerAtStart =
+      selectedLayer;
+
     const point =
       pointerToMaskPoint(
         event.clientX,
         event.clientY,
-        selectedLayer
+        layerAtStart
       );
 
     if (!point) {
@@ -11667,24 +12400,61 @@ export default function LayerCanvas({
     event.preventDefault();
     event.stopPropagation();
 
+    retouchPointerDownRef.current = {
+      tool: "blur-sharpen",
+      layerId:
+        layerAtStart.id,
+    };
+
     event.currentTarget
       .setPointerCapture(
         event.pointerId
       );
 
-    onBlurSharpenStrokeStart();
+    let sourceImage:
+      HTMLImageElement;
 
-    const sourceImage =
-      await loadImage(
-        selectedLayer.src
+    try {
+      sourceImage =
+        await loadImage(
+          layerAtStart.src
+        );
+    } catch (error) {
+      retouchPointerDownRef.current =
+        null;
+
+      console.error(
+        "Blur/Sharpen source load failed:",
+        error
       );
+
+      return;
+    }
+
+    const token =
+      retouchPointerDownRef.current;
+
+    if (
+      !token ||
+      token.tool !==
+        "blur-sharpen" ||
+      token.layerId !==
+        layerAtStart.id ||
+      activeTool !==
+        "blur-sharpen"
+    ) {
+      return;
+    }
 
     const size =
       layerSizes[
-        selectedLayer.id
+        layerAtStart.id
       ];
 
     if (!size) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -11721,6 +12491,9 @@ export default function LayerCanvas({
       );
 
     if (!context) {
+      retouchPointerDownRef.current =
+        null;
+
       return;
     }
 
@@ -11738,14 +12511,17 @@ export default function LayerCanvas({
     blurSharpenSelectionMaskRef.current =
       selection
         ? createSelectionMaskForLayer(
-            selectedLayer,
+            layerAtStart,
             width,
             height
           )
         : null;
 
     blurSharpenStrokeLayerIdRef.current =
-      selectedLayer.id;
+      layerAtStart.id;
+
+    blurSharpenStrokeOriginalSrcRef.current =
+      layerAtStart.src;
 
     lastBlurSharpenPointRef.current =
       null;
@@ -11753,9 +12529,25 @@ export default function LayerCanvas({
     lastBlurSharpenEmitRef.current =
       0;
 
+    onBlurSharpenStrokeStart();
+
     setBlurSharpenPainting(
       true
     );
+
+    const straightAnchor =
+      event.shiftKey &&
+      lastCommittedBlurSharpenPointRef.current?.layerId ===
+        layerAtStart.id
+        ? lastCommittedBlurSharpenPointRef.current
+        : null;
+
+    if (straightAnchor) {
+      lastBlurSharpenPointRef.current = {
+        x: straightAnchor.x,
+        y: straightAnchor.y,
+      };
+    }
 
     paintBlurSharpenSegment(
       point
@@ -11780,56 +12572,271 @@ export default function LayerCanvas({
       return;
     }
 
-    const point =
-      pointerToMaskPoint(
-        event.clientX,
-        event.clientY,
-        selectedLayer
-      );
-
-    if (!point) {
-      lastBlurSharpenPointRef.current =
-        null;
-
-      return;
-    }
-
     event.preventDefault();
     event.stopPropagation();
 
-    paintBlurSharpenSegment(
-      point
-    );
+    let drewPoint =
+      false;
+
+    for (
+      const sample of
+        getRetouchPointerSamples(
+          event
+        )
+    ) {
+      const point =
+        pointerToMaskPoint(
+          sample.clientX,
+          sample.clientY,
+          selectedLayer
+        );
+
+      if (!point) {
+        continue;
+      }
+
+      paintBlurSharpenSegment(
+        point
+      );
+
+      drewPoint =
+        true;
+    }
+
+    if (!drewPoint) {
+      lastBlurSharpenPointRef.current =
+        null;
+    }
+  }
+
+  function clearBlurSharpenStrokeRuntime() {
+    setBlurSharpenPainting(false);
+    blurSharpenCanvasRef.current = null;
+    blurSharpenSelectionMaskRef.current = null;
+    lastBlurSharpenPointRef.current = null;
+    blurSharpenStrokeLayerIdRef.current = "";
+    blurSharpenStrokeOriginalSrcRef.current = "";
   }
 
   function endBlurSharpenStroke() {
+    retouchPointerDownRef.current =
+      null;
+
     if (
       !blurSharpenPainting
     ) {
       return;
     }
 
+    const layerId =
+      blurSharpenStrokeLayerIdRef.current;
+
+    const finalPoint =
+      lastBlurSharpenPointRef.current;
+
     emitBlurSharpenPreview(
-      blurSharpenStrokeLayerIdRef.current,
+      layerId,
       true
     );
 
-    setBlurSharpenPainting(
-      false
+    if (
+      layerId &&
+      finalPoint
+    ) {
+      lastCommittedBlurSharpenPointRef.current = {
+        layerId,
+        x: finalPoint.x,
+        y: finalPoint.y,
+      };
+    }
+
+    clearBlurSharpenStrokeRuntime();
+    onRetouchStrokeCommit();
+  }
+
+  function cancelBlurSharpenStroke() {
+    retouchPointerDownRef.current =
+      null;
+
+    if (
+      !blurSharpenPainting
+    ) {
+      return;
+    }
+
+    const layerId =
+      blurSharpenStrokeLayerIdRef.current;
+
+    const originalSrc =
+      blurSharpenStrokeOriginalSrcRef.current;
+
+    if (
+      layerId &&
+      originalSrc
+    ) {
+      onLayerSourceChange(
+        layerId,
+        originalSrc
+      );
+    }
+
+    clearBlurSharpenStrokeRuntime();
+    onRetouchStrokeCancel();
+  }
+
+  /*
+    RETOUCH STROKE CANCELLATION
+
+    Escape restores the exact raster source that existed before the
+    current retouch stroke. Tool/layer changes cancel as well so a
+    partially decoded or partially painted stroke can never leak into
+    another editing context.
+  */
+  useEffect(() => {
+    if (
+      !healing &&
+      !cloning &&
+      !erasing &&
+      !dodgeBurnPainting &&
+      !blurSharpenPainting
+    ) {
+      return;
+    }
+
+    function handleRetouchEscape(
+      event: KeyboardEvent
+    ) {
+      if (
+        event.key !== "Escape" ||
+        isTypingTarget(
+          event.target
+        )
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      if (healing) {
+        cancelHealStroke();
+      } else if (cloning) {
+        cancelCloneStroke();
+      } else if (erasing) {
+        cancelEraserStroke();
+      } else if (dodgeBurnPainting) {
+        cancelDodgeBurnStroke();
+      } else if (blurSharpenPainting) {
+        cancelBlurSharpenStroke();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleRetouchEscape,
+      true
     );
 
-    blurSharpenCanvasRef.current =
-      null;
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleRetouchEscape,
+        true
+      );
+    };
+  }, [
+    healing,
+    cloning,
+    erasing,
+    dodgeBurnPainting,
+    blurSharpenPainting,
+  ]);
 
-    blurSharpenSelectionMaskRef.current =
-      null;
+  useEffect(() => {
+    const token =
+      retouchPointerDownRef.current;
 
-    lastBlurSharpenPointRef.current =
-      null;
+    if (
+      token &&
+      (
+        token.tool !==
+          activeTool ||
+        token.layerId !==
+          selectedLayerId
+      )
+    ) {
+      retouchPointerDownRef.current =
+        null;
+    }
 
-    blurSharpenStrokeLayerIdRef.current =
-      "";
-  }
+    if (
+      healing &&
+      (
+        activeTool !== "heal" ||
+        selectedLayerId !==
+          healStrokeLayerIdRef.current
+      )
+    ) {
+      cancelHealStroke();
+      return;
+    }
+
+    if (
+      cloning &&
+      (
+        activeTool !== "clone" ||
+        selectedLayerId !==
+          cloneStrokeLayerIdRef.current
+      )
+    ) {
+      cancelCloneStroke();
+      return;
+    }
+
+    if (
+      erasing &&
+      (
+        activeTool !== "eraser" ||
+        selectedLayerId !==
+          eraserStrokeLayerIdRef.current
+      )
+    ) {
+      cancelEraserStroke();
+      return;
+    }
+
+    if (
+      dodgeBurnPainting &&
+      (
+        activeTool !== "dodge-burn" ||
+        selectedLayerId !==
+          dodgeBurnStrokeLayerIdRef.current
+      )
+    ) {
+      cancelDodgeBurnStroke();
+      return;
+    }
+
+    if (
+      blurSharpenPainting &&
+      (
+        activeTool !== "blur-sharpen" ||
+        selectedLayerId !==
+          blurSharpenStrokeLayerIdRef.current
+      )
+    ) {
+      cancelBlurSharpenStroke();
+    }
+  }, [
+    activeTool,
+    selectedLayerId,
+    healing,
+    cloning,
+    erasing,
+    dodgeBurnPainting,
+    blurSharpenPainting,
+  ]);
 
   /*
     RASTER PAINT BRUSH
@@ -14909,15 +15916,15 @@ export default function LayerCanvas({
                   : activeTool === "brush"
               ? endMaskStroke
               : activeTool === "heal"
-                ? endHealStroke
+                ? cancelHealStroke
               : activeTool === "clone"
-                ? endCloneStroke
+                ? cancelCloneStroke
               : activeTool === "eraser"
-                ? endEraserStroke
+                ? cancelEraserStroke
               : activeTool === "dodge-burn"
-                ? endDodgeBurnStroke
+                ? cancelDodgeBurnStroke
               : activeTool === "blur-sharpen"
-                ? endBlurSharpenStroke
+                ? cancelBlurSharpenStroke
               : activeTool === "paint"
                 ? cancelPaintStroke
               : activeTool === "shape"
@@ -16063,6 +17070,30 @@ export default function LayerCanvas({
                 brushCursor.size,
             }}
           >
+            {healBrushHardness > 0 &&
+              healBrushHardness < 100 && (
+              <div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-100/55"
+                style={{
+                  width: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        healBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                  height: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        healBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                }}
+              />
+            )}
             <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-200 shadow-[0_0_0_1px_rgba(0,0,0,0.8)]" />
           </div>
         )}
@@ -16090,6 +17121,30 @@ export default function LayerCanvas({
                 brushCursor.size,
             }}
           >
+            {cloneBrushHardness > 0 &&
+              cloneBrushHardness < 100 && (
+              <div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-100/55"
+                style={{
+                  width: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        cloneBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                  height: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        cloneBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                }}
+              />
+            )}
             <div className="absolute left-1/2 top-1/2 h-px w-3 -translate-x-1/2 -translate-y-1/2 bg-sky-200" />
             <div className="absolute left-1/2 top-1/2 h-3 w-px -translate-x-1/2 -translate-y-1/2 bg-sky-200" />
           </div>
@@ -16118,6 +17173,30 @@ export default function LayerCanvas({
                 brushCursor.size,
             }}
           >
+            {eraserBrushHardness > 0 &&
+              eraserBrushHardness < 100 && (
+              <div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-rose-100/55"
+                style={{
+                  width: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        eraserBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                  height: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        eraserBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                }}
+              />
+            )}
             <div className="absolute left-1/2 top-1/2 h-px w-3 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-rose-200" />
             <div className="absolute left-1/2 top-1/2 h-px w-3 -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-rose-200" />
           </div>
@@ -16151,6 +17230,34 @@ export default function LayerCanvas({
                 brushCursor.size,
             }}
           >
+            {dodgeBurnBrushHardness > 0 &&
+              dodgeBurnBrushHardness < 100 && (
+              <div
+                className={
+                  dodgeBurnMode === "dodge"
+                    ? "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-100/55"
+                    : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-100/55"
+                }
+                style={{
+                  width: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        dodgeBurnBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                  height: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        dodgeBurnBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                }}
+              />
+            )}
             <div
               className={
                 dodgeBurnMode ===
@@ -16193,6 +17300,36 @@ export default function LayerCanvas({
                 brushCursor.size,
             }}
           >
+            {blurSharpenBrushHardness > 0 &&
+              blurSharpenBrushHardness < 100 && (
+              <div
+                className={
+                  blurSharpenMode === "blur"
+                    ? "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/55"
+                    : blurSharpenMode === "sharpen"
+                      ? "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-100/55"
+                      : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-fuchsia-100/55"
+                }
+                style={{
+                  width: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        blurSharpenBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                  height: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        blurSharpenBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                }}
+              />
+            )}
             <div
               className={
                 blurSharpenMode ===
@@ -16295,9 +17432,31 @@ export default function LayerCanvas({
               return null;
             }
 
+            const activeClonePoint =
+              lastClonePointRef.current;
+
+            const activeCloneOffset =
+              cloneOffsetRef.current;
+
+            const displaySourceX =
+              cloning &&
+              activeClonePoint &&
+              activeCloneOffset
+                ? activeClonePoint.x +
+                  activeCloneOffset.x
+                : cloneSample.x;
+
+            const displaySourceY =
+              cloning &&
+              activeClonePoint &&
+              activeCloneOffset
+                ? activeClonePoint.y +
+                  activeCloneOffset.y
+                : cloneSample.y;
+
             const localX =
               (
-                cloneSample.x -
+                displaySourceX -
                 size.width /
                   2
               ) *
@@ -16306,7 +17465,7 @@ export default function LayerCanvas({
 
             const localY =
               (
-                cloneSample.y -
+                displaySourceY -
                 size.height /
                   2
               ) *
@@ -16526,29 +17685,29 @@ export default function LayerCanvas({
                             : "Mask Brush: paint to restore • Shift-click: straight line"
                   : activeTool === "heal"
                     ? healing
-                      ? "Spot Healing • automatic nearby texture sample"
+                      ? "Spot Healing • tone-matched texture • Esc: cancel"
                       : selectedLayer?.layerKind === "image"
-                        ? "Spot Heal • paint over a small unwanted detail"
+                        ? "Spot Heal • Shift-click: straight repair"
                         : "Spot Heal • select an unlocked image layer"
                   : activeTool === "clone"
                     ? cloning
-                      ? "Clone Stamp • copying from sampled source"
+                      ? "Clone Stamp • aligned source • Esc: cancel"
                       : cloneSample &&
                           selectedLayer &&
                           cloneSample.layerId === selectedLayer.id
-                        ? "Clone source ready • paint to copy • Alt+Click changes source"
+                        ? "Clone source ready • aligned • Shift-click: straight line • Alt+Click changes source"
                         : "Clone Stamp • Alt+Click to set a source point"
                   : activeTool === "eraser"
                     ? erasing
-                      ? "Erasing raster pixels to transparency"
+                      ? "Erasing raster pixels to transparency • Esc: cancel"
                       : selectedLayer?.layerKind === "image"
-                        ? "Eraser • paint to remove pixels"
+                        ? "Eraser • Shift-click: straight erase"
                         : "Eraser • select an unlocked image layer"
                   : activeTool === "dodge-burn"
                     ? dodgeBurnPainting
-                      ? `${dodgeBurnMode === "dodge" ? "Dodging" : "Burning"} ${dodgeBurnRange}`
+                      ? `${dodgeBurnMode === "dodge" ? "Dodging" : "Burning"} ${dodgeBurnRange} • Esc: cancel`
                       : selectedLayer?.layerKind === "image"
-                        ? `${dodgeBurnMode === "dodge" ? "Dodge" : "Burn"} • ${dodgeBurnRange} • paint locally`
+                        ? `${dodgeBurnMode === "dodge" ? "Dodge" : "Burn"} • ${dodgeBurnRange} • Shift-click: straight stroke`
                         : "Dodge & Burn • select an unlocked image layer"
                   : activeTool === "blur-sharpen"
                     ? blurSharpenPainting
@@ -16558,7 +17717,7 @@ export default function LayerCanvas({
                             : blurSharpenMode === "sharpen"
                               ? "Sharpening"
                               : "Smudging"
-                        } local pixels`
+                        } local pixels • Esc: cancel`
                       : selectedLayer?.layerKind === "image"
                         ? `${
                             blurSharpenMode === "blur"
@@ -16566,7 +17725,7 @@ export default function LayerCanvas({
                               : blurSharpenMode === "sharpen"
                                 ? "Sharpen"
                                 : "Smudge"
-                          } • paint locally`
+                          } • Shift-click: straight stroke`
                         : "Blur / Sharpen / Smudge • select an unlocked image layer"
                   : activeTool === "paint"
                     ? rasterPainting

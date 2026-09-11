@@ -3966,6 +3966,20 @@ export default function Home() {
   const paintHistoryTransactionActiveRef =
     useRef(false);
 
+  /*
+    RETOUCH HISTORY TRANSACTION
+
+    Heal, Clone, Eraser, Dodge/Burn and Blur/Sharpen/Smudge now
+    use the same atomic history model as the Paint brush. A
+    cancelled stroke removes its temporary undo snapshot and
+    restores the redo stack exactly as it was before the stroke.
+  */
+  const retouchFutureBackupRef =
+    useRef<EditorSnapshot[] | null>(null);
+
+  const retouchHistoryTransactionActiveRef =
+    useRef(false);
+
   /* CROP */
 
   const [crop, setCrop] =
@@ -4091,6 +4105,49 @@ export default function Home() {
       false;
 
     paintFutureBackupRef.current =
+      null;
+  }
+
+  function beginRetouchStrokeHistory() {
+    if (!image) return;
+
+    retouchFutureBackupRef.current =
+      [...future];
+
+    retouchHistoryTransactionActiveRef.current =
+      true;
+
+    saveHistory();
+  }
+
+  function commitRetouchStrokeHistory() {
+    retouchHistoryTransactionActiveRef.current =
+      false;
+
+    retouchFutureBackupRef.current =
+      null;
+  }
+
+  function cancelRetouchStrokeHistory() {
+    if (!retouchHistoryTransactionActiveRef.current) {
+      return;
+    }
+
+    setHistory((previous) =>
+      previous.slice(0, -1)
+    );
+
+    const redoBackup =
+      retouchFutureBackupRef.current;
+
+    if (redoBackup) {
+      setFuture(redoBackup);
+    }
+
+    retouchHistoryTransactionActiveRef.current =
+      false;
+
+    retouchFutureBackupRef.current =
       null;
   }
 
@@ -9594,9 +9651,9 @@ export default function Home() {
       typeof parsed.healBrushSize ===
         "number"
         ? Math.max(
-            5,
+            1,
             Math.min(
-              300,
+              2000,
               parsed.healBrushSize
             )
           )
@@ -9633,9 +9690,9 @@ export default function Home() {
       typeof parsed.cloneBrushSize ===
         "number"
         ? Math.max(
-            5,
+            1,
             Math.min(
-              300,
+              2000,
               parsed.cloneBrushSize
             )
           )
@@ -9676,9 +9733,9 @@ export default function Home() {
       typeof parsed.eraserBrushSize ===
         "number"
         ? Math.max(
-            5,
+            1,
             Math.min(
-              300,
+              2000,
               parsed.eraserBrushSize
             )
           )
@@ -9731,9 +9788,9 @@ export default function Home() {
       typeof parsed.dodgeBurnBrushSize ===
         "number"
         ? Math.max(
-            5,
+            1,
             Math.min(
-              300,
+              2000,
               parsed.dodgeBurnBrushSize
             )
           )
@@ -9779,9 +9836,9 @@ export default function Home() {
       typeof parsed.blurSharpenBrushSize ===
         "number"
         ? Math.max(
-            5,
+            1,
             Math.min(
-              300,
+              2000,
               parsed.blurSharpenBrushSize
             )
           )
@@ -11165,7 +11222,7 @@ export default function Home() {
     const clamp = (
       value: number,
       minimum = 1,
-      maximum = 500
+      maximum = 2000
     ) =>
       Math.max(
         minimum,
@@ -18489,29 +18546,31 @@ export default function Home() {
                   healBrushSize={healBrushSize}
                   healBrushHardness={healBrushHardness}
                   healBrushOpacity={healBrushOpacity}
-                  onHealStrokeStart={saveHistory}
+                  onHealStrokeStart={beginRetouchStrokeHistory}
                   onLayerSourceChange={updateLayerSource}
                   cloneBrushSize={cloneBrushSize}
                   cloneBrushHardness={cloneBrushHardness}
                   cloneBrushOpacity={cloneBrushOpacity}
                   cloneSample={cloneSample}
                   onCloneSampleChange={setCloneSample}
-                  onCloneStrokeStart={saveHistory}
+                  onCloneStrokeStart={beginRetouchStrokeHistory}
                   eraserBrushSize={eraserBrushSize}
                   eraserBrushHardness={eraserBrushHardness}
                   eraserBrushOpacity={eraserBrushOpacity}
-                  onEraserStrokeStart={saveHistory}
+                  onEraserStrokeStart={beginRetouchStrokeHistory}
                   dodgeBurnMode={dodgeBurnMode}
                   dodgeBurnRange={dodgeBurnRange}
                   dodgeBurnBrushSize={dodgeBurnBrushSize}
                   dodgeBurnBrushHardness={dodgeBurnBrushHardness}
                   dodgeBurnExposure={dodgeBurnExposure}
-                  onDodgeBurnStrokeStart={saveHistory}
+                  onDodgeBurnStrokeStart={beginRetouchStrokeHistory}
                   blurSharpenMode={blurSharpenMode}
                   blurSharpenBrushSize={blurSharpenBrushSize}
                   blurSharpenBrushHardness={blurSharpenBrushHardness}
                   blurSharpenStrength={blurSharpenStrength}
-                  onBlurSharpenStrokeStart={saveHistory}
+                  onBlurSharpenStrokeStart={beginRetouchStrokeHistory}
+                  onRetouchStrokeCommit={commitRetouchStrokeHistory}
+                  onRetouchStrokeCancel={cancelRetouchStrokeHistory}
                   paintBrushColor={paintBrushColor}
                   paintBrushSize={paintBrushSize}
                   paintBrushHardness={paintBrushHardness}
