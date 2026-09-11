@@ -86,7 +86,11 @@ export type TextLayerData = {
 export type ShapeType =
   | "rectangle"
   | "rounded-rectangle"
-  | "ellipse";
+  | "ellipse"
+  | "triangle"
+  | "diamond"
+  | "hexagon"
+  | "star";
 
 export type ShapeLayerData = {
   shapeType: ShapeType;
@@ -98,7 +102,8 @@ export type ShapeLayerData = {
 
   fillMode:
     | "solid"
-    | "linear-gradient";
+    | "linear-gradient"
+    | "radial-gradient";
 
   fillColor: string;
   fillOpacity: number;

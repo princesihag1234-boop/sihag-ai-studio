@@ -86,6 +86,29 @@ function normalizeHexColor(
   );
 }
 
+function normalizeFiniteNumber(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number
+) {
+  if (
+    typeof value !==
+      "number" ||
+    !Number.isFinite(value)
+  ) {
+    return fallback;
+  }
+
+  return Math.max(
+    min,
+    Math.min(
+      max,
+      value
+    )
+  );
+}
+
 export function normalizeShapeLayerData(
   value:
     Partial<ShapeLayerData> | null | undefined
@@ -93,48 +116,73 @@ export function normalizeShapeLayerData(
   const shapeType =
     value?.shapeType;
 
+  const normalizedShapeType =
+    shapeType ===
+      "rounded-rectangle" ||
+    shapeType ===
+      "ellipse" ||
+    shapeType ===
+      "triangle" ||
+    shapeType ===
+      "diamond" ||
+    shapeType ===
+      "hexagon" ||
+    shapeType ===
+      "star"
+      ? shapeType
+      : "rectangle";
+
+  const fillMode =
+    value?.fillMode ===
+      "linear-gradient" ||
+    value?.fillMode ===
+      "radial-gradient"
+      ? value.fillMode
+      : "solid";
+
+  const gradientAngleRaw =
+    normalizeFiniteNumber(
+      value?.gradientAngle,
+      DEFAULT_SHAPE_LAYER.gradientAngle,
+      -100000,
+      100000
+    );
+
+  const gradientAngle =
+    (
+      (
+        gradientAngleRaw %
+        360
+      ) +
+      360
+    ) %
+    360;
+
   return {
     shapeType:
-      shapeType ===
-        "ellipse" ||
-      shapeType ===
-        "rounded-rectangle"
-        ? shapeType
-        : "rectangle",
+      normalizedShapeType,
 
     width:
-      typeof value?.width ===
-      "number"
-        ? Math.max(
-            20,
-            Math.min(
-              3000,
-              value.width
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.width,
+      normalizeFiniteNumber(
+        value?.width,
+        DEFAULT_SHAPE_LAYER.width,
+        20,
+        3000
+      ),
 
     height:
-      typeof value?.height ===
-      "number"
-        ? Math.max(
-            20,
-            Math.min(
-              3000,
-              value.height
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.height,
+      normalizeFiniteNumber(
+        value?.height,
+        DEFAULT_SHAPE_LAYER.height,
+        20,
+        3000
+      ),
 
     fillEnabled:
       value?.fillEnabled !==
       false,
 
-    fillMode:
-      value?.fillMode ===
-      "linear-gradient"
-        ? "linear-gradient"
-        : "solid",
+    fillMode,
 
     fillColor:
       normalizeHexColor(
@@ -143,16 +191,12 @@ export function normalizeShapeLayerData(
       ),
 
     fillOpacity:
-      typeof value?.fillOpacity ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              100,
-              value.fillOpacity
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.fillOpacity,
+      normalizeFiniteNumber(
+        value?.fillOpacity,
+        DEFAULT_SHAPE_LAYER.fillOpacity,
+        0,
+        100
+      ),
 
     gradientColor1:
       normalizeHexColor(
@@ -166,18 +210,7 @@ export function normalizeShapeLayerData(
         DEFAULT_SHAPE_LAYER.gradientColor2
       ),
 
-    gradientAngle:
-      typeof value?.gradientAngle ===
-      "number"
-        ? (
-            (
-              value.gradientAngle %
-              360
-            ) +
-            360
-          ) %
-          360
-        : DEFAULT_SHAPE_LAYER.gradientAngle,
+    gradientAngle,
 
     strokeEnabled:
       value?.strokeEnabled ===
@@ -190,28 +223,20 @@ export function normalizeShapeLayerData(
       ),
 
     strokeWidth:
-      typeof value?.strokeWidth ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              100,
-              value.strokeWidth
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.strokeWidth,
+      normalizeFiniteNumber(
+        value?.strokeWidth,
+        DEFAULT_SHAPE_LAYER.strokeWidth,
+        0,
+        100
+      ),
 
     strokeOpacity:
-      typeof value?.strokeOpacity ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              100,
-              value.strokeOpacity
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.strokeOpacity,
+      normalizeFiniteNumber(
+        value?.strokeOpacity,
+        DEFAULT_SHAPE_LAYER.strokeOpacity,
+        0,
+        100
+      ),
 
     strokeStyle:
       value?.strokeStyle ===
@@ -222,16 +247,12 @@ export function normalizeShapeLayerData(
         : "solid",
 
     cornerRadius:
-      typeof value?.cornerRadius ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              1000,
-              value.cornerRadius
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.cornerRadius,
+      normalizeFiniteNumber(
+        value?.cornerRadius,
+        DEFAULT_SHAPE_LAYER.cornerRadius,
+        0,
+        1000
+      ),
 
     shadowEnabled:
       value?.shadowEnabled ===
@@ -244,52 +265,36 @@ export function normalizeShapeLayerData(
       ),
 
     shadowOpacity:
-      typeof value?.shadowOpacity ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              100,
-              value.shadowOpacity
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.shadowOpacity,
+      normalizeFiniteNumber(
+        value?.shadowOpacity,
+        DEFAULT_SHAPE_LAYER.shadowOpacity,
+        0,
+        100
+      ),
 
     shadowBlur:
-      typeof value?.shadowBlur ===
-      "number"
-        ? Math.max(
-            0,
-            Math.min(
-              200,
-              value.shadowBlur
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.shadowBlur,
+      normalizeFiniteNumber(
+        value?.shadowBlur,
+        DEFAULT_SHAPE_LAYER.shadowBlur,
+        0,
+        200
+      ),
 
     shadowX:
-      typeof value?.shadowX ===
-      "number"
-        ? Math.max(
-            -200,
-            Math.min(
-              200,
-              value.shadowX
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.shadowX,
+      normalizeFiniteNumber(
+        value?.shadowX,
+        DEFAULT_SHAPE_LAYER.shadowX,
+        -200,
+        200
+      ),
 
     shadowY:
-      typeof value?.shadowY ===
-      "number"
-        ? Math.max(
-            -200,
-            Math.min(
-              200,
-              value.shadowY
-            )
-          )
-        : DEFAULT_SHAPE_LAYER.shadowY,
+      normalizeFiniteNumber(
+        value?.shadowY,
+        DEFAULT_SHAPE_LAYER.shadowY,
+        -200,
+        200
+      ),
   };
 }
 
@@ -311,8 +316,6 @@ function roundedRectPath(
         height / 2
       )
     );
-
-  context.beginPath();
 
   context.moveTo(
     x + safeRadius,
@@ -370,6 +373,232 @@ function roundedRectPath(
     x + safeRadius,
     y
   );
+}
+
+function buildShapePath(
+  context:
+    CanvasRenderingContext2D,
+  data: ShapeLayerData,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) {
+  context.beginPath();
+
+  if (
+    data.shapeType ===
+    "ellipse"
+  ) {
+    context.ellipse(
+      x +
+        width / 2,
+      y +
+        height / 2,
+      width / 2,
+      height / 2,
+      0,
+      0,
+      Math.PI *
+        2
+    );
+
+    context.closePath();
+    return;
+  }
+
+  if (
+    data.shapeType ===
+    "rounded-rectangle"
+  ) {
+    roundedRectPath(
+      context,
+      x,
+      y,
+      width,
+      height,
+      data.cornerRadius
+    );
+
+    context.closePath();
+    return;
+  }
+
+  if (
+    data.shapeType ===
+    "triangle"
+  ) {
+    context.moveTo(
+      x +
+        width / 2,
+      y
+    );
+
+    context.lineTo(
+      x + width,
+      y + height
+    );
+
+    context.lineTo(
+      x,
+      y + height
+    );
+
+    context.closePath();
+    return;
+  }
+
+  if (
+    data.shapeType ===
+    "diamond"
+  ) {
+    context.moveTo(
+      x +
+        width / 2,
+      y
+    );
+
+    context.lineTo(
+      x + width,
+      y +
+        height / 2
+    );
+
+    context.lineTo(
+      x +
+        width / 2,
+      y + height
+    );
+
+    context.lineTo(
+      x,
+      y +
+        height / 2
+    );
+
+    context.closePath();
+    return;
+  }
+
+  if (
+    data.shapeType ===
+    "hexagon"
+  ) {
+    const inset =
+      width *
+      0.25;
+
+    context.moveTo(
+      x + inset,
+      y
+    );
+
+    context.lineTo(
+      x + width -
+        inset,
+      y
+    );
+
+    context.lineTo(
+      x + width,
+      y +
+        height / 2
+    );
+
+    context.lineTo(
+      x + width -
+        inset,
+      y + height
+    );
+
+    context.lineTo(
+      x + inset,
+      y + height
+    );
+
+    context.lineTo(
+      x,
+      y +
+        height / 2
+    );
+
+    context.closePath();
+    return;
+  }
+
+  if (
+    data.shapeType ===
+    "star"
+  ) {
+    const centerX =
+      x +
+      width / 2;
+
+    const centerY =
+      y +
+      height / 2;
+
+    const outerRadiusX =
+      width / 2;
+
+    const outerRadiusY =
+      height / 2;
+
+    const innerFactor =
+      0.45;
+
+    for (
+      let index = 0;
+      index < 10;
+      index += 1
+    ) {
+      const angle =
+        -Math.PI / 2 +
+        index *
+          Math.PI / 5;
+
+      const factor =
+        index % 2 === 0
+          ? 1
+          : innerFactor;
+
+      const pointX =
+        centerX +
+        Math.cos(angle) *
+          outerRadiusX *
+          factor;
+
+      const pointY =
+        centerY +
+        Math.sin(angle) *
+          outerRadiusY *
+          factor;
+
+      if (
+        index === 0
+      ) {
+        context.moveTo(
+          pointX,
+          pointY
+        );
+      } else {
+        context.lineTo(
+          pointX,
+          pointY
+        );
+      }
+    }
+
+    context.closePath();
+    return;
+  }
+
+  context.rect(
+    x,
+    y,
+    width,
+    height
+  );
 
   context.closePath();
 }
@@ -410,12 +639,6 @@ function createLinearGradient(
     y +
     height / 2;
 
-  /*
-    Project the rectangle onto the gradient
-    direction so the gradient reaches fully
-    across the shape at any angle.
-  */
-
   const halfLength =
     Math.abs(
       directionX
@@ -442,6 +665,56 @@ function createLinearGradient(
       centerY +
         directionY *
         halfLength
+    );
+
+  gradient.addColorStop(
+    0,
+    color1
+  );
+
+  gradient.addColorStop(
+    1,
+    color2
+  );
+
+  return gradient;
+}
+
+function createRadialGradient(
+  context:
+    CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  color1: string,
+  color2: string
+) {
+  const centerX =
+    x +
+    width / 2;
+
+  const centerY =
+    y +
+    height / 2;
+
+  const radius =
+    Math.max(
+      1,
+      Math.hypot(
+        width / 2,
+        height / 2
+      )
+    );
+
+  const gradient =
+    context.createRadialGradient(
+      centerX,
+      centerY,
+      0,
+      centerX,
+      centerY,
+      radius
     );
 
   gradient.addColorStop(
@@ -532,6 +805,12 @@ export function renderShapeLayerToDataUrl(
     return "";
   }
 
+  context.imageSmoothingEnabled =
+    true;
+
+  context.imageSmoothingQuality =
+    "high";
+
   const x =
     padding;
 
@@ -544,46 +823,14 @@ export function renderShapeLayerToDataUrl(
   const height =
     data.height;
 
-  if (
-    data.shapeType ===
-    "ellipse"
-  ) {
-    context.beginPath();
-
-    context.ellipse(
-      x +
-        width / 2,
-      y +
-        height / 2,
-      width / 2,
-      height / 2,
-      0,
-      0,
-      Math.PI *
-        2
-    );
-  } else if (
-    data.shapeType ===
-    "rounded-rectangle"
-  ) {
-    roundedRectPath(
-      context,
-      x,
-      y,
-      width,
-      height,
-      data.cornerRadius
-    );
-  } else {
-    context.beginPath();
-
-    context.rect(
-      x,
-      y,
-      width,
-      height
-    );
-  }
+  buildShapePath(
+    context,
+    data,
+    x,
+    y,
+    width,
+    height
+  );
 
   if (
     data.shadowEnabled
@@ -605,13 +852,6 @@ export function renderShapeLayerToDataUrl(
 
     context.shadowOffsetY =
       data.shadowY;
-
-    /*
-      Draw an opaque copy of the shape only to
-      generate its shadow. destination-out then
-      removes the temporary copy itself, leaving
-      just the shadow pixels behind.
-    */
 
     context.fillStyle =
       "#000000";
@@ -642,20 +882,39 @@ export function renderShapeLayerToDataUrl(
       data.fillOpacity /
       100;
 
-    context.fillStyle =
+    if (
       data.fillMode ===
       "linear-gradient"
-        ? createLinearGradient(
-            context,
-            x,
-            y,
-            width,
-            height,
-            data.gradientAngle,
-            data.gradientColor1,
-            data.gradientColor2
-          )
-        : data.fillColor;
+    ) {
+      context.fillStyle =
+        createLinearGradient(
+          context,
+          x,
+          y,
+          width,
+          height,
+          data.gradientAngle,
+          data.gradientColor1,
+          data.gradientColor2
+        );
+    } else if (
+      data.fillMode ===
+      "radial-gradient"
+    ) {
+      context.fillStyle =
+        createRadialGradient(
+          context,
+          x,
+          y,
+          width,
+          height,
+          data.gradientColor1,
+          data.gradientColor2
+        );
+    } else {
+      context.fillStyle =
+        data.fillColor;
+    }
 
     context.fill();
 
