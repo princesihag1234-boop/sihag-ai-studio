@@ -73,6 +73,49 @@ function normalizeHexColor(
     : fallback;
 }
 
+function normalizeFontFamily(
+  value: unknown,
+  fallback: string
+) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+
+  return normalized || fallback;
+}
+
+function canvasFontFamily(fontFamily: string) {
+  const genericFamilies = new Set([
+    "serif",
+    "sans-serif",
+    "monospace",
+    "cursive",
+    "fantasy",
+    "system-ui",
+    "ui-serif",
+    "ui-sans-serif",
+    "ui-monospace",
+    "ui-rounded",
+  ]);
+
+  const normalized = normalizeFontFamily(
+    fontFamily,
+    DEFAULT_TEXT_LAYER.fontFamily
+  );
+
+  if (genericFamilies.has(normalized.toLowerCase())) {
+    return normalized;
+  }
+
+  return `"${normalized.replace(/["\\]/g, "")}"`;
+}
+
 export function normalizeTextLayerData(
   value: Partial<TextLayerData> | null | undefined
 ): TextLayerData {
@@ -118,11 +161,10 @@ export function normalizeTextLayerData(
       DEFAULT_TEXT_LAYER.fontSize
     ),
 
-    fontFamily:
-      typeof value?.fontFamily === "string" &&
-      value.fontFamily.trim()
-        ? value.fontFamily.trim()
-        : DEFAULT_TEXT_LAYER.fontFamily,
+    fontFamily: normalizeFontFamily(
+      value?.fontFamily,
+      DEFAULT_TEXT_LAYER.fontFamily
+    ),
 
     color: normalizeHexColor(
       value?.color,
@@ -308,14 +350,15 @@ function measureSpacedText(
 ) {
   if (!text.length) return 0;
 
+  const characters = Array.from(text);
   let width = 0;
-  for (let index = 0; index < text.length; index += 1) {
+  for (let index = 0; index < characters.length; index += 1) {
     width += characterAdvance(
       context,
-      text[index],
+      characters[index],
       letterSpacing,
       wordSpacing,
-      index < text.length - 1
+      index < characters.length - 1
     );
   }
   return Math.max(0, width);
@@ -331,16 +374,17 @@ function drawSpacedText(
   draw: (character: string, x: number, y: number) => void
 ) {
   let x = startX;
+  const characters = Array.from(text);
 
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index];
     draw(character, x, y);
     x += characterAdvance(
       context,
       character,
       letterSpacing,
       wordSpacing,
-      index < text.length - 1
+      index < characters.length - 1
     );
   }
 }
@@ -350,6 +394,40 @@ type RenderLine = {
   paragraphEnd: boolean;
   canJustify: boolean;
 };
+
+function splitLongToken(
+  context: CanvasRenderingContext2D,
+  token: string,
+  maxWidth: number,
+  letterSpacing: number
+) {
+  const characters = Array.from(token);
+  const result: string[] = [];
+  let current = "";
+
+  for (const character of characters) {
+    const candidate = `${current}${character}`;
+    const width = measureSpacedText(
+      context,
+      candidate,
+      letterSpacing,
+      0
+    );
+
+    if (current && width > maxWidth) {
+      result.push(current);
+      current = character;
+    } else {
+      current = candidate;
+    }
+  }
+
+  if (current || result.length === 0) {
+    result.push(current);
+  }
+
+  return result;
+}
 
 function wrapParagraph(
   context: CanvasRenderingContext2D,
@@ -365,6 +443,33 @@ function wrapParagraph(
   let line = "";
 
   for (const word of words) {
+    const wordWidth = measureSpacedText(
+      context,
+      word,
+      letterSpacing,
+      0
+    );
+
+    if (wordWidth > maxWidth) {
+      if (line) {
+        result.push(line);
+        line = "";
+      }
+
+      const pieces = splitLongToken(
+        context,
+        word,
+        maxWidth,
+        letterSpacing
+      );
+
+      if (pieces.length > 1) {
+        result.push(...pieces.slice(0, -1));
+      }
+      line = pieces[pieces.length - 1] ?? "";
+      continue;
+    }
+
     const candidate = line ? `${line} ${word}` : word;
     const width = measureSpacedText(
       context,
@@ -534,7 +639,7 @@ export function renderTextLayerToDataUrl(
   if (!measureContext) return "";
 
   const fontStyle = data.italic ? "italic" : "normal";
-  const font = `${fontStyle} ${data.fontWeight} ${data.fontSize}px ${data.fontFamily}`;
+  const font = `${fontStyle} ${data.fontWeight} ${data.fontSize}px ${canvasFontFamily(data.fontFamily)}, Arial, sans-serif`;
   measureContext.font = font;
 
   const transformedText = applyTextTransform(data.text, data.textTransform);
@@ -562,7 +667,7 @@ export function renderTextLayerToDataUrl(
   });
 
   const contentHeight = data.fixedHeightEnabled
-    ? Math.max(data.boxHeight, naturalTextHeight)
+    ? Math.max(1, data.boxHeight)
     : naturalTextHeight;
 
   const effectPadding = Math.ceil(
@@ -626,6 +731,13 @@ export function renderTextLayerToDataUrl(
         : Math.max(0, contentHeight - naturalTextHeight);
 
   let y = paddingY + verticalOffset;
+
+  if (data.fixedHeightEnabled) {
+    context.save();
+    context.beginPath();
+    context.rect(0, paddingY, width, contentHeight);
+    context.clip();
+  }
 
   lines.forEach((line, index) => {
     const lineText = line.text;
@@ -743,6 +855,10 @@ export function renderTextLayerToDataUrl(
       y += data.paragraphSpacing;
     }
   });
+
+  if (data.fixedHeightEnabled) {
+    context.restore();
+  }
 
   return canvas.toDataURL("image/png");
 }

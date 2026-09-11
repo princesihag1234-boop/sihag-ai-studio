@@ -15,6 +15,10 @@ import type {
   TextVerticalAlign,
 } from "@/lib/layerTypes";
 
+import {
+  DEFAULT_TEXT_LAYER,
+} from "@/lib/textLayer";
+
 const FONT_OPTIONS = [
   "Arial",
   "Arial Black",
@@ -59,6 +63,73 @@ const FONT_WEIGHTS: {
   { value: "700", label: "700 Bold" },
   { value: "800", label: "800 Extra Bold" },
   { value: "900", label: "900 Black" },
+];
+
+
+type TextStylePreset = {
+  id: string;
+  label: string;
+  description: string;
+  changes: Partial<TextLayerData>;
+};
+
+const TEXT_STYLE_PRESETS: TextStylePreset[] = [
+  {
+    id: "display",
+    label: "Display",
+    description: "Large editorial title",
+    changes: {
+      fontSize: 144,
+      fontWeight: "800",
+      lineHeight: 0.95,
+      letterSpacing: -3,
+      wordSpacing: 0,
+      paragraphSpacing: 18,
+      textTransform: "none",
+    },
+  },
+  {
+    id: "heading",
+    label: "Heading",
+    description: "Strong section heading",
+    changes: {
+      fontSize: 88,
+      fontWeight: "700",
+      lineHeight: 1.05,
+      letterSpacing: -1,
+      wordSpacing: 0,
+      paragraphSpacing: 14,
+      textTransform: "none",
+    },
+  },
+  {
+    id: "body",
+    label: "Body",
+    description: "Readable paragraph copy",
+    changes: {
+      fontSize: 44,
+      fontWeight: "400",
+      lineHeight: 1.35,
+      letterSpacing: 0,
+      wordSpacing: 0,
+      paragraphSpacing: 16,
+      textTransform: "none",
+    },
+  },
+  {
+    id: "caption",
+    label: "Caption",
+    description: "Compact supporting text",
+    changes: {
+      fontSize: 28,
+      fontWeight: "500",
+      lineHeight: 1.25,
+      letterSpacing: 0.4,
+      wordSpacing: 0,
+      paragraphSpacing: 10,
+      textTransform: "none",
+    },
+  },
 ];
 
 type TextLayerPanelProps = {
@@ -142,6 +213,13 @@ export default function TextLayerPanel({
   }
 
   const locked = layer.locked;
+  const characterCount = Array.from(text.text).length;
+  const wordCount = text.text.trim()
+    ? text.text.trim().split(/\s+/).length
+    : 0;
+  const lineCount = text.text.length
+    ? text.text.split(/\r?\n/).length
+    : 0;
 
   return (
     <section className="border-b border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0))] p-4">
@@ -181,6 +259,49 @@ export default function TextLayerPanel({
         </div>
 
         <PanelSection
+          title="QUICK STYLES"
+          subtitle="Professional starting points; content stays unchanged"
+          action={
+            <button
+              type="button"
+              disabled={locked}
+              onPointerDown={onChangeStart}
+              onClick={() =>
+                onChange(layer.id, {
+                  ...DEFAULT_TEXT_LAYER,
+                  text: text.text,
+                })
+              }
+              className="rounded-lg border border-white/[0.08] bg-white/[0.035] px-2 py-1 text-[9px] text-gray-400 transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              Reset style
+            </button>
+          }
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {TEXT_STYLE_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                disabled={locked}
+                onPointerDown={onChangeStart}
+                onClick={() =>
+                  onChange(layer.id, preset.changes)
+                }
+                className="rounded-xl border border-white/[0.08] bg-[#0d1016] px-3 py-2.5 text-left transition hover:border-cyan-400/25 hover:bg-white/[0.045] disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <div className="text-[10px] font-semibold text-gray-200">
+                  {preset.label}
+                </div>
+                <div className="mt-1 text-[9px] leading-4 text-gray-600">
+                  {preset.description}
+                </div>
+              </button>
+            ))}
+          </div>
+        </PanelSection>
+
+        <PanelSection
           title="CONTENT"
           subtitle="Live editable text"
         >
@@ -198,6 +319,18 @@ export default function TextLayerPanel({
             className="min-h-24 w-full resize-y rounded-xl border border-white/[0.08] bg-[#0d1016] px-3 py-2.5 text-sm text-gray-100 outline-none transition placeholder:text-gray-600 focus:border-cyan-400/35 focus:ring-2 focus:ring-cyan-400/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
             placeholder="Type text..."
           />
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[9px] text-gray-600">
+            <span className="rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1">
+              {characterCount} chars
+            </span>
+            <span className="rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1">
+              {wordCount} words
+            </span>
+            <span className="rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1">
+              {lineCount} lines
+            </span>
+          </div>
 
           <div className="mt-2 grid grid-cols-4 gap-1.5">
             {(
@@ -288,6 +421,22 @@ export default function TextLayerPanel({
             placeholder="Or type an installed font name"
             className="mt-2 min-h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-gray-200 outline-none focus:border-indigo-500/60 disabled:opacity-40"
           />
+
+          <div
+            className="mt-2 overflow-hidden rounded-xl border border-white/[0.07] bg-black/20 px-3 py-3 text-gray-200"
+            style={{
+              fontFamily: text.fontFamily,
+              fontWeight: text.fontWeight,
+              fontStyle: text.italic ? "italic" : "normal",
+            }}
+          >
+            <div className="text-[9px] font-sans uppercase tracking-[0.14em] text-gray-600">
+              Font preview
+            </div>
+            <div className="mt-1 truncate text-xl leading-tight">
+              {text.text.trim() || "Sihag Typography"}
+            </div>
+          </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <label>
