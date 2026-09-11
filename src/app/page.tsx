@@ -150,9 +150,14 @@ type CropRect = {
 type CropAspect =
   | "free"
   | "1:1"
+  | "5:4"
   | "4:3"
   | "3:2"
-  | "16:9";
+  | "16:9"
+  | "4:5"
+  | "3:4"
+  | "2:3"
+  | "9:16";
 
 type ExportFormat =
   | "png"
@@ -171,6 +176,10 @@ type ExportBackground =
 
 type CropDragMode =
   | "move"
+  | "n"
+  | "e"
+  | "s"
+  | "w"
   | "nw"
   | "ne"
   | "sw"
@@ -178,11 +187,28 @@ type CropDragMode =
   | null;
 
 const DEFAULT_CROP: CropRect = {
-  x: 0.1,
-  y: 0.1,
-  width: 0.8,
-  height: 0.8,
+  x: 0,
+  y: 0,
+  width: 1,
+  height: 1,
 };
+
+const CROP_ASPECT_RATIOS: Record<
+  Exclude<CropAspect, "free">,
+  number
+> = {
+  "1:1": 1,
+  "5:4": 5 / 4,
+  "4:3": 4 / 3,
+  "3:2": 3 / 2,
+  "16:9": 16 / 9,
+  "4:5": 4 / 5,
+  "3:4": 3 / 4,
+  "2:3": 2 / 3,
+  "9:16": 9 / 16,
+};
+
+const CROP_MINIMUM_PIXELS = 16;
 
 type EditorSnapshot = {
   imageSrc: string | null;
@@ -9584,14 +9610,15 @@ export default function Home() {
       parsed.cropAspect;
 
     setCropAspect(
-      restoredCropAspect ===
-        "1:1" ||
-      restoredCropAspect ===
-        "4:3" ||
-      restoredCropAspect ===
-        "3:2" ||
-      restoredCropAspect ===
-        "16:9"
+      restoredCropAspect === "1:1" ||
+      restoredCropAspect === "5:4" ||
+      restoredCropAspect === "4:3" ||
+      restoredCropAspect === "3:2" ||
+      restoredCropAspect === "16:9" ||
+      restoredCropAspect === "4:5" ||
+      restoredCropAspect === "3:4" ||
+      restoredCropAspect === "2:3" ||
+      restoredCropAspect === "9:16"
         ? restoredCropAspect
         : "free"
     );
@@ -11808,6 +11835,74 @@ export default function Home() {
       }
 
       /*
+        Crop geometry nudging.
+        Arrow = 1 source pixel, Shift+Arrow = 10 source pixels.
+      */
+
+      if (
+        activeTool === "crop" &&
+        image &&
+        !commandKey &&
+        !event.altKey &&
+        (
+          event.key === "ArrowLeft" ||
+          event.key === "ArrowRight" ||
+          event.key === "ArrowUp" ||
+          event.key === "ArrowDown"
+        )
+      ) {
+        event.preventDefault();
+
+        const pixelStep =
+          event.shiftKey ? 10 : 1;
+
+        const amountX =
+          pixelStep /
+          Math.max(
+            1,
+            image.naturalWidth
+          );
+
+        const amountY =
+          pixelStep /
+          Math.max(
+            1,
+            image.naturalHeight
+          );
+
+        setCrop((current) => {
+          let nextX = current.x;
+          let nextY = current.y;
+
+          if (event.key === "ArrowLeft") {
+            nextX -= amountX;
+          } else if (event.key === "ArrowRight") {
+            nextX += amountX;
+          } else if (event.key === "ArrowUp") {
+            nextY -= amountY;
+          } else if (event.key === "ArrowDown") {
+            nextY += amountY;
+          }
+
+          return {
+            ...current,
+            x: clamp(
+              nextX,
+              0,
+              1 - current.width
+            ),
+            y: clamp(
+              nextY,
+              0,
+              1 - current.height
+            ),
+          };
+        });
+
+        return;
+      }
+
+      /*
         Undo / redo.
       */
 
@@ -13658,6 +13753,57 @@ export default function Home() {
   /* CROP                  */
   /* -------------------- */
 
+  function getCropNormalizedAspectRatio(
+    aspect: CropAspect = cropAspect
+  ) {
+    if (
+      aspect === "free" ||
+      !image
+    ) {
+      return null;
+    }
+
+    return (
+      CROP_ASPECT_RATIOS[aspect] *
+      (image.naturalHeight /
+        image.naturalWidth)
+    );
+  }
+
+  function getCropMinimumSize() {
+    if (!image) {
+      return {
+        width: 0.01,
+        height: 0.01,
+      };
+    }
+
+    return {
+      width: Math.min(
+        1,
+        Math.max(
+          0.005,
+          CROP_MINIMUM_PIXELS /
+            Math.max(
+              1,
+              image.naturalWidth
+            )
+        )
+      ),
+      height: Math.min(
+        1,
+        Math.max(
+          0.005,
+          CROP_MINIMUM_PIXELS /
+            Math.max(
+              1,
+              image.naturalHeight
+            )
+        )
+      ),
+    };
+  }
+
   function chooseCropAspect(
     aspect: CropAspect
   ) {
@@ -13670,45 +13816,78 @@ export default function Home() {
       return;
     }
 
-    const ratios: Record<
-      Exclude<CropAspect, "free">,
-      number
-    > = {
-      "1:1": 1,
-      "4:3": 4 / 3,
-      "3:2": 3 / 2,
-      "16:9": 16 / 9,
-    };
-
-    const wantedRatio =
-      ratios[aspect];
-
-    /*
-      Convert real image aspect ratio
-      into normalized crop coordinates.
-    */
-
     const normalizedRatio =
-      wantedRatio *
+      CROP_ASPECT_RATIOS[aspect] *
       (image.naturalHeight /
         image.naturalWidth);
 
-    let width = 0.8;
+    const centerX =
+      crop.x + crop.width / 2;
+
+    const centerY =
+      crop.y + crop.height / 2;
+
+    const maxWidth =
+      2 * Math.min(
+        centerX,
+        1 - centerX
+      );
+
+    const maxHeight =
+      2 * Math.min(
+        centerY,
+        1 - centerY
+      );
+
+    let width = Math.min(
+      crop.width,
+      maxWidth
+    );
 
     let height =
       width / normalizedRatio;
 
-    if (height > 0.8) {
-      height = 0.8;
-
+    if (height > maxHeight) {
+      height = maxHeight;
       width =
         height *
         normalizedRatio;
     }
 
+    const minimum =
+      getCropMinimumSize();
+
+    const minimumWidth =
+      Math.max(
+        minimum.width,
+        minimum.height *
+          normalizedRatio
+      );
+
+    if (
+      width < minimumWidth &&
+      minimumWidth <= maxWidth &&
+      minimumWidth /
+          normalizedRatio <=
+        maxHeight
+    ) {
+      width = minimumWidth;
+      height =
+        width /
+        normalizedRatio;
+    }
+
     setCrop({
-      x: (1 - width) / 2,
-      y: (1 - height) / 2,
+      x: clamp(
+        centerX - width / 2,
+        0,
+        1 - width
+      ),
+      y: clamp(
+        centerY - height / 2,
+        0,
+        1 - height
+      ),
       width,
       height,
     });
@@ -13743,8 +13922,10 @@ export default function Home() {
   function moveCrop(
     event: PointerEvent<HTMLDivElement>
   ) {
-    if (!cropDrag.current.mode)
-      return;
+    const mode =
+      cropDrag.current.mode;
+
+    if (!mode) return;
 
     const stage =
       imageStageRef.current;
@@ -13754,127 +13935,363 @@ export default function Home() {
     const rect =
       stage.getBoundingClientRect();
 
-    const dx =
-      (event.clientX -
-        cropDrag.current.startX) /
+    if (
+      rect.width <= 0 ||
+      rect.height <= 0
+    ) {
+      return;
+    }
+
+    const pointerX =
+      (event.clientX - rect.left) /
       rect.width;
 
-    const dy =
-      (event.clientY -
-        cropDrag.current.startY) /
+    const pointerY =
+      (event.clientY - rect.top) /
       rect.height;
 
     const start =
       cropDrag.current.startCrop;
 
-    const minimum = 0.05;
+    const minimum =
+      getCropMinimumSize();
+
+    if (mode === "move") {
+      const dx =
+        (event.clientX -
+          cropDrag.current.startX) /
+        rect.width;
+
+      const dy =
+        (event.clientY -
+          cropDrag.current.startY) /
+        rect.height;
+
+      setCrop({
+        ...start,
+        x: clamp(
+          start.x + dx,
+          0,
+          1 - start.width
+        ),
+        y: clamp(
+          start.y + dy,
+          0,
+          1 - start.height
+        ),
+      });
+
+      return;
+    }
+
+    const startRight =
+      start.x + start.width;
+
+    const startBottom =
+      start.y + start.height;
+
+    const startCenterX =
+      start.x + start.width / 2;
+
+    const startCenterY =
+      start.y + start.height / 2;
+
+    const fixedRatio =
+      getCropNormalizedAspectRatio();
+
+    const shiftRatio =
+      event.shiftKey
+        ? start.width /
+          Math.max(
+            0.000001,
+            start.height
+          )
+        : null;
+
+    const ratio =
+      fixedRatio ?? shiftRatio;
+
+    if (ratio) {
+      let x = start.x;
+      let y = start.y;
+      let width = start.width;
+      let height = start.height;
+
+      const minimumWidth =
+        Math.max(
+          minimum.width,
+          minimum.height * ratio
+        );
+
+      const minimumHeight =
+        minimumWidth / ratio;
+
+      if (
+        mode === "nw" ||
+        mode === "ne" ||
+        mode === "sw" ||
+        mode === "se"
+      ) {
+        const anchorX =
+          mode === "nw" || mode === "sw"
+            ? startRight
+            : start.x;
+
+        const anchorY =
+          mode === "nw" || mode === "ne"
+            ? startBottom
+            : start.y;
+
+        const rawWidth =
+          Math.abs(
+            pointerX - anchorX
+          );
+
+        const rawHeight =
+          Math.abs(
+            pointerY - anchorY
+          );
+
+        const widthFromX =
+          rawWidth;
+
+        const heightFromX =
+          widthFromX / ratio;
+
+        const heightFromY =
+          rawHeight;
+
+        const widthFromY =
+          heightFromY * ratio;
+
+        const useHorizontal =
+          Math.abs(
+            heightFromX - rawHeight
+          ) <=
+          Math.abs(
+            widthFromY - rawWidth
+          );
+
+        width = useHorizontal
+          ? widthFromX
+          : widthFromY;
+
+        const maxWidthX =
+          mode === "nw" || mode === "sw"
+            ? anchorX
+            : 1 - anchorX;
+
+        const maxHeightY =
+          mode === "nw" || mode === "ne"
+            ? anchorY
+            : 1 - anchorY;
+
+        const maxWidth =
+          Math.max(
+            0,
+            Math.min(
+              maxWidthX,
+              maxHeightY * ratio
+            )
+          );
+
+        width = clamp(
+          width,
+          Math.min(
+            minimumWidth,
+            maxWidth
+          ),
+          maxWidth
+        );
+
+        height =
+          width / ratio;
+
+        x =
+          mode === "nw" || mode === "sw"
+            ? anchorX - width
+            : anchorX;
+
+        y =
+          mode === "nw" || mode === "ne"
+            ? anchorY - height
+            : anchorY;
+      } else if (
+        mode === "e" ||
+        mode === "w"
+      ) {
+        const anchorX =
+          mode === "w"
+            ? startRight
+            : start.x;
+
+        const rawWidth =
+          Math.abs(
+            pointerX - anchorX
+          );
+
+        const maxWidthByX =
+          mode === "w"
+            ? anchorX
+            : 1 - anchorX;
+
+        const maxHeightCentered =
+          2 * Math.min(
+            startCenterY,
+            1 - startCenterY
+          );
+
+        const maxWidth =
+          Math.min(
+            maxWidthByX,
+            maxHeightCentered * ratio
+          );
+
+        width = clamp(
+          rawWidth,
+          Math.min(
+            minimumWidth,
+            maxWidth
+          ),
+          maxWidth
+        );
+
+        height =
+          width / ratio;
+
+        x =
+          mode === "w"
+            ? anchorX - width
+            : anchorX;
+
+        y =
+          startCenterY -
+          height / 2;
+      } else {
+        const anchorY =
+          mode === "n"
+            ? startBottom
+            : start.y;
+
+        const rawHeight =
+          Math.abs(
+            pointerY - anchorY
+          );
+
+        const maxHeightByY =
+          mode === "n"
+            ? anchorY
+            : 1 - anchorY;
+
+        const maxWidthCentered =
+          2 * Math.min(
+            startCenterX,
+            1 - startCenterX
+          );
+
+        const maxHeight =
+          Math.min(
+            maxHeightByY,
+            maxWidthCentered / ratio
+          );
+
+        height = clamp(
+          rawHeight,
+          Math.min(
+            minimumHeight,
+            maxHeight
+          ),
+          maxHeight
+        );
+
+        width =
+          height * ratio;
+
+        x =
+          startCenterX -
+          width / 2;
+
+        y =
+          mode === "n"
+            ? anchorY - height
+            : anchorY;
+      }
+
+      setCrop({
+        x: clamp(
+          x,
+          0,
+          1 - width
+        ),
+        y: clamp(
+          y,
+          0,
+          1 - height
+        ),
+        width,
+        height,
+      });
+
+      return;
+    }
 
     let x = start.x;
     let y = start.y;
+    let width = start.width;
+    let height = start.height;
 
-    let width =
-      start.width;
-
-    let height =
-      start.height;
-
-    const mode =
-      cropDrag.current.mode;
-
-    if (mode === "move") {
+    if (
+      mode === "nw" ||
+      mode === "w" ||
+      mode === "sw"
+    ) {
       x = clamp(
-        start.x + dx,
+        pointerX,
         0,
-        1 - start.width
-      );
-
-      y = clamp(
-        start.y + dy,
-        0,
-        1 - start.height
-      );
-    }
-
-    if (mode === "nw") {
-      const right =
-        start.x +
-        start.width;
-
-      const bottom =
-        start.y +
-        start.height;
-
-      x = clamp(
-        start.x + dx,
-        0,
-        right - minimum
-      );
-
-      y = clamp(
-        start.y + dy,
-        0,
-        bottom - minimum
+        startRight -
+          minimum.width
       );
 
       width =
-        right - x;
-
-      height =
-        bottom - y;
+        startRight - x;
     }
 
-    if (mode === "ne") {
-      const bottom =
-        start.y +
-        start.height;
+    if (
+      mode === "ne" ||
+      mode === "e" ||
+      mode === "se"
+    ) {
+      width = clamp(
+        pointerX - start.x,
+        minimum.width,
+        1 - start.x
+      );
+    }
 
+    if (
+      mode === "nw" ||
+      mode === "n" ||
+      mode === "ne"
+    ) {
       y = clamp(
-        start.y + dy,
+        pointerY,
         0,
-        bottom - minimum
-      );
-
-      width = clamp(
-        start.width + dx,
-        minimum,
-        1 - start.x
+        startBottom -
+          minimum.height
       );
 
       height =
-        bottom - y;
+        startBottom - y;
     }
 
-    if (mode === "sw") {
-      const right =
-        start.x +
-        start.width;
-
-      x = clamp(
-        start.x + dx,
-        0,
-        right - minimum
-      );
-
-      width =
-        right - x;
-
+    if (
+      mode === "sw" ||
+      mode === "s" ||
+      mode === "se"
+    ) {
       height = clamp(
-        start.height + dy,
-        minimum,
-        1 - start.y
-      );
-    }
-
-    if (mode === "se") {
-      width = clamp(
-        start.width + dx,
-        minimum,
-        1 - start.x
-      );
-
-      height = clamp(
-        start.height + dy,
-        minimum,
+        pointerY - start.y,
+        minimum.height,
         1 - start.y
       );
     }
@@ -13900,6 +14317,121 @@ export default function Home() {
     setCropAspect("free");
   }
 
+  function setCropPixelValue(
+    field: "x" | "y" | "width" | "height",
+    value: number
+  ) {
+    if (!image || !Number.isFinite(value)) {
+      return;
+    }
+
+    const imageWidth =
+      Math.max(
+        1,
+        image.naturalWidth
+      );
+
+    const imageHeight =
+      Math.max(
+        1,
+        image.naturalHeight
+      );
+
+    const minimum =
+      getCropMinimumSize();
+
+    setCrop((current) => {
+      let next = {
+        ...current,
+      };
+
+      if (field === "x") {
+        next.x = clamp(
+          value / imageWidth,
+          0,
+          1 - current.width
+        );
+
+        return next;
+      }
+
+      if (field === "y") {
+        next.y = clamp(
+          value / imageHeight,
+          0,
+          1 - current.height
+        );
+
+        return next;
+      }
+
+      const ratio =
+        getCropNormalizedAspectRatio();
+
+      if (field === "width") {
+        let width = clamp(
+          value / imageWidth,
+          minimum.width,
+          1 - current.x
+        );
+
+        let height = current.height;
+
+        if (ratio) {
+          height = width / ratio;
+
+          if (
+            height >
+            1 - current.y
+          ) {
+            height =
+              1 - current.y;
+            width =
+              height * ratio;
+          }
+        }
+
+        next.width = width;
+        next.height = Math.max(
+          minimum.height,
+          height
+        );
+
+        return next;
+      }
+
+      let height = clamp(
+        value / imageHeight,
+        minimum.height,
+        1 - current.y
+      );
+
+      let width = current.width;
+
+      if (ratio) {
+        width = height * ratio;
+
+        if (
+          width >
+          1 - current.x
+        ) {
+          width =
+            1 - current.x;
+          height =
+            width / ratio;
+        }
+      }
+
+      next.height = height;
+      next.width = Math.max(
+        minimum.width,
+        width
+      );
+
+      return next;
+    });
+  }
+
   function cancelCrop() {
     resetCrop();
 
@@ -13908,6 +14440,30 @@ export default function Home() {
 
   function applyCrop() {
     if (!image) return;
+
+    if (
+      selectedLayer &&
+      isLayerEffectivelyLocked(
+        selectedLayer
+      )
+    ) {
+      alert(
+        "Unlock the selected layer before cropping."
+      );
+      return;
+    }
+
+    const isFullImageCrop =
+      Math.abs(crop.x) < 0.000001 &&
+      Math.abs(crop.y) < 0.000001 &&
+      Math.abs(crop.width - 1) < 0.000001 &&
+      Math.abs(crop.height - 1) < 0.000001;
+
+    if (isFullImageCrop) {
+      setActiveTool("move");
+      setCropAspect("free");
+      return;
+    }
 
     saveHistory();
 
@@ -13956,6 +14512,9 @@ export default function Home() {
       cropCanvas.getContext("2d");
 
     if (!context) return;
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
 
     context.drawImage(
       image,
@@ -18419,6 +18978,54 @@ export default function Home() {
                         <div className="pointer-events-none absolute left-0 top-2/3 w-full border-t border-white/35" />
 
                         <CropHandle
+                          position="n"
+                          onPointerDown={(
+                            event
+                          ) =>
+                            startCropDrag(
+                              event,
+                              "n"
+                            )
+                          }
+                        />
+
+                        <CropHandle
+                          position="e"
+                          onPointerDown={(
+                            event
+                          ) =>
+                            startCropDrag(
+                              event,
+                              "e"
+                            )
+                          }
+                        />
+
+                        <CropHandle
+                          position="s"
+                          onPointerDown={(
+                            event
+                          ) =>
+                            startCropDrag(
+                              event,
+                              "s"
+                            )
+                          }
+                        />
+
+                        <CropHandle
+                          position="w"
+                          onPointerDown={(
+                            event
+                          ) =>
+                            startCropDrag(
+                              event,
+                              "w"
+                            )
+                          }
+                        />
+
+                        <CropHandle
                           position="nw"
                           onPointerDown={(
                             event
@@ -18865,9 +19472,14 @@ export default function Home() {
                             [
                               "free",
                               "1:1",
+                              "5:4",
                               "4:3",
                               "3:2",
                               "16:9",
+                              "4:5",
+                              "3:4",
+                              "2:3",
+                              "9:16",
                             ] as CropAspect[]
                           ).map((aspect) => (
                             <button
@@ -22375,9 +22987,14 @@ export default function Home() {
                   [
                     "free",
                     "1:1",
+                    "5:4",
                     "4:3",
                     "3:2",
                     "16:9",
+                    "4:5",
+                    "3:4",
+                    "2:3",
+                    "9:16",
                   ] as CropAspect[]
                 ).map((aspect) => (
 
@@ -22403,6 +23020,96 @@ export default function Home() {
 
                 ))}
 
+              </div>
+
+              <PanelTitle title="PRECISE GEOMETRY" />
+
+              <div className="grid grid-cols-2 gap-2">
+                <CropNumberInput
+                  label="X"
+                  value={Math.round(
+                    crop.x * image.naturalWidth
+                  )}
+                  max={Math.max(
+                    0,
+                    image.naturalWidth -
+                      Math.round(
+                        crop.width * image.naturalWidth
+                      )
+                  )}
+                  onChange={(value) =>
+                    setCropPixelValue(
+                      "x",
+                      value
+                    )
+                  }
+                />
+
+                <CropNumberInput
+                  label="Y"
+                  value={Math.round(
+                    crop.y * image.naturalHeight
+                  )}
+                  max={Math.max(
+                    0,
+                    image.naturalHeight -
+                      Math.round(
+                        crop.height * image.naturalHeight
+                      )
+                  )}
+                  onChange={(value) =>
+                    setCropPixelValue(
+                      "y",
+                      value
+                    )
+                  }
+                />
+
+                <CropNumberInput
+                  label="W"
+                  value={Math.round(
+                    crop.width * image.naturalWidth
+                  )}
+                  min={CROP_MINIMUM_PIXELS}
+                  max={Math.max(
+                    CROP_MINIMUM_PIXELS,
+                    image.naturalWidth -
+                      Math.round(
+                        crop.x * image.naturalWidth
+                      )
+                  )}
+                  onChange={(value) =>
+                    setCropPixelValue(
+                      "width",
+                      value
+                    )
+                  }
+                />
+
+                <CropNumberInput
+                  label="H"
+                  value={Math.round(
+                    crop.height * image.naturalHeight
+                  )}
+                  min={CROP_MINIMUM_PIXELS}
+                  max={Math.max(
+                    CROP_MINIMUM_PIXELS,
+                    image.naturalHeight -
+                      Math.round(
+                        crop.y * image.naturalHeight
+                      )
+                  )}
+                  onChange={(value) =>
+                    setCropPixelValue(
+                      "height",
+                      value
+                    )
+                  }
+                />
+              </div>
+
+              <div className="mt-3 text-[10px] leading-4 text-gray-500">
+                Drag corners or edges. Hold Shift while resizing a Free crop to preserve its current ratio. Arrow keys nudge 1 px; Shift + Arrow nudges 10 px.
               </div>
 
               <div className="mt-5 text-xs text-gray-500">
@@ -22927,6 +23634,10 @@ function CropHandle({
   onPointerDown,
 }: {
   position:
+    | "n"
+    | "e"
+    | "s"
+    | "w"
     | "nw"
     | "ne"
     | "sw"
@@ -22937,6 +23648,10 @@ function CropHandle({
   ) => void;
 }) {
   const positionClasses = {
+    n: "left-1/2 -top-2 -translate-x-1/2 cursor-ns-resize",
+    e: "-right-2 top-1/2 -translate-y-1/2 cursor-ew-resize",
+    s: "-bottom-2 left-1/2 -translate-x-1/2 cursor-ns-resize",
+    w: "-left-2 top-1/2 -translate-y-1/2 cursor-ew-resize",
     nw: "-left-2 -top-2 cursor-nwse-resize",
     ne: "-right-2 -top-2 cursor-nesw-resize",
     sw: "-bottom-2 -left-2 cursor-nesw-resize",
@@ -22948,6 +23663,57 @@ function CropHandle({
       onPointerDown={onPointerDown}
       className={`absolute h-4 w-4 rounded-sm border-2 border-black bg-white ${positionClasses[position]}`}
     />
+  );
+}
+
+function CropNumberInput({
+  label,
+  value,
+  min = 0,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  max: number;
+  onChange: (
+    value: number
+  ) => void;
+}) {
+  return (
+    <label className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 transition-colors focus-within:border-indigo-500/40 focus-within:bg-indigo-500/[0.06]">
+      <div className="text-[9px] uppercase tracking-[0.12em] text-gray-500">
+        {label}
+      </div>
+
+      <div className="mt-1 flex items-center gap-1">
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={1}
+          value={value}
+          onChange={(event) => {
+            const next =
+              Number(
+                event.target.value
+              );
+
+            if (
+              Number.isFinite(next)
+            ) {
+              onChange(next);
+            }
+          }}
+          className="min-w-0 flex-1 bg-transparent text-[11px] tabular-nums text-gray-200 outline-none"
+        />
+
+        <span className="text-[9px] text-gray-600">
+          px
+        </span>
+      </div>
+    </label>
   );
 }
 
