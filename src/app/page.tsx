@@ -3953,6 +3953,19 @@ export default function Home() {
     setFuture,
   ] = useState<EditorSnapshot[]>([]);
 
+  /*
+    PAINT HISTORY TRANSACTION
+
+    A professional brush stroke should behave as one atomic
+    history step. Escape can cancel the in-progress stroke and
+    restore the redo stack that existed before painting began.
+  */
+  const paintFutureBackupRef =
+    useRef<EditorSnapshot[] | null>(null);
+
+  const paintHistoryTransactionActiveRef =
+    useRef(false);
+
   /* CROP */
 
   const [crop, setCrop] =
@@ -4036,6 +4049,49 @@ export default function Home() {
     );
 
     setFuture([]);
+  }
+
+  function beginPaintStrokeHistory() {
+    if (!image) return;
+
+    paintFutureBackupRef.current =
+      [...future];
+
+    paintHistoryTransactionActiveRef.current =
+      true;
+
+    saveHistory();
+  }
+
+  function commitPaintStrokeHistory() {
+    paintHistoryTransactionActiveRef.current =
+      false;
+
+    paintFutureBackupRef.current =
+      null;
+  }
+
+  function cancelPaintStrokeHistory() {
+    if (!paintHistoryTransactionActiveRef.current) {
+      return;
+    }
+
+    setHistory((previous) =>
+      previous.slice(0, -1)
+    );
+
+    const redoBackup =
+      paintFutureBackupRef.current;
+
+    if (redoBackup) {
+      setFuture(redoBackup);
+    }
+
+    paintHistoryTransactionActiveRef.current =
+      false;
+
+    paintFutureBackupRef.current =
+      null;
   }
 
   function restoreSnapshot(
@@ -9772,9 +9828,9 @@ export default function Home() {
       typeof parsed.paintBrushSize ===
         "number"
         ? Math.max(
-            5,
+            1,
             Math.min(
-              500,
+              2000,
               parsed.paintBrushSize
             )
           )
@@ -9815,7 +9871,7 @@ export default function Home() {
 
     setPaintBrushSpacing(
       typeof parsed.paintBrushSpacing === "number"
-        ? Math.max(1, Math.min(100, parsed.paintBrushSpacing))
+        ? Math.max(1, Math.min(200, parsed.paintBrushSpacing))
         : 16
     );
 
@@ -10362,6 +10418,13 @@ export default function Home() {
     paintBrushSize,
     paintBrushHardness,
     paintBrushOpacity,
+    paintBrushFlow,
+    paintBrushSpacing,
+    paintBrushSmoothing,
+    paintBrushMode,
+    paintBrushBlendMode,
+    paintPressureSize,
+    paintPressureOpacity,
     fileName,
   ]);
 
@@ -11128,7 +11191,9 @@ export default function Home() {
         setPaintBrushSize(
           (value) =>
             clamp(
-              value + delta
+              value + delta,
+              1,
+              2000
             )
         );
         break;
@@ -18458,7 +18523,9 @@ export default function Home() {
                   paintBrushBlendMode={paintBrushBlendMode}
                   paintPressureSize={paintPressureSize}
                   paintPressureOpacity={paintPressureOpacity}
-                  onPaintStrokeStart={saveHistory}
+                  onPaintStrokeStart={beginPaintStrokeHistory}
+                  onPaintStrokeCommit={commitPaintStrokeHistory}
+                  onPaintStrokeCancel={cancelPaintStrokeHistory}
                 />
 
               )

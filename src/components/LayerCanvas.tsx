@@ -297,6 +297,10 @@ type LayerCanvasProps = {
   paintPressureOpacity: boolean;
 
   onPaintStrokeStart: () => void;
+
+  onPaintStrokeCommit: () => void;
+
+  onPaintStrokeCancel: () => void;
 };
 
 export type CloneSamplePoint = {
@@ -393,6 +397,8 @@ export default function LayerCanvas({
   paintPressureSize,
   paintPressureOpacity,
   onPaintStrokeStart,
+  onPaintStrokeCommit,
+  onPaintStrokeCancel,
 }: LayerCanvasProps) {
   const canvasRef =
     useRef<HTMLCanvasElement | null>(
@@ -870,6 +876,20 @@ export default function LayerCanvas({
 
   const smoothedPaintPointRef =
     useRef<{
+      x: number;
+      y: number;
+      pressure: number;
+    } | null>(null);
+
+  const paintStrokeOriginalSrcRef =
+    useRef("");
+
+  const paintPointerDownRef =
+    useRef(false);
+
+  const paintLastCommittedPointRef =
+    useRef<{
+      layerId: string;
       x: number;
       y: number;
       pressure: number;
@@ -12099,15 +12119,22 @@ export default function LayerCanvas({
     return "source-over";
   }
 
-  function normalizePaintPressure(
-    event: PointerEvent<HTMLDivElement>
-  ) {
+  function normalizePaintPressure(event: {
+    pointerType?: string;
+    pressure?: number;
+  }) {
     if (
       event.pointerType === "pen" &&
       Number.isFinite(event.pressure) &&
-      event.pressure > 0
+      (event.pressure ?? 0) > 0
     ) {
-      return Math.max(0.05, Math.min(1, event.pressure));
+      return Math.max(
+        0.05,
+        Math.min(
+          1,
+          event.pressure ?? 1
+        )
+      );
     }
 
     return 1;
@@ -12129,16 +12156,27 @@ export default function LayerCanvas({
       return point;
     }
 
-    // 0% follows the pointer exactly. 100% gives a strong but
-    // still responsive stabilizer rather than freezing the stroke.
+    /*
+      Exponential pointer stabilizer.
+      The low-end remains responsive for short detail strokes,
+      while high smoothing removes hand jitter without introducing
+      the large rubber-band delay of a fixed trailing queue.
+    */
+    const normalized =
+      smoothing / 100;
+
     const follow = Math.max(
-      0.12,
-      1 - (smoothing / 100) * 0.88
+      0.08,
+      1 - Math.pow(normalized, 0.78) * 0.92
     );
 
     const next = {
-      x: previous.x + (point.x - previous.x) * follow,
-      y: previous.y + (point.y - previous.y) * follow,
+      x:
+        previous.x +
+        (point.x - previous.x) * follow,
+      y:
+        previous.y +
+        (point.y - previous.y) * follow,
       pressure:
         previous.pressure +
         (point.pressure - previous.pressure) * follow,
@@ -12161,9 +12199,7 @@ export default function LayerCanvas({
     }
 
     const context =
-      workingCanvas.getContext(
-        "2d"
-      );
+      workingCanvas.getContext("2d");
 
     if (!context) {
       return;
@@ -12173,45 +12209,32 @@ export default function LayerCanvas({
       paintPressureSize
         ? Math.max(
             0.08,
-            Math.min(
-              1,
-              pressure
-            )
+            Math.min(1, pressure)
           )
         : 1;
 
     const effectiveSize =
       Math.max(
-        2,
-        paintBrushSize *
-          pressureSizeScale
+        1,
+        Math.min(
+          2000,
+          paintBrushSize * pressureSizeScale
+        )
       );
 
     const radius =
-      Math.max(
-        1,
-        effectiveSize / 2
-      );
+      Math.max(0.5, effectiveSize / 2);
 
-    const drawSize =
-      radius * 2;
+    const drawSize = radius * 2;
 
     const diameter =
-      Math.max(
-        2,
-        Math.ceil(
-          drawSize
-        )
-      );
+      Math.max(2, Math.ceil(drawSize));
 
     const pressureOpacityScale =
       paintPressureOpacity
         ? Math.max(
             0.05,
-            Math.min(
-              1,
-              pressure
-            )
+            Math.min(1, pressure)
           )
         : 1;
 
@@ -12220,10 +12243,8 @@ export default function LayerCanvas({
         0.002,
         Math.min(
           1,
-          (paintBrushOpacity /
-            100) *
-            (paintBrushFlow /
-              100) *
+          (paintBrushOpacity / 100) *
+            (paintBrushFlow / 100) *
             pressureOpacityScale
         )
       );
@@ -12236,7 +12257,7 @@ export default function LayerCanvas({
       canReuseStamp
         ? [
             diameter,
-            paintBrushHardness,
+            Math.round(paintBrushHardness * 10) / 10,
             paintBrushColor,
             opacity.toFixed(4),
           ].join("|")
@@ -12244,93 +12265,86 @@ export default function LayerCanvas({
 
     let stamp =
       canReuseStamp &&
-      paintStampCacheRef.current?.key ===
-        stampKey
-        ? paintStampCacheRef.current
-            .canvas
+      paintStampCacheRef.current?.key === stampKey
+        ? paintStampCacheRef.current.canvas
         : null;
 
     if (!stamp) {
-      stamp =
-        document.createElement(
-          "canvas"
-        );
-
-      stamp.width =
-        diameter;
-
-      stamp.height =
-        diameter;
+      stamp = document.createElement("canvas");
+      stamp.width = diameter;
+      stamp.height = diameter;
 
       const stampContext =
-        stamp.getContext(
-          "2d"
-        );
+        stamp.getContext("2d");
 
       if (!stampContext) {
         return;
       }
 
       const { r, g, b } =
-        hexToRgb(
-          paintBrushColor
-        );
+        hexToRgb(paintBrushColor);
 
-      const center =
-        diameter / 2;
-
-      const outer =
-        diameter / 2;
-
-      const inner =
-        outer *
-        Math.min(
-          0.98,
-          Math.max(
-            0,
-            paintBrushHardness /
-              100
-          )
-        );
-
-      const gradient =
-        stampContext.createRadialGradient(
-          center,
-          center,
-          inner,
-          center,
-          center,
-          outer
-        );
-
-      gradient.addColorStop(
+      const center = diameter / 2;
+      const outer = Math.max(0.5, diameter / 2);
+      const hardness = Math.max(
         0,
-        `rgba(${r},${g},${b},${opacity})`
+        Math.min(1, paintBrushHardness / 100)
       );
 
-      gradient.addColorStop(
-        1,
-        `rgba(${r},${g},${b},0)`
-      );
+      if (hardness >= 0.995) {
+        /*
+          A 100% hard brush must have a truly hard edge. The
+          previous 98% radial falloff left a soft halo even at
+          maximum hardness.
+        */
+        stampContext.fillStyle =
+          `rgba(${r},${g},${b},${opacity})`;
+        stampContext.beginPath();
+        stampContext.arc(
+          center,
+          center,
+          Math.max(0.5, outer - 0.35),
+          0,
+          Math.PI * 2
+        );
+        stampContext.fill();
+      } else {
+        const inner =
+          outer * Math.pow(hardness, 0.72);
 
-      stampContext.fillStyle =
-        gradient;
+        const gradient =
+          stampContext.createRadialGradient(
+            center,
+            center,
+            inner,
+            center,
+            center,
+            outer
+          );
 
-      stampContext.fillRect(
-        0,
-        0,
-        diameter,
-        diameter
-      );
+        gradient.addColorStop(
+          0,
+          `rgba(${r},${g},${b},${opacity})`
+        );
+        gradient.addColorStop(
+          1,
+          `rgba(${r},${g},${b},0)`
+        );
+
+        stampContext.fillStyle = gradient;
+        stampContext.fillRect(
+          0,
+          0,
+          diameter,
+          diameter
+        );
+      }
 
       if (canReuseStamp) {
-        paintStampCacheRef.current =
-          {
-            key:
-              stampKey,
-            canvas:
-              stamp,
-          };
+        paintStampCacheRef.current = {
+          key: stampKey,
+          canvas: stamp,
+        };
       }
     }
 
@@ -12341,30 +12355,21 @@ export default function LayerCanvas({
       paintCompositeOperation();
 
     context.save();
-
-    context.globalCompositeOperation =
-      operation;
+    context.globalCompositeOperation = operation;
 
     if (selectionMask) {
       /*
-        Mask only the brush-sized rectangle. The old path created
-        a full image-sized temporary canvas for every single stamp.
+        Mask only the brush-sized rectangle instead of allocating
+        a full image-sized temporary canvas for every dab.
       */
       const maskedStamp =
-        document.createElement(
-          "canvas"
-        );
+        document.createElement("canvas");
 
-      maskedStamp.width =
-        diameter;
-
-      maskedStamp.height =
-        diameter;
+      maskedStamp.width = diameter;
+      maskedStamp.height = diameter;
 
       const maskedContext =
-        maskedStamp.getContext(
-          "2d"
-        );
+        maskedStamp.getContext("2d");
 
       if (!maskedContext) {
         context.restore();
@@ -12379,51 +12384,29 @@ export default function LayerCanvas({
         diameter
       );
 
-      const left =
-        x - radius;
-
-      const top =
-        y - radius;
-
-      const sourceLeft =
-        Math.max(
-          0,
-          left
-        );
-
-      const sourceTop =
-        Math.max(
-          0,
-          top
-        );
-
-      const sourceRight =
-        Math.min(
-          selectionMask.width,
-          left + drawSize
-        );
-
-      const sourceBottom =
-        Math.min(
-          selectionMask.height,
-          top + drawSize
-        );
-
+      const left = x - radius;
+      const top = y - radius;
+      const sourceLeft = Math.max(0, left);
+      const sourceTop = Math.max(0, top);
+      const sourceRight = Math.min(
+        selectionMask.width,
+        left + drawSize
+      );
+      const sourceBottom = Math.min(
+        selectionMask.height,
+        top + drawSize
+      );
       const sourceWidth =
-        sourceRight -
-        sourceLeft;
-
+        sourceRight - sourceLeft;
       const sourceHeight =
-        sourceBottom -
-        sourceTop;
+        sourceBottom - sourceTop;
 
       if (
         sourceWidth > 0 &&
         sourceHeight > 0
       ) {
         const localScale =
-          diameter /
-          drawSize;
+          diameter / drawSize;
 
         maskedContext.globalCompositeOperation =
           "destination-in";
@@ -12434,16 +12417,10 @@ export default function LayerCanvas({
           sourceTop,
           sourceWidth,
           sourceHeight,
-          (sourceLeft -
-            left) *
-            localScale,
-          (sourceTop -
-            top) *
-            localScale,
-          sourceWidth *
-            localScale,
-          sourceHeight *
-            localScale
+          (sourceLeft - left) * localScale,
+          (sourceTop - top) * localScale,
+          sourceWidth * localScale,
+          sourceHeight * localScale
         );
 
         maskedContext.globalCompositeOperation =
@@ -12475,22 +12452,52 @@ export default function LayerCanvas({
     y: number;
     pressure: number;
   }) {
-    const previous = lastPaintPointRef.current;
+    const previous =
+      lastPaintPointRef.current;
 
     if (previous) {
       const dx = point.x - previous.x;
       const dy = point.y - previous.y;
       const distance = Math.hypot(dx, dy);
 
+      const averagePressure =
+        (previous.pressure + point.pressure) / 2;
+
+      const pressureSizeScale =
+        paintPressureSize
+          ? Math.max(
+              0.08,
+              Math.min(1, averagePressure)
+            )
+          : 1;
+
+      const spacingBase =
+        Math.max(
+          1,
+          paintBrushSize * pressureSizeScale
+        );
+
       const spacing = Math.max(
-        0.5,
-        paintBrushSize *
-          (Math.max(1, Math.min(100, paintBrushSpacing)) / 100)
+        0.35,
+        spacingBase *
+          (
+            Math.max(
+              1,
+              Math.min(200, paintBrushSpacing)
+            ) / 100
+          )
       );
 
-      const steps = Math.max(1, Math.ceil(distance / spacing));
+      const steps = Math.max(
+        1,
+        Math.ceil(distance / spacing)
+      );
 
-      for (let step = 1; step <= steps; step += 1) {
+      for (
+        let step = 1;
+        step <= steps;
+        step += 1
+      ) {
         const amount = step / steps;
         const pressure =
           previous.pressure +
@@ -12503,24 +12510,27 @@ export default function LayerCanvas({
         );
       }
     } else {
-      paintRasterStamp(point.x, point.y, point.pressure);
+      paintRasterStamp(
+        point.x,
+        point.y,
+        point.pressure
+      );
     }
 
     lastPaintPointRef.current = point;
 
-    emitPaintPreview(paintStrokeLayerIdRef.current);
+    emitPaintPreview(
+      paintStrokeLayerIdRef.current
+    );
   }
 
   async function startPaintStroke(
-    event:
-      PointerEvent<HTMLDivElement>
+    event: PointerEvent<HTMLDivElement>
   ) {
     if (
-      activeTool !==
-        "paint" ||
+      activeTool !== "paint" ||
       !selectedLayer ||
-      selectedLayer.layerKind !==
-        "image" ||
+      selectedLayer.layerKind !== "image" ||
       selectedLayer.locked
     ) {
       return;
@@ -12537,70 +12547,65 @@ export default function LayerCanvas({
       return;
     }
 
-    smoothedPaintPointRef.current = null;
-
-    const point = smoothPaintPoint({
-      ...rawPoint,
-      pressure: normalizePaintPressure(event),
-    });
-
     event.preventDefault();
     event.stopPropagation();
 
-    event.currentTarget
-      .setPointerCapture(
-        event.pointerId
+    paintPointerDownRef.current = true;
+
+    event.currentTarget.setPointerCapture(
+      event.pointerId
+    );
+
+    const layerAtStart = selectedLayer;
+    const pressure =
+      normalizePaintPressure(event);
+
+    let sourceImage: HTMLImageElement;
+
+    try {
+      sourceImage =
+        await loadImage(layerAtStart.src);
+    } catch (error) {
+      paintPointerDownRef.current = false;
+      console.error(
+        "Brush source load failed:",
+        error
       );
-
-    onPaintStrokeStart();
-
-    const sourceImage =
-      await loadImage(
-        selectedLayer.src
-      );
-
-    const size =
-      layerSizes[
-        selectedLayer.id
-      ];
-
-    if (!size) {
       return;
     }
 
-    const width =
-      Math.max(
-        1,
-        Math.round(
-          size.width
-        )
-      );
+    if (!paintPointerDownRef.current) {
+      return;
+    }
 
-    const height =
-      Math.max(
-        1,
-        Math.round(
-          size.height
-        )
-      );
+    const size =
+      layerSizes[layerAtStart.id];
+
+    if (!size) {
+      paintPointerDownRef.current = false;
+      return;
+    }
+
+    const width = Math.max(
+      1,
+      Math.round(size.width)
+    );
+    const height = Math.max(
+      1,
+      Math.round(size.height)
+    );
 
     const workingCanvas =
-      document.createElement(
-        "canvas"
-      );
+      document.createElement("canvas");
 
-    workingCanvas.width =
-      width;
-
-    workingCanvas.height =
-      height;
+    workingCanvas.width = width;
+    workingCanvas.height = height;
 
     const context =
-      workingCanvas.getContext(
-        "2d"
-      );
+      workingCanvas.getContext("2d");
 
     if (!context) {
+      paintPointerDownRef.current = false;
       return;
     }
 
@@ -12618,44 +12623,63 @@ export default function LayerCanvas({
     paintSelectionMaskRef.current =
       selection
         ? createSelectionMaskForLayer(
-            selectedLayer,
+            layerAtStart,
             width,
             height
           )
         : null;
 
     paintStrokeLayerIdRef.current =
-      selectedLayer.id;
+      layerAtStart.id;
 
-    lastPaintPointRef.current =
-      null;
+    paintStrokeOriginalSrcRef.current =
+      layerAtStart.src;
 
+    lastPaintPointRef.current = null;
     smoothedPaintPointRef.current = null;
+    lastPaintEmitRef.current = 0;
+    lastPaintLivePreviewRef.current = 0;
+    paintLivePreviewQueuedRef.current = false;
+    paintLivePreviewVersionRef.current += 1;
 
-    lastPaintEmitRef.current =
-      0;
+    onPaintStrokeStart();
 
-    lastPaintLivePreviewRef.current =
-      0;
+    setRasterPainting(true);
 
-    paintLivePreviewQueuedRef.current =
-      false;
+    const exactPoint = {
+      ...rawPoint,
+      pressure,
+    };
 
-    paintLivePreviewVersionRef.current +=
-      1;
+    const straightAnchor =
+      event.shiftKey &&
+      paintLastCommittedPointRef.current?.layerId ===
+        layerAtStart.id
+        ? paintLastCommittedPointRef.current
+        : null;
 
-    setRasterPainting(
-      true
-    );
-
-    paintRasterSegment(
-      point
-    );
+    if (straightAnchor) {
+      /*
+        Photoshop-style Shift-click: connect the previous completed
+        paint point to the new click with the current brush.
+      */
+      lastPaintPointRef.current = {
+        x: straightAnchor.x,
+        y: straightAnchor.y,
+        pressure: straightAnchor.pressure,
+      };
+      smoothedPaintPointRef.current =
+        exactPoint;
+      paintRasterSegment(exactPoint);
+    } else {
+      const point =
+        smoothPaintPoint(exactPoint);
+      paintRasterSegment(point);
+    }
   }
 
   function movePaintStroke(
-    event:
-      PointerEvent<HTMLDivElement>
+    event: PointerEvent<HTMLDivElement>
   ) {
     updatePaintCursor(
       event.clientX,
@@ -12671,63 +12695,186 @@ export default function LayerCanvas({
       return;
     }
 
-    const rawPoint =
-      pointerToMaskPoint(
-        event.clientX,
-        event.clientY,
-        selectedLayer
-      );
-
-    if (!rawPoint) {
-      lastPaintPointRef.current = null;
-      smoothedPaintPointRef.current = null;
-
-      return;
-    }
-
-    const point = smoothPaintPoint({
-      ...rawPoint,
-      pressure: normalizePaintPressure(event),
-    });
-
     event.preventDefault();
     event.stopPropagation();
 
-    paintRasterSegment(
-      point
-    );
+    const nativeEvent =
+      event.nativeEvent;
+
+    const samples =
+      typeof nativeEvent.getCoalescedEvents ===
+        "function"
+        ? nativeEvent.getCoalescedEvents()
+        : [nativeEvent];
+
+    let drewPoint = false;
+
+    for (const sample of samples) {
+      const rawPoint =
+        pointerToMaskPoint(
+          sample.clientX,
+          sample.clientY,
+          selectedLayer
+        );
+
+      if (!rawPoint) {
+        continue;
+      }
+
+      const point =
+        smoothPaintPoint({
+          ...rawPoint,
+          pressure:
+            normalizePaintPressure(sample),
+        });
+
+      paintRasterSegment(point);
+      drewPoint = true;
+    }
+
+    if (!drewPoint) {
+      lastPaintPointRef.current = null;
+      smoothedPaintPointRef.current = null;
+    }
+  }
+
+  function clearPaintStrokeRuntime() {
+    setRasterPainting(false);
+    paintPointerDownRef.current = false;
+    paintCanvasRef.current = null;
+    paintSelectionMaskRef.current = null;
+    lastPaintPointRef.current = null;
+    smoothedPaintPointRef.current = null;
+    paintStrokeLayerIdRef.current = "";
+    paintStrokeOriginalSrcRef.current = "";
+    paintLivePreviewQueuedRef.current = false;
   }
 
   function endPaintStroke() {
+    paintPointerDownRef.current = false;
+
+    if (!rasterPainting) {
+      return;
+    }
+
+    const layerId =
+      paintStrokeLayerIdRef.current;
+
+    const finalPoint =
+      lastPaintPointRef.current;
+
+    emitPaintPreview(layerId, true);
+
+    if (finalPoint && layerId) {
+      paintLastCommittedPointRef.current = {
+        layerId,
+        ...finalPoint,
+      };
+    }
+
+    clearPaintStrokeRuntime();
+    onPaintStrokeCommit();
+  }
+
+  function cancelPaintStroke() {
+    paintPointerDownRef.current = false;
+
+    if (!rasterPainting) {
+      return;
+    }
+
+    const layerId =
+      paintStrokeLayerIdRef.current;
+    const originalSrc =
+      paintStrokeOriginalSrcRef.current;
+
+    /*
+      Invalidate any async live-preview render before restoring the
+      original layer source so a late preview cannot repaint a
+      cancelled stroke onto the document canvas.
+    */
+    paintLivePreviewVersionRef.current += 1;
+    paintLivePreviewQueuedRef.current = false;
+
+    if (layerId && originalSrc) {
+      onLayerSourceChange(
+        layerId,
+        originalSrc
+      );
+    }
+
+    clearPaintStrokeRuntime();
+    onPaintStrokeCancel();
+  }
+
+  useEffect(() => {
     if (
+      activeTool !== "paint" ||
       !rasterPainting
     ) {
       return;
     }
 
-    emitPaintPreview(
-      paintStrokeLayerIdRef.current,
+    function handlePaintEscape(
+      event: KeyboardEvent
+    ) {
+      const target =
+        event.target as HTMLElement | null;
+
+      const tag =
+        target?.tagName?.toLowerCase();
+
+      if (
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        cancelPaintStroke();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handlePaintEscape,
       true
     );
 
-    setRasterPainting(
-      false
-    );
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handlePaintEscape,
+        true
+      );
+    };
+  }, [
+    activeTool,
+    rasterPainting,
+  ]);
 
-    paintCanvasRef.current =
-      null;
-
-    paintSelectionMaskRef.current =
-      null;
-
-    lastPaintPointRef.current =
-      null;
-
-    smoothedPaintPointRef.current = null;
-
-    paintStrokeLayerIdRef.current =
-      "";
-  }
+  useEffect(() => {
+    if (
+      rasterPainting &&
+      (
+        activeTool !== "paint" ||
+        selectedLayerId !==
+          paintStrokeLayerIdRef.current
+      )
+    ) {
+      cancelPaintStroke();
+    }
+  }, [
+    activeTool,
+    selectedLayerId,
+    rasterPainting,
+  ]);
 
   /*
     TEXT TOOL - TEXT PRO
@@ -14772,7 +14919,7 @@ export default function LayerCanvas({
               : activeTool === "blur-sharpen"
                 ? endBlurSharpenStroke
               : activeTool === "paint"
-                ? endPaintStroke
+                ? cancelPaintStroke
               : activeTool === "shape"
                 ? endShapeTool
                 : endLayerDrag
@@ -16066,7 +16213,11 @@ export default function LayerCanvas({
             "image" &&
           !selectedLayer.locked && (
           <div
-            className="pointer-events-none absolute rounded-full border border-white shadow-[0_0_0_1px_rgba(0,0,0,0.8),0_0_8px_rgba(244,114,182,0.35)]"
+            className={
+              paintBrushMode === "erase"
+                ? "pointer-events-none absolute rounded-full border border-rose-100 shadow-[0_0_0_1px_rgba(0,0,0,0.86),0_0_8px_rgba(251,113,133,0.28)]"
+                : "pointer-events-none absolute rounded-full border border-white shadow-[0_0_0_1px_rgba(0,0,0,0.86),0_0_8px_rgba(244,114,182,0.28)]"
+            }
             style={{
               left:
                 brushCursor.x -
@@ -16083,17 +16234,46 @@ export default function LayerCanvas({
                 brushCursor.size,
             }}
           >
-            <div
-              className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white shadow-[0_0_0_1px_rgba(0,0,0,0.8)]"
-              style={{
-                background:
-                  /^#[0-9a-fA-F]{6}$/.test(
-                    paintBrushColor
-                  )
-                    ? paintBrushColor
-                    : "#ffffff",
-              }}
-            />
+            {paintBrushHardness > 0 &&
+              paintBrushHardness < 100 && (
+              <div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/45 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+                style={{
+                  width: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        paintBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                  height: Math.max(
+                    2,
+                    brushCursor.size *
+                      Math.pow(
+                        paintBrushHardness / 100,
+                        0.72
+                      )
+                  ),
+                }}
+              />
+            )}
+
+            {paintBrushMode === "erase" ? (
+              <div className="absolute left-1/2 top-1/2 h-px w-4 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-rose-100 shadow-[0_0_0_1px_rgba(0,0,0,0.45)]" />
+            ) : (
+              <div
+                className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white shadow-[0_0_0_1px_rgba(0,0,0,0.8)]"
+                style={{
+                  background:
+                    /^#[0-9a-fA-F]{6}$/.test(
+                      paintBrushColor
+                    )
+                      ? paintBrushColor
+                      : "#ffffff",
+                }}
+              />
+            )}
           </div>
         )}
 
@@ -16390,9 +16570,9 @@ export default function LayerCanvas({
                         : "Blur / Sharpen / Smudge • select an unlocked image layer"
                   : activeTool === "paint"
                     ? rasterPainting
-                      ? `Painting ${paintBrushColor.toUpperCase()}`
+                      ? `${paintBrushMode === "erase" ? "Erasing" : "Painting"} • ${Math.round(paintBrushSize)} px • ${Math.round(paintBrushOpacity)}% opacity • Esc cancels`
                       : selectedLayer?.layerKind === "image"
-                        ? `Paint Brush • ${paintBrushColor.toUpperCase()} • paint on raster pixels`
+                        ? `Paint Brush • ${Math.round(paintBrushSize)} px • Shift+click straight line • [ ] size`
                         : "Paint Brush • select an unlocked image layer"
                   : activeTool === "magic-wand"
                     ? magicWandBusy
