@@ -218,6 +218,57 @@ const CROP_ASPECT_RATIOS: Record<
 
 const CROP_MINIMUM_PIXELS = 16;
 
+const PROJECT_AUTOSAVE_DELAY_MS = 1400;
+
+const MAX_PROJECT_FILE_SIZE_BYTES =
+  512 * 1024 * 1024;
+
+function createProjectIdentity(
+  prefix: "project" | "session"
+) {
+  const randomId =
+    globalThis.crypto?.randomUUID?.();
+
+  if (randomId) {
+    return `${prefix}-${randomId}`;
+  }
+
+  return `${prefix}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 12)}`;
+}
+
+function normalizeProjectTimestamp(
+  value: unknown,
+  fallback: string
+) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const time = Date.parse(value);
+
+  return Number.isFinite(time)
+    ? new Date(time).toISOString()
+    : fallback;
+}
+
+function getProjectDownloadBaseName(
+  name: string
+) {
+  const withoutExtension =
+    name.replace(/\.[^/.]+$/, "");
+
+  const sanitized = withoutExtension
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[. ]+$/g, "")
+    .slice(0, 120);
+
+  return sanitized || "sihag-project";
+}
+
 type EditorSnapshot = {
   imageSrc: string | null;
   fileName: string;
@@ -239,6 +290,11 @@ type SihagProjectFile = {
   app: "SIHAG AI STUDIO";
 
   savedAt: string;
+
+  projectId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  revision?: number;
 
   fileName: string;
 
@@ -798,6 +854,32 @@ export default function Home() {
     useRef<HTMLInputElement | null>(
       null
     );
+
+  const projectIdRef =
+    useRef(
+      createProjectIdentity("project")
+    );
+
+  const projectCreatedAtRef =
+    useRef(
+      new Date().toISOString()
+    );
+
+  const projectRevisionRef =
+    useRef(0);
+
+  const recoverySessionIdRef =
+    useRef(
+      createProjectIdentity("session")
+    );
+
+  const autosaveRequestRef =
+    useRef(0);
+
+  const recoveryProjectBuilderRef =
+    useRef<
+      () => SihagProjectFile | null
+    >(() => null);
 
   const temporaryHandToolRef =
     useRef<Tool | null>(
@@ -9245,14 +9327,27 @@ export default function Home() {
       return null;
     }
 
+    const now =
+      new Date().toISOString();
+
     return {
       version: 1,
 
       app:
         "SIHAG AI STUDIO",
 
-      savedAt:
-        new Date().toISOString(),
+      savedAt: now,
+
+      projectId:
+        projectIdRef.current,
+
+      createdAt:
+        projectCreatedAtRef.current,
+
+      updatedAt: now,
+
+      revision:
+        projectRevisionRef.current,
 
       fileName,
 
@@ -9413,7 +9508,12 @@ export default function Home() {
     };
   }
 
+  recoveryProjectBuilderRef.current =
+    buildProjectFile;
+
   function saveProject() {
+    projectRevisionRef.current += 1;
+
     const project =
       buildProjectFile();
 
@@ -9421,54 +9521,67 @@ export default function Home() {
       return;
     }
 
-    const json =
-      JSON.stringify(
-        project,
-        null,
-        2
+    try {
+      const json =
+        JSON.stringify(
+          project,
+          null,
+          2
+        );
+
+      const blob =
+        new Blob(
+          [json],
+          {
+            type:
+              "application/json;charset=utf-8",
+          }
+        );
+
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+      const link =
+        document.createElement(
+          "a"
+        );
+
+      link.download =
+        `${getProjectDownloadBaseName(
+          fileName
+        )}.sihag`;
+
+      link.href = url;
+      link.rel = "noopener";
+      link.click();
+
+      window.setTimeout(
+        () => {
+          URL.revokeObjectURL(
+            url
+          );
+        },
+        1000
       );
-
-    const blob =
-      new Blob(
-        [json],
-        {
-          type:
-            "application/json",
-        }
+    } catch {
+      alert(
+        "The project could not be saved. Try again after closing other large browser tabs."
       );
-
-    const url =
-      URL.createObjectURL(
-        blob
-      );
-
-    const link =
-      document.createElement(
-        "a"
-      );
-
-    const baseName =
-      fileName.replace(
-        /\.[^/.]+$/,
-        ""
-      );
-
-    link.download =
-      `${baseName || "sihag-project"}.sihag`;
-
-    link.href =
-      url;
-
-    link.click();
-
-    URL.revokeObjectURL(
-      url
-    );
+    }
   }
 
   function openProjectPicker() {
-    projectInputRef.current
-      ?.click();
+    const input =
+      projectInputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    input.value = "";
+    input.click();
   }
 
   function restoreProjectData(
@@ -9522,6 +9635,38 @@ export default function Home() {
         "The project contains no valid image layers."
       );
     }
+
+    const now =
+      new Date().toISOString();
+
+    projectIdRef.current =
+      typeof parsed.projectId === "string" &&
+      parsed.projectId.trim()
+        ? parsed.projectId.trim().slice(0, 160)
+        : createProjectIdentity("project");
+
+    projectCreatedAtRef.current =
+      normalizeProjectTimestamp(
+        parsed.createdAt,
+        normalizeProjectTimestamp(
+          parsed.savedAt,
+          now
+        )
+      );
+
+    projectRevisionRef.current =
+      typeof parsed.revision === "number" &&
+      Number.isFinite(parsed.revision)
+        ? Math.max(
+            0,
+            Math.floor(parsed.revision)
+          )
+        : 0;
+
+    recoverySessionIdRef.current =
+      createProjectIdentity("session");
+
+    autosaveRequestRef.current += 1;
 
     const requestedSelectedId =
       typeof parsed.selectedLayerId ===
@@ -10430,15 +10575,58 @@ export default function Home() {
     event:
       ChangeEvent<HTMLInputElement>
   ) {
+    const input =
+      event.currentTarget;
+
     const file =
-      event.target.files?.[0];
+      input.files?.[0];
+
+    input.value = "";
 
     if (!file) {
       return;
     }
 
+    if (
+      file.size >
+      MAX_PROJECT_FILE_SIZE_BYTES
+    ) {
+      alert(
+        "This project is too large to open safely in the browser. The maximum supported project size is 512 MB."
+      );
+      return;
+    }
+
+    const hasSupportedName =
+      /\.(sihag|json)$/i.test(
+        file.name
+      );
+
+    const hasJsonMime =
+      file.type ===
+        "application/json" ||
+      file.type ===
+        "text/json" ||
+      file.type === "";
+
+    if (
+      !hasSupportedName &&
+      !hasJsonMime
+    ) {
+      alert(
+        "Please choose a SIHAG project (.sihag) or JSON project file."
+      );
+      return;
+    }
+
     const reader =
       new FileReader();
+
+    reader.onerror = () => {
+      alert(
+        "Project file could not be read. Please try again."
+      );
+    };
 
     reader.onload = () => {
       try {
@@ -10451,17 +10639,37 @@ export default function Home() {
           );
         }
 
-        const parsed =
+        const raw =
           JSON.parse(
             reader.result
-          ) as Partial<SihagProjectFile>;
+          ) as unknown;
+
+        if (
+          !raw ||
+          typeof raw !== "object" ||
+          Array.isArray(raw)
+        ) {
+          throw new Error(
+            "This project file has an invalid structure."
+          );
+        }
 
         restoreProjectData(
-          parsed
+          raw as Partial<SihagProjectFile>
         );
 
         setRecoveryProject(
           null
+        );
+
+        setRecoverySavedAt(
+          null
+        );
+
+        void clearRecoveryProject().catch(
+          () => {
+            // A fresh autosave will replace any stale checkpoint.
+          }
         );
       } catch (error) {
         const message =
@@ -10472,9 +10680,6 @@ export default function Home() {
         alert(
           message
         );
-      } finally {
-        event.target.value =
-          "";
       }
     };
 
@@ -10499,8 +10704,18 @@ export default function Home() {
         null
       );
 
+      setRecoverySavedAt(
+        null
+      );
+
       setAutosaveStatus(
         "saved"
+      );
+
+      void clearRecoveryProject().catch(
+        () => {
+          // A new autosave will replace the restored checkpoint.
+        }
       );
     } catch (error) {
       const message =
@@ -10636,6 +10851,19 @@ export default function Home() {
         new Image();
 
       img.onload = () => {
+        projectIdRef.current =
+          createProjectIdentity("project");
+
+        projectCreatedAtRef.current =
+          new Date().toISOString();
+
+        projectRevisionRef.current = 0;
+
+        recoverySessionIdRef.current =
+          createProjectIdentity("session");
+
+        autosaveRequestRef.current += 1;
+
         setImage(img);
         setFileName(file.name);
 
@@ -10758,6 +10986,11 @@ export default function Home() {
           project.layers.length ===
             0
         ) {
+          void clearRecoveryProject().catch(
+            () => {
+              // Ignore cleanup failure; the invalid checkpoint is not restored.
+            }
+          );
           return;
         }
 
@@ -10798,9 +11031,14 @@ export default function Home() {
       return;
     }
 
+    const requestId =
+      ++autosaveRequestRef.current;
+
     const timer =
       window.setTimeout(
         () => {
+          projectRevisionRef.current += 1;
+
           const project =
             buildProjectFile();
 
@@ -10813,24 +11051,44 @@ export default function Home() {
           );
 
           void saveRecoveryProject(
-            project
+            project,
+            {
+              revision:
+                projectRevisionRef.current,
+              sessionId:
+                recoverySessionIdRef.current,
+            }
           )
-            .then(() => {
+            .then((record) => {
+              if (
+                autosaveRequestRef.current !==
+                requestId
+              ) {
+                return;
+              }
+
               setAutosaveStatus(
                 "saved"
               );
 
               setRecoverySavedAt(
-                project.savedAt
+                record.savedAt
               );
             })
             .catch(() => {
+              if (
+                autosaveRequestRef.current !==
+                requestId
+              ) {
+                return;
+              }
+
               setAutosaveStatus(
                 "error"
               );
             });
         },
-        1400
+        PROJECT_AUTOSAVE_DELAY_MS
       );
 
     return () => {
@@ -10902,6 +11160,81 @@ export default function Home() {
     paintPressureOpacity,
     fileName,
   ]);
+
+  /*
+    LAST-CHANCE RECOVERY CHECKPOINT
+
+    Mobile browsers can suspend a tab before the normal debounce
+    finishes. Keep a current project-builder function in a ref and
+    write one best-effort checkpoint when the page is backgrounded.
+  */
+
+  useEffect(() => {
+    function flushRecoveryCheckpoint() {
+      const project =
+        recoveryProjectBuilderRef.current();
+
+      if (!project) {
+        return;
+      }
+
+      projectRevisionRef.current += 1;
+
+      const now =
+        new Date().toISOString();
+
+      const checkpoint: SihagProjectFile = {
+        ...project,
+        savedAt: now,
+        updatedAt: now,
+        revision:
+          projectRevisionRef.current,
+      };
+
+      void saveRecoveryProject(
+        checkpoint,
+        {
+          revision:
+            projectRevisionRef.current,
+          sessionId:
+            recoverySessionIdRef.current,
+        }
+      ).catch(() => {
+        // Page-hide recovery is best effort; normal autosave reports errors.
+      });
+    }
+
+    function handleVisibilityChange() {
+      if (
+        document.visibilityState ===
+        "hidden"
+      ) {
+        flushRecoveryCheckpoint();
+      }
+    }
+
+    window.addEventListener(
+      "pagehide",
+      flushRecoveryCheckpoint
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "pagehide",
+        flushRecoveryCheckpoint
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, []);
 
   /*
     ACCIDENTAL TAB / RELOAD PROTECTION
