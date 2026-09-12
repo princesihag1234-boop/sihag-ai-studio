@@ -35,6 +35,10 @@ function clamp(
   min: number,
   max: number
 ) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
   return Math.max(
     min,
     Math.min(
@@ -61,7 +65,10 @@ function normalizeRange(
       (
         (
           typeof range.hue ===
-            "number"
+              "number" &&
+            Number.isFinite(
+              range.hue
+            )
             ? range.hue
             : 0
         ) %
@@ -73,7 +80,10 @@ function normalizeRange(
     saturation:
       clamp(
         typeof range.saturation ===
-          "number"
+            "number" &&
+          Number.isFinite(
+            range.saturation
+          )
           ? range.saturation
           : 0,
         0,
@@ -83,7 +93,10 @@ function normalizeRange(
     luminance:
       clamp(
         typeof range.luminance ===
-          "number"
+            "number" &&
+          Number.isFinite(
+            range.luminance
+          )
           ? range.luminance
           : 0,
         -100,
@@ -123,7 +136,10 @@ export function normalizeColorGrading(
     balance:
       clamp(
         typeof grading.balance ===
-          "number"
+            "number" &&
+          Number.isFinite(
+            grading.balance
+          )
           ? grading.balance
           : 0,
         -100,
@@ -133,7 +149,10 @@ export function normalizeColorGrading(
     blending:
       clamp(
         typeof grading.blending ===
-          "number"
+            "number" &&
+          Number.isFinite(
+            grading.blending
+          )
           ? grading.blending
           : 50,
         0,
@@ -245,23 +264,36 @@ function smoothstep(
   return t * t * (3 - 2 * t);
 }
 
+export function isColorGradingNeutral(
+  grading:
+    ColorGradingData
+) {
+  const normalized =
+    normalizeColorGrading(
+      grading
+    );
+
+  const ranges = [
+    normalized.shadows,
+    normalized.midtones,
+    normalized.highlights,
+  ];
+
+  return ranges.every(
+    (range) =>
+      range.saturation ===
+        0 &&
+      range.luminance ===
+        0
+  );
+}
+
 function hasChanges(
   grading:
     ColorGradingData
 ) {
-  const ranges = [
-    grading.shadows,
-    grading.midtones,
-    grading.highlights,
-  ];
-
-  return (
-    grading.balance !== 0 ||
-    ranges.some(
-      (range) =>
-        range.saturation !== 0 ||
-        range.luminance !== 0
-    )
+  return !isColorGradingNeutral(
+    grading
   );
 }
 

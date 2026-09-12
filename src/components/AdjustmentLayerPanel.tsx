@@ -4,6 +4,21 @@ import type {
   ImageLayer,
 } from "@/lib/layerTypes";
 
+import {
+  DEFAULT_TONE_CURVE,
+  isToneCurveNeutral,
+} from "@/lib/toneCurve";
+
+import {
+  DEFAULT_HSL_MIXER,
+  isHslColorMixerNeutral,
+} from "@/lib/hslColorMixer";
+
+import {
+  DEFAULT_COLOR_GRADING,
+  isColorGradingNeutral,
+} from "@/lib/colorGrading";
+
 export type AdjustmentPresetId =
   | "cinematic"
   | "warm"
@@ -117,6 +132,53 @@ export default function AdjustmentLayerPanel({
     return null;
   }
 
+  const basicToneActive =
+    Object.entries(
+      layer.settings
+    ).some(
+      ([key, value]) =>
+        key !== "opacity" &&
+        typeof value === "number" &&
+        value !== 0
+    );
+
+  const curvesActive =
+    !isToneCurveNeutral(
+      layer.toneCurve ??
+        DEFAULT_TONE_CURVE
+    ) ||
+    !isToneCurveNeutral(
+      layer.toneCurveRed ??
+        DEFAULT_TONE_CURVE
+    ) ||
+    !isToneCurveNeutral(
+      layer.toneCurveGreen ??
+        DEFAULT_TONE_CURVE
+    ) ||
+    !isToneCurveNeutral(
+      layer.toneCurveBlue ??
+        DEFAULT_TONE_CURVE
+    );
+
+  const hslActive =
+    !isHslColorMixerNeutral(
+      layer.hslMixer ??
+        DEFAULT_HSL_MIXER
+    );
+
+  const gradingActive =
+    !isColorGradingNeutral(
+      layer.colorGrading ??
+        DEFAULT_COLOR_GRADING
+    );
+
+  const activeModules = [
+    basicToneActive,
+    curvesActive,
+    hslActive,
+    gradingActive,
+  ].filter(Boolean).length;
+
   return (
     <section className="border-b border-white/10 p-4">
 
@@ -161,6 +223,72 @@ export default function AdjustmentLayerPanel({
           ? "Clipped mode: this adjustment affects only the visual layer directly beneath it."
           : "Global mode: this adjustment affects the composited layers beneath it. Reorder it to change what is affected."}
       </div>
+
+      <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+
+        <div className="flex items-center justify-between">
+
+          <div>
+            <div className="text-[10px] font-semibold tracking-[0.14em] text-gray-500">
+              ACTIVE MODULES
+            </div>
+            <div className="mt-1 text-[9px] text-gray-600">
+              Non-destructive adjustments currently contributing to this layer
+            </div>
+          </div>
+
+          <span
+            className={
+              activeModules > 0
+                ? "rounded bg-violet-500/10 px-2 py-1 text-[9px] tabular-nums text-violet-300"
+                : "rounded bg-white/5 px-2 py-1 text-[9px] tabular-nums text-gray-600"
+            }
+          >
+            {activeModules} / 4
+          </span>
+
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-1.5">
+
+          {[
+            ["Basic Tone", basicToneActive],
+            ["Curves", curvesActive],
+            ["HSL Mixer", hslActive],
+            ["Color Grade", gradingActive],
+          ].map(
+            ([label, active]) => (
+              <div
+                key={String(label)}
+                className={
+                  active
+                    ? "flex items-center justify-between rounded-lg border border-violet-500/20 bg-violet-500/[0.07] px-2.5 py-2"
+                    : "flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2"
+                }
+              >
+                <span className="text-[9px] text-gray-400">
+                  {String(label)}
+                </span>
+                <span
+                  className={
+                    active
+                      ? "h-1.5 w-1.5 rounded-full bg-violet-400"
+                      : "h-1.5 w-1.5 rounded-full bg-gray-700"
+                  }
+                />
+              </div>
+            )
+          )}
+
+        </div>
+
+      </div>
+
+      {layer.locked && (
+        <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/[0.07] px-3 py-2 text-[9px] leading-4 text-amber-200/80">
+          This adjustment layer is locked. Unlock it in Layers before changing strength, presets, curves, HSL, or grading values.
+        </div>
+      )}
 
       <button
         disabled={

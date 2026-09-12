@@ -17,12 +17,67 @@ export const DEFAULT_TONE_CURVE:
 function clamp255(
   value: number
 ) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
   return Math.max(
     0,
     Math.min(
       255,
       value
     )
+  );
+}
+
+export function cloneToneCurve(
+  points:
+    ToneCurvePoint[]
+): ToneCurvePoint[] {
+  return normalizeToneCurve(
+    points
+  ).map(
+    (point) => ({
+      ...point,
+    })
+  );
+}
+
+export function isToneCurveNeutral(
+  points:
+    ToneCurvePoint[]
+) {
+  const normalized =
+    normalizeToneCurve(
+      points
+    );
+
+  if (
+    normalized.length !==
+    2
+  ) {
+    return false;
+  }
+
+  return (
+    Math.abs(
+      normalized[0].x
+    ) <
+      0.5 &&
+    Math.abs(
+      normalized[0].y
+    ) <
+      0.5 &&
+    Math.abs(
+      normalized[1].x -
+        255
+    ) <
+      0.5 &&
+    Math.abs(
+      normalized[1].y -
+        255
+    ) <
+      0.5
   );
 }
 
@@ -54,7 +109,10 @@ export function normalizeToneCurve(
           x:
             clamp255(
               typeof point.x ===
-                "number"
+                  "number" &&
+                Number.isFinite(
+                  point.x
+                )
                 ? point.x
                 : 0
             ),
@@ -62,7 +120,10 @@ export function normalizeToneCurve(
           y:
             clamp255(
               typeof point.y ===
-                "number"
+                  "number" &&
+                Number.isFinite(
+                  point.y
+                )
                 ? point.y
                 : 0
             ),

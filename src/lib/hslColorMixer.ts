@@ -57,6 +57,10 @@ function clamp(
   min: number,
   max: number
 ) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
   return Math.max(
     min,
     Math.min(
@@ -82,7 +86,10 @@ function normalizeBand(
     hue:
       clamp(
         typeof item.hue ===
-          "number"
+            "number" &&
+          Number.isFinite(
+            item.hue
+          )
           ? item.hue
           : 0,
         -100,
@@ -92,7 +99,10 @@ function normalizeBand(
     saturation:
       clamp(
         typeof item.saturation ===
-          "number"
+            "number" &&
+          Number.isFinite(
+            item.saturation
+          )
           ? item.saturation
           : 0,
         -100,
@@ -102,7 +112,10 @@ function normalizeBand(
     luminance:
       clamp(
         typeof item.luminance ===
-          "number"
+            "number" &&
+          Number.isFinite(
+            item.luminance
+          )
           ? item.luminance
           : 0,
         -100,
@@ -550,6 +563,32 @@ function bandWeight(
       2 *
       linear
     )
+  );
+}
+
+export function isHslColorMixerNeutral(
+  mixer:
+    HslColorMixer
+) {
+  const normalized =
+    normalizeHslColorMixer(
+      mixer
+    );
+
+  return !HSL_BANDS.some(
+    (band) => {
+      const value =
+        normalized[band];
+
+      return (
+        value.hue !==
+          0 ||
+        value.saturation !==
+          0 ||
+        value.luminance !==
+          0
+      );
+    }
   );
 }
 
