@@ -1459,7 +1459,9 @@ export default function LayerPanel({
                               layer.layerKind ===
                                 "text" ||
                               layer.layerKind ===
-                                "shape"
+                                "shape" ||
+                              layer.layerKind ===
+                                "gradient"
                                 ? "h-full w-full object-contain p-1"
                                 : "h-full w-full object-cover"
                             }
@@ -1579,9 +1581,12 @@ export default function LayerPanel({
                                 "shape"
                               ? "Shape Layer"
                               : layer.layerKind ===
-                                  "adjustment"
-                                ? "Adjustment Layer"
-                                : "Image Layer"}
+                                  "gradient"
+                                ? "Gradient Layer"
+                                : layer.layerKind ===
+                                    "adjustment"
+                                  ? "Adjustment Layer"
+                                  : "Image Layer"}
                         {getGroupName(
                           layer.groupId
                         ) && (

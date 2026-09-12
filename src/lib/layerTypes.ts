@@ -133,6 +133,29 @@ export type ShapeLayerData = {
 };
 
 
+
+export type GradientType =
+  | "linear"
+  | "radial"
+  | "conic";
+
+export type GradientStop = {
+  position: number;
+  color: string;
+  opacity: number;
+};
+
+export type GradientLayerData = {
+  gradientType: GradientType;
+  width: number;
+  height: number;
+  angle: number;
+  centerX: number;
+  centerY: number;
+  scale: number;
+  stops: GradientStop[];
+};
+
 export type ToneCurvePoint = {
   x: number;
   y: number;
@@ -208,6 +231,7 @@ export type ImageLayer = {
     | "image"
     | "text"
     | "shape"
+    | "gradient"
     | "adjustment";
 
   text:
@@ -216,6 +240,10 @@ export type ImageLayer = {
 
   shape:
     | ShapeLayerData
+    | null;
+
+  gradient?:
+    | GradientLayerData
     | null;
 
   groupId:

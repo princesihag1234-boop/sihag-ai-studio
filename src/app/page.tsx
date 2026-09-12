@@ -30,6 +30,7 @@ import PaintBrushPanel from "@/components/PaintBrushPanel";
 import AiToolsPanel from "@/components/AiToolsPanel";
 import TextLayerPanel from "@/components/TextLayerPanel";
 import ShapeLayerPanel from "@/components/ShapeLayerPanel";
+import GradientLayerPanel from "@/components/GradientLayerPanel";
 
 import AdjustmentLayerPanel from "@/components/AdjustmentLayerPanel";
 import CurvesPanel from "@/components/CurvesPanel";
@@ -78,6 +79,7 @@ import type {
   LayerGroup,
   TextLayerData,
   ShapeLayerData,
+  GradientLayerData,
   ToneCurvePoint,
   HslColorMixer,
   ColorGradingData,
@@ -94,6 +96,12 @@ import {
   normalizeShapeLayerData,
   renderShapeLayerToDataUrl,
 } from "@/lib/shapeLayer";
+
+import {
+  DEFAULT_GRADIENT_LAYER,
+  normalizeGradientLayerData,
+  renderGradientLayerToDataUrl,
+} from "@/lib/gradientLayer";
 
 import {
   DEFAULT_TONE_CURVE,
@@ -383,6 +391,19 @@ function cloneLayers(
             }
           : null,
 
+      gradient:
+        layer.gradient
+          ? {
+              ...layer.gradient,
+              stops:
+                layer.gradient.stops.map(
+                  (stop) => ({
+                    ...stop,
+                  })
+                ),
+            }
+          : null,
+
       toneCurve:
         layer.toneCurve
           ? layer.toneCurve.map(
@@ -553,9 +574,12 @@ function normalizeLoadedLayers(
                 "shape"
               ? "shape"
               : layer.layerKind ===
-                  "adjustment"
-                ? "adjustment"
-                : "image",
+                  "gradient"
+                ? "gradient"
+                : layer.layerKind ===
+                    "adjustment"
+                  ? "adjustment"
+                  : "image",
 
         text:
           layer.layerKind ===
@@ -570,6 +594,14 @@ function normalizeLoadedLayers(
             "shape"
             ? normalizeShapeLayerData(
                 layer.shape
+              )
+            : null,
+
+        gradient:
+          layer.layerKind ===
+            "gradient"
+            ? normalizeGradientLayerData(
+                layer.gradient
               )
             : null,
 
@@ -6633,6 +6665,19 @@ export default function Home() {
                 }
               : null,
 
+          gradient:
+            source.gradient
+              ? {
+                  ...source.gradient,
+                  stops:
+                    source.gradient.stops.map(
+                      (stop) => ({
+                        ...stop,
+                      })
+                    ),
+                }
+              : null,
+
           toneCurve:
             source.toneCurve
               ? source.toneCurve.map(
@@ -7001,7 +7046,9 @@ export default function Home() {
         selectedLayer.layerKind !==
           "text" &&
         selectedLayer.layerKind !==
-          "shape"
+          "shape" &&
+        selectedLayer.layerKind !==
+          "gradient"
       )
     ) {
       return;
@@ -7020,6 +7067,9 @@ export default function Home() {
           null,
 
         shape:
+          null,
+
+        gradient:
           null,
 
         name:
@@ -7979,6 +8029,19 @@ export default function Home() {
             }
           : null,
 
+      gradient:
+        source.gradient
+          ? {
+              ...source.gradient,
+              stops:
+                source.gradient.stops.map(
+                  (stop) => ({
+                    ...stop,
+                  })
+                ),
+            }
+          : null,
+
       toneCurve:
         source.toneCurve
           ? source.toneCurve.map(
@@ -8776,6 +8839,334 @@ export default function Home() {
             img
           );
         };
+
+      img.src =
+        nextSrc;
+    }
+  }
+
+  async function getGradientDocumentSize() {
+    const referenceLayer =
+      layers.find(
+        (layer) =>
+          layer.layerKind ===
+            "image" &&
+          !!layer.src
+      ) ??
+      layers.find(
+        (layer) =>
+          layer.layerKind !==
+            "adjustment" &&
+          !!layer.src
+      );
+
+    if (!referenceLayer) {
+      return {
+        width:
+          DEFAULT_GRADIENT_LAYER.width,
+        height:
+          DEFAULT_GRADIENT_LAYER.height,
+      };
+    }
+
+    const referenceImage =
+      await new Promise<HTMLImageElement | null>(
+        (resolve) => {
+          const nextImage =
+            new Image();
+
+          nextImage.onload =
+            () =>
+              resolve(
+                nextImage
+              );
+
+          nextImage.onerror =
+            () =>
+              resolve(
+                null
+              );
+
+          nextImage.src =
+            referenceLayer.src;
+        }
+      );
+
+    if (!referenceImage) {
+      return {
+        width:
+          DEFAULT_GRADIENT_LAYER.width,
+        height:
+          DEFAULT_GRADIENT_LAYER.height,
+      };
+    }
+
+    return {
+      width:
+        Math.max(
+          20,
+          referenceImage.naturalWidth ||
+            referenceImage.width ||
+            DEFAULT_GRADIENT_LAYER.width
+        ),
+      height:
+        Math.max(
+          20,
+          referenceImage.naturalHeight ||
+            referenceImage.height ||
+            DEFAULT_GRADIENT_LAYER.height
+        ),
+    };
+  }
+
+  async function addGradientLayer(
+    options?: {
+      width?: number;
+      height?: number;
+      centerX?: number;
+      centerY?: number;
+      angle?: number;
+      scale?: number;
+    }
+  ) {
+    if (
+      layers.length === 0
+    ) {
+      alert(
+        "Open an image first so the gradient has a document to be placed on."
+      );
+
+      return;
+    }
+
+    const fallbackSize =
+      options?.width &&
+      options?.height
+        ? {
+            width:
+              options.width,
+            height:
+              options.height,
+          }
+        : await getGradientDocumentSize();
+
+    const rasterRatio =
+      Math.min(
+        1,
+        6000 /
+          Math.max(
+            fallbackSize.width,
+            fallbackSize.height,
+            1
+          )
+      );
+
+    const gradientData =
+      normalizeGradientLayerData({
+        ...DEFAULT_GRADIENT_LAYER,
+        width:
+          fallbackSize.width *
+          rasterRatio,
+        height:
+          fallbackSize.height *
+          rasterRatio,
+        centerX:
+          options?.centerX ??
+          DEFAULT_GRADIENT_LAYER.centerX,
+        centerY:
+          options?.centerY ??
+          DEFAULT_GRADIENT_LAYER.centerY,
+        angle:
+          options?.angle ??
+          DEFAULT_GRADIENT_LAYER.angle,
+        scale:
+          options?.scale ??
+          DEFAULT_GRADIENT_LAYER.scale,
+        stops:
+          DEFAULT_GRADIENT_LAYER.stops.map(
+            (stop) => ({
+              ...stop,
+            })
+          ),
+      });
+
+    const src =
+      renderGradientLayerToDataUrl(
+        gradientData
+      );
+
+    if (!src) {
+      return;
+    }
+
+    saveHistory();
+
+    const layer: ImageLayer = {
+      id:
+        createLayerId(),
+
+      name:
+        "Gradient Layer",
+
+      layerKind:
+        "gradient",
+
+      text:
+        null,
+
+      shape:
+        null,
+
+      gradient:
+        gradientData,
+
+      groupId:
+        null,
+
+      src,
+
+      visible:
+        true,
+
+      locked:
+        false,
+
+      opacity:
+        100,
+
+      blendMode:
+        "normal",
+
+      maskSrc:
+        null,
+
+      maskEnabled:
+        true,
+
+      maskInverted:
+        false,
+
+      maskDensity:
+        100,
+
+      maskFeather:
+        0,
+
+      x:
+        0,
+
+      y:
+        0,
+
+      scale:
+        1 /
+        Math.max(
+          0.0001,
+          rasterRatio
+        ),
+
+      rotation:
+        0,
+
+      flipHorizontal:
+        false,
+
+      flipVertical:
+        false,
+
+      settings: {
+        ...DEFAULT_SETTINGS,
+      },
+    };
+
+    setLayers(
+      (items) => [
+        ...items,
+        layer,
+      ]
+    );
+
+    setSelectedLayerId(
+      layer.id
+    );
+
+    setSelectedLayerIds([
+      layer.id,
+    ]);
+
+    setActiveTool(
+      "gradient"
+    );
+
+    showLayerInEditor(
+      layer,
+      false
+    );
+  }
+
+  function updateGradientLayer(
+    id: string,
+    changes:
+      Partial<GradientLayerData>
+  ) {
+    const current =
+      layers.find(
+        (layer) =>
+          layer.id === id
+      );
+
+    if (
+      !current ||
+      current.layerKind !==
+        "gradient" ||
+      !current.gradient ||
+      isLayerEffectivelyLocked(
+        current
+      )
+    ) {
+      return;
+    }
+
+    const nextGradient =
+      normalizeGradientLayerData({
+        ...current.gradient,
+        ...changes,
+      });
+
+    const nextSrc =
+      renderGradientLayerToDataUrl(
+        nextGradient
+      );
+
+    if (!nextSrc) {
+      return;
+    }
+
+    setLayers(
+      (items) =>
+        items.map(
+          (layer) =>
+            layer.id === id
+              ? {
+                  ...layer,
+                  gradient:
+                    nextGradient,
+                  src:
+                    nextSrc,
+                }
+              : layer
+        )
+    );
+
+    if (
+      selectedLayerId === id
+    ) {
+      const img =
+        new Image();
+
+      img.onload = () => {
+        setImage(img);
+      };
 
       img.src =
         nextSrc;
@@ -16250,6 +16641,29 @@ export default function Home() {
                       null
                     );
 
+                    void addGradientLayer();
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <span>
+                    New Gradient Layer
+                  </span>
+
+                  <span className="text-[9px] text-gray-600">
+                    G
+                  </span>
+                </button>
+
+                <button
+                  disabled={
+                    layers.length ===
+                    0
+                  }
+                  onClick={() => {
+                    setTopMenuOpen(
+                      null
+                    );
+
                     addAdjustmentLayer();
                   }}
                   className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-violet-300 hover:bg-violet-500/10 hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-30"
@@ -16354,7 +16768,9 @@ export default function Home() {
                       selectedLayer.layerKind !==
                         "text" &&
                       selectedLayer.layerKind !==
-                        "shape"
+                        "shape" &&
+                      selectedLayer.layerKind !==
+                        "gradient"
                     )
                   }
                   onClick={() => {
@@ -19142,6 +19558,23 @@ export default function Home() {
                       height
                     )
                   }
+                  onAddGradientAt={(
+                    width,
+                    height,
+                    centerX,
+                    centerY,
+                    angle,
+                    scale
+                  ) => {
+                    void addGradientLayer({
+                      width,
+                      height,
+                      centerX,
+                      centerY,
+                      angle,
+                      scale,
+                    });
+                  }}
                   onTransformStart={saveHistory}
                   maskBrushSize={maskBrushSize}
                   maskBrushHardness={maskBrushHardness}
@@ -19541,6 +19974,17 @@ export default function Home() {
                         layer={selectedLayer}
                         onAdd={() => addShapeLayer()}
                         onChange={updateShapeLayer}
+                        onChangeStart={saveHistory}
+                      />
+                    )}
+
+                    {activeTool === "gradient" && (
+                      <GradientLayerPanel
+                        layer={selectedLayer}
+                        onAdd={() => {
+                          void addGradientLayer();
+                        }}
+                        onChange={updateGradientLayer}
                         onChangeStart={saveHistory}
                       />
                     )}
@@ -20017,7 +20461,7 @@ export default function Home() {
 
                 {mobilePanel === "layers" && (
                   <section>
-                    <div className="sihag-mobile-layer-addbar grid grid-cols-4 gap-1.5 px-3 py-3">
+                    <div className="sihag-mobile-layer-addbar grid grid-cols-5 gap-1.5 px-3 py-3">
                       <label className="sihag-mobile-add-layer-button cursor-pointer">
                         <span className="text-[15px] leading-none">+</span>
                         <span>Image</span>
@@ -20047,6 +20491,18 @@ export default function Home() {
                       >
                         <span className="text-[15px] leading-none">+</span>
                         <span>Shape</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={layers.length === 0}
+                        onClick={() => {
+                          void addGradientLayer();
+                        }}
+                        className="sihag-mobile-add-layer-button disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <span className="text-[15px] leading-none">+</span>
+                        <span>Gradient</span>
                       </button>
 
                       <button
@@ -20779,6 +21235,18 @@ export default function Home() {
                 disabled={
                   layers.length === 0
                 }
+                onClick={() => {
+                  void addGradientLayer();
+                }}
+                className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-2 text-[10px] text-cyan-200 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                + Gradient
+              </button>
+
+              <button
+                disabled={
+                  layers.length === 0
+                }
                 onClick={
                   addAdjustmentLayer
                 }
@@ -21246,7 +21714,9 @@ export default function Home() {
                     selectedLayer.layerKind !==
                       "text" &&
                     selectedLayer.layerKind !==
-                      "shape"
+                      "shape" &&
+                    selectedLayer.layerKind !==
+                      "gradient"
                   )
                 }
                 className="rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-[9px] text-gray-400 hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-30"
@@ -21330,7 +21800,7 @@ export default function Home() {
             </div>
 
             <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.025] p-3 text-[9px] leading-4 text-gray-600">
-              Rasterize converts editable Text or Shape layers to pixels. Merge Down combines the selected layer with the visual layer below. Merge Visible preserves hidden layers. Flatten Image replaces the complete visible result with one raster layer.
+              Rasterize converts editable Text, Shape or Gradient layers to pixels. Merge Down combines the selected layer with the visual layer below. Merge Visible preserves hidden layers. Flatten Image replaces the complete visible result with one raster layer.
             </div>
 
           </section>
@@ -21842,6 +22312,17 @@ export default function Home() {
                 addShapeLayer()
               }
               onChange={updateShapeLayer}
+              onChangeStart={saveHistory}
+            />
+          )}
+
+          {activeTool === "gradient" && (
+            <GradientLayerPanel
+              layer={selectedLayer}
+              onAdd={() => {
+                void addGradientLayer();
+              }}
+              onChange={updateGradientLayer}
               onChangeStart={saveHistory}
             />
           )}

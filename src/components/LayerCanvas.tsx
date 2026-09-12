@@ -183,6 +183,15 @@ type LayerCanvasProps = {
     height?: number
   ) => void;
 
+  onAddGradientAt: (
+    width: number,
+    height: number,
+    centerX: number,
+    centerY: number,
+    angle: number,
+    scale: number
+  ) => void;
+
   onTransformStart: () => void;
 
   maskBrushSize: number;
@@ -355,6 +364,7 @@ export default function LayerCanvas({
   onDeselectLayer,
   onAddTextAt,
   onAddShapeAt,
+  onAddGradientAt,
   onTransformStart,
   maskBrushSize,
   maskBrushHardness,
@@ -670,6 +680,35 @@ export default function LayerCanvas({
       y: number;
       width: number;
       height: number;
+    } | null>(null);
+
+  const [
+    drawingGradient,
+    setDrawingGradient,
+  ] = useState(false);
+
+  const [
+    gradientDraft,
+    setGradientDraft,
+  ] = useState<{
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+  } | null>(null);
+
+  const gradientStartRef =
+    useRef({
+      x: 0,
+      y: 0,
+    });
+
+  const gradientDraftRef =
+    useRef<{
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
     } | null>(null);
 
   const selectionMoveStartRef =
@@ -14368,6 +14407,322 @@ export default function LayerCanvas({
   }
 
   /*
+    GRADIENT TOOL
+
+    Drag across the document to create a full-document
+    gradient fill layer. The drag line defines the center,
+    direction and spread of the initial gradient.
+
+    Clicking an existing gradient selects it for editing.
+  */
+
+  function startGradientTool(
+    event:
+      PointerEvent<HTMLDivElement>
+  ) {
+    if (
+      activeTool !== "gradient"
+    ) {
+      return;
+    }
+
+    const hitLayer =
+      hitTestLayer(
+        event.clientX,
+        event.clientY
+      );
+
+    if (
+      hitLayer &&
+      hitLayer.layerKind ===
+        "gradient"
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      onSelectLayer(
+        hitLayer.id
+      );
+
+      return;
+    }
+
+    const point =
+      pointerToDocumentPoint(
+        event.clientX,
+        event.clientY
+      );
+
+    if (!point) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    event.currentTarget
+      .setPointerCapture(
+        event.pointerId
+      );
+
+    const startX =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          point.x
+        )
+      );
+
+    const startY =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          point.y
+        )
+      );
+
+    gradientStartRef.current = {
+      x:
+        startX,
+      y:
+        startY,
+    };
+
+    const initial = {
+      startX,
+      startY,
+      endX:
+        startX,
+      endY:
+        startY,
+    };
+
+    gradientDraftRef.current =
+      initial;
+
+    setGradientDraft(
+      initial
+    );
+
+    setDrawingGradient(
+      true
+    );
+  }
+
+  function moveGradientTool(
+    event:
+      PointerEvent<HTMLDivElement>
+  ) {
+    if (
+      activeTool !== "gradient" ||
+      !drawingGradient
+    ) {
+      return;
+    }
+
+    const point =
+      pointerToDocumentPoint(
+        event.clientX,
+        event.clientY
+      );
+
+    if (!point) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const endX =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          point.x
+        )
+      );
+
+    const endY =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          point.y
+        )
+      );
+
+    const next = {
+      startX:
+        gradientStartRef.current.x,
+      startY:
+        gradientStartRef.current.y,
+      endX,
+      endY,
+    };
+
+    gradientDraftRef.current =
+      next;
+
+    setGradientDraft(
+      next
+    );
+  }
+
+  function endGradientTool(
+    event?:
+      PointerEvent<HTMLDivElement>
+  ) {
+    if (
+      !drawingGradient
+    ) {
+      return;
+    }
+
+    event?.preventDefault();
+
+    const draft =
+      gradientDraftRef.current;
+
+    setDrawingGradient(
+      false
+    );
+
+    setGradientDraft(
+      null
+    );
+
+    gradientDraftRef.current =
+      null;
+
+    if (!draft) {
+      return;
+    }
+
+    const startXPixels =
+      draft.startX *
+      documentSize.width;
+
+    const startYPixels =
+      draft.startY *
+      documentSize.height;
+
+    const endXPixels =
+      draft.endX *
+      documentSize.width;
+
+    const endYPixels =
+      draft.endY *
+      documentSize.height;
+
+    const deltaX =
+      endXPixels -
+      startXPixels;
+
+    const deltaY =
+      endYPixels -
+      startYPixels;
+
+    const distance =
+      Math.hypot(
+        deltaX,
+        deltaY
+      );
+
+    const diagonal =
+      Math.max(
+        1,
+        Math.hypot(
+          documentSize.width,
+          documentSize.height
+        )
+      );
+
+    const clickOnly =
+      distance < 8;
+
+    const centerX =
+      clickOnly
+        ? draft.startX *
+          100
+        : (
+            (
+              draft.startX +
+              draft.endX
+            ) /
+            2
+          ) *
+          100;
+
+    const centerY =
+      clickOnly
+        ? draft.startY *
+          100
+        : (
+            (
+              draft.startY +
+              draft.endY
+            ) /
+            2
+          ) *
+          100;
+
+    const angle =
+      clickOnly
+        ? 45
+        : (
+            Math.atan2(
+              deltaY,
+              deltaX
+            ) *
+            180
+          ) /
+          Math.PI;
+
+    const scale =
+      clickOnly
+        ? 100
+        : Math.max(
+            10,
+            Math.min(
+              300,
+              (
+                distance /
+                diagonal
+              ) *
+              100
+            )
+          );
+
+    onAddGradientAt(
+      Math.max(
+        1,
+        Math.round(
+          documentSize.width /
+          Math.max(
+            0.0001,
+            previewScale
+          )
+        )
+      ),
+      Math.max(
+        1,
+        Math.round(
+          documentSize.height /
+          Math.max(
+            0.0001,
+            previewScale
+          )
+        )
+      ),
+      centerX,
+      centerY,
+      angle,
+      scale
+    );
+  }
+
+  /*
     MOVE / TRANSFORM GESTURE HELPERS
   */
 
@@ -15842,7 +16197,9 @@ export default function LayerCanvas({
                 ? startTextTool
                 : activeTool === "shape"
                   ? startShapeTool
-                  : startLayerDrag
+                  : activeTool === "gradient"
+                    ? startGradientTool
+                    : startLayerDrag
         }
         onPointerMove={
           activeTool === "select"
@@ -15871,7 +16228,9 @@ export default function LayerCanvas({
                 ? movePaintStroke
               : activeTool === "shape"
                 ? moveShapeTool
-                : rotatingLayer
+                : activeTool === "gradient"
+                  ? moveGradientTool
+                  : rotatingLayer
                 ? rotateSelectedLayer
                 : resizingLayer
                   ? resizeSelectedLayer
@@ -15902,7 +16261,9 @@ export default function LayerCanvas({
                 ? endPaintStroke
               : activeTool === "shape"
                 ? endShapeTool
-                : endLayerDrag
+                : activeTool === "gradient"
+                  ? endGradientTool
+                  : endLayerDrag
         }
         onPointerCancel={
           activeTool === "select"
@@ -15929,7 +16290,9 @@ export default function LayerCanvas({
                 ? cancelPaintStroke
               : activeTool === "shape"
                 ? endShapeTool
-                : endLayerDrag
+                : activeTool === "gradient"
+                  ? endGradientTool
+                  : endLayerDrag
         }
         onPointerLeave={() => {
           if (
@@ -15979,7 +16342,8 @@ export default function LayerCanvas({
               ? "relative inline-block cursor-none touch-none"
               : activeTool === "text"
                 ? "relative inline-block cursor-text touch-none"
-                : activeTool === "shape"
+                : activeTool === "shape" ||
+                  activeTool === "gradient"
                   ? "relative inline-block cursor-crosshair touch-none"
                   : canTransform
                 ? draggingLayer
@@ -16352,6 +16716,115 @@ export default function LayerCanvas({
                 documentSize.height
               )}
               {" px"}
+            </div>
+          </div>
+        )}
+
+        {activeTool ===
+          "gradient" &&
+          gradientDraft && (
+          <div className="pointer-events-none absolute inset-0 z-40">
+            <svg
+              className="absolute inset-0 h-full w-full overflow-visible"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              <line
+                x1={
+                  gradientDraft.startX *
+                  100
+                }
+                y1={
+                  gradientDraft.startY *
+                  100
+                }
+                x2={
+                  gradientDraft.endX *
+                  100
+                }
+                y2={
+                  gradientDraft.endY *
+                  100
+                }
+                stroke="rgba(255,255,255,0.95)"
+                strokeWidth="0.45"
+                vectorEffect="non-scaling-stroke"
+              />
+
+              <line
+                x1={
+                  gradientDraft.startX *
+                  100
+                }
+                y1={
+                  gradientDraft.startY *
+                  100
+                }
+                x2={
+                  gradientDraft.endX *
+                  100
+                }
+                y2={
+                  gradientDraft.endY *
+                  100
+                }
+                stroke="rgba(99,102,241,0.9)"
+                strokeWidth="1.1"
+                strokeDasharray="2 1.4"
+                vectorEffect="non-scaling-stroke"
+              />
+
+              <circle
+                cx={
+                  gradientDraft.startX *
+                  100
+                }
+                cy={
+                  gradientDraft.startY *
+                  100
+                }
+                r="1.15"
+                fill="#6366f1"
+                stroke="white"
+                strokeWidth="0.35"
+                vectorEffect="non-scaling-stroke"
+              />
+
+              <circle
+                cx={
+                  gradientDraft.endX *
+                  100
+                }
+                cy={
+                  gradientDraft.endY *
+                  100
+                }
+                r="1.15"
+                fill="#ec4899"
+                stroke="white"
+                strokeWidth="0.35"
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+
+            <div
+              className="absolute -translate-x-1/2 -translate-y-[calc(100%+10px)] whitespace-nowrap rounded bg-black/75 px-2 py-1 text-[9px] text-indigo-100 shadow"
+              style={{
+                left:
+                  `${((gradientDraft.startX + gradientDraft.endX) / 2) * 100}%`,
+                top:
+                  `${((gradientDraft.startY + gradientDraft.endY) / 2) * 100}%`,
+              }}
+            >
+              {Math.round(
+                Math.hypot(
+                  (gradientDraft.endX - gradientDraft.startX) *
+                    documentSize.width,
+                  (gradientDraft.endY - gradientDraft.startY) *
+                    documentSize.height
+                )
+              )}
+              {" px gradient"}
             </div>
           </div>
         )}
@@ -17788,7 +18261,13 @@ export default function LayerCanvas({
                           : selectedLayer.layerKind === "shape"
                             ? "Shape selected • Drag empty space to draw another • Shift: square • Alt: center"
                             : "Drag to draw shape • Shift: square/circle • Alt: from center"
-                        : `Selected: ${selectedLayer.name}`}
+                        : activeTool === "gradient"
+                          ? drawingGradient
+                            ? "Drawing gradient direction • release to create fill layer"
+                            : selectedLayer.layerKind === "gradient"
+                              ? "Gradient selected • edit stops in the Gradient panel or drag empty space for another"
+                              : "Drag across the canvas to create a non-destructive gradient fill"
+                          : `Selected: ${selectedLayer.name}`}
           </div>
         )}
       </div>
